@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operator Console</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>Operator Console</h1>
+    <p class="sub">Локальная суперадминка — управление main + workers с Mac (127.0.0.1)</p>
+    <div class="toolbar">
+      <button id="btnRefresh" type="button">Обновить</button>
+      <button id="btnPush" type="button" class="primary">Commit + Push → автодеплой</button>
+      <button id="btnDeploy" type="button">Принудительный deploy на main</button>
+      <button id="btnApprove" type="button">Approve pending нод</button>
+      <label class="auto"><input type="checkbox" id="autoRefresh" checked> авто 10с</label>
+    </div>
+    <p id="configLine" class="meta"></p>
+    <p id="statusMsg" class="status"></p>
+  </header>
+
+  <main class="grid">
+    <section class="panel">
+      <h2>Health</h2>
+      <div id="healthCards" class="cards"></div>
+      <p class="meta" id="deployMeta"></p>
+    </section>
+
+    <section class="panel wide">
+      <h2>Ноды (Discovery)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>trust</th><th>node_id</th><th>roles</th><th>url</th><th>reach</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="nodesBody"><tr><td colspan="6">…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Deploy log (main)</h2>
+      <pre id="deployLog" class="log">загрузка…</pre>
+    </section>
+  </main>
+
+  <script src="/static/console.js"></script>
+</body>
+</html>

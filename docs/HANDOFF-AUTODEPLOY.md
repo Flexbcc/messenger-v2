@@ -59,19 +59,41 @@ cd /opt/messenger/project && git pull && docker compose up -d --build
 
 ---
 
-## Как работает автодеплой
+## Как работает автодеплой (полностью автоматический)
 
 ```
-[Mac]  git commit && git push origin main
+[Mac]  ./scripts/push-deploy.sh   (или git push origin main)
           ↓
-[Gitea flex/messenger]  :2222
-          ↓ POST webhook (push)
-[MAIN] messenger-deploy-webhook.service  → 127.0.0.1:9009
-          ↓
+[Gitea flex/messenger]  push event
+          ↓ webhook
 [MAIN] deploy.sh
-          ├─ node-update.sh     (git pull + docker compose для NODE_SERVICES)
-          └─ deploy-workers.sh  (SSH на workers.list → node-update.sh на каждом worker)
+          ├─ git pull (deploy key)
+          ├─ node-update.sh  → discovery + gateway
+          └─ deploy-workers.sh → SSH каждый worker → node-update.sh
 ```
+
+**Ничего руками на серверах после push не нужно.**
+
+### Локальная суперадминка (Operator Console)
+
+На Mac — единая панель управления всеми нодами:
+
+```bash
+cp config/deploy/laptop.env.example config/deploy/laptop.env   # один раз
+./scripts/setup-laptop-ssh.sh                                  # один раз
+./scripts/start-operator.sh
+# → http://127.0.0.1:9300/
+```
+
+Возможности:
+- health main + worker + список нод discovery
+- **Commit + Push → автодеплой** одной кнопкой
+- принудительный `deploy.sh` на main
+- approve pending нод
+- live tail deploy log
+
+Проверка цепочки: `./scripts/ensure-autodeploy.sh`  
+Смотреть лог после push: `./scripts/watch-deploy.sh`
 
 ### Сервисы по ролям (`config/deploy/node.profile`)
 

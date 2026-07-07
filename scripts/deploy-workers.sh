@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# From MAIN server: SSH to each worker and run node-update.sh.
-#
-# Workers list: config/deploy/workers.list (one user@host per line)
+# From MAIN: SSH to each worker in workers.list → node-update.sh (autodeploy chain).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -23,16 +21,28 @@ if [[ ${#WORKERS[@]} -eq 0 ]]; then
 fi
 
 ORCH_KEY="${ORCHESTRATOR_SSH_KEY:-/root/.ssh/messenger_orchestrator}"
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=15)
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=accept-new)
 if [[ -f "$ORCH_KEY" ]]; then
   SSH_OPTS+=(-i "$ORCH_KEY" -o IdentitiesOnly=yes)
 fi
 
 INSTALL_DIR="${DEPLOY_ROOT}"
+FAIL=0
+
 for host in "${WORKERS[@]}"; do
   echo "=== Worker deploy: ${host} ==="
-  ssh "${SSH_OPTS[@]}" "$host" \
-    "cd ${INSTALL_DIR} && ./scripts/node-update.sh"
+  if ssh "${SSH_OPTS[@]}" "$host" \
+    "cd ${INSTALL_DIR} && ./scripts/node-update.sh"; then
+    echo "=== Worker OK: ${host} ==="
+  else
+    echo "=== Worker FAIL: ${host} ===" >&2
+    FAIL=$((FAIL + 1))
+  fi
 done
 
-echo "All workers updated."
+if [[ "$FAIL" -gt 0 ]]; then
+  echo "${FAIL} worker(s) failed — see log above" >&2
+  exit 1
+fi
+
+echo "All ${#WORKERS[@]} worker(s) updated."

@@ -47,10 +47,16 @@ git_sync() {
     echo "Not a git repo — skipping git pull (using files on disk)" >&2
     return 0
   fi
+  load_node_profile
+  local deploy_key="${DEPLOY_SSH_KEY:-/root/.ssh/messenger_deploy}"
+  if [[ -f "$deploy_key" ]]; then
+    export GIT_SSH_COMMAND="ssh -i ${deploy_key} -o IdentitiesOnly=yes -o BatchMode=yes -F /root/.ssh/config"
+  fi
   echo "Git pull ($GIT_REMOTE/$GIT_BRANCH)..."
   git -C "$DEPLOY_ROOT" fetch "$GIT_REMOTE" "$GIT_BRANCH"
   git -C "$DEPLOY_ROOT" merge --ff-only "FETCH_HEAD" 2>/dev/null \
     || git -C "$DEPLOY_ROOT" pull --ff-only "$GIT_REMOTE" "$GIT_BRANCH"
+  echo "Git at: $(git -C "$DEPLOY_ROOT" rev-parse --short HEAD)"
 }
 
 compose_update() {

@@ -36,7 +36,7 @@ echo "=== 3) Main deploy log ==="
 laptop_ssh "$MAIN_HOST" "tail -n 50 /var/log/messenger-deploy.log 2>/dev/null || echo 'no log yet'"
 
 echo "=== 4) Main health ==="
-laptop_ssh "$MAIN_HOST" "curl -sf http://localhost:8003/health && echo && curl -sf http://localhost:8007/health && echo && curl -sf http://localhost:9201/health && echo"
+laptop_ssh "$MAIN_HOST" "curl -sf http://localhost:8003/health && echo && curl -sf http://localhost:8007/health && echo"
 
 echo "=== 5) Worker health ==="
 laptop_ssh "$WORKER_HOST" "curl -sf http://localhost:8001/health && echo && curl -sf http://localhost:8004/health && echo" || \

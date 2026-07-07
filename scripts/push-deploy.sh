@@ -12,7 +12,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-GIT_HOST=""
+# shellcheck source=lib/laptop-env.sh
+source "$SCRIPT_DIR/lib/laptop-env.sh"
+load_laptop_env "$PROJECT_ROOT"
+
+GIT_HOST="${GIT_HOST:-${MAIN_IP:-}}"
 GIT_PORT="2222"
 GIT_OWNER="flex"
 GIT_REPO="messenger"
@@ -88,5 +92,6 @@ fi
 echo "Pushing to $REMOTE ($BRANCH)..."
 git push -u "$REMOTE" "$BRANCH"
 echo
-echo "Push sent. Gitea webhook will run deploy on the server."
-echo "Watch log: ssh root@SERVER 'tail -f /var/log/messenger-deploy.log'"
+echo "Push sent → Gitea webhook → main deploy.sh → workers (automatic)."
+echo "  ./scripts/watch-deploy.sh"
+echo "  ./scripts/start-operator.sh   # local super-admin UI"

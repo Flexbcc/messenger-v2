@@ -57,11 +57,11 @@ mkdir -p config/deploy data/discovery data/gateway data/admin
 cat > config/deploy/node.profile <<EOF
 # Main server — generated $(date -u +%Y-%m-%dT%H:%M:%SZ)
 DEPLOY_ROLE=main
-NODE_SERVICES="discovery-node gateway-node admin"
+NODE_SERVICES="discovery-node gateway-node"
 GIT_REMOTE=origin
 GIT_BRANCH=${GIT_BRANCH}
 PUBLIC_IP=${PUBLIC_IP}
-HEALTH_URLS="http://localhost:8003/health http://localhost:8007/health http://localhost:9201/health"
+HEALTH_URLS="http://localhost:8003/health http://localhost:8007/health"
 EOF
 
 [[ -f .env ]] || cp .env.example .env

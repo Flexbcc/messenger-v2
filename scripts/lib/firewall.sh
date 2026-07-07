@@ -10,18 +10,16 @@ firewall_ensure_ssh() {
 firewall_apply_main() {
   local admin_ip="${1:-}"
   if ! command -v ufw >/dev/null 2>&1; then
-    echo "ufw not installed — open ports manually: 8003, 8007, 9201" >&2
+    echo "ufw not installed — open ports manually: 8003, 8007 (NOT 9201 — admin is localhost-only)" >&2
     return 0
   fi
   echo "Configuring firewall (main)..."
   firewall_ensure_ssh
   ufw allow 8003/tcp comment 'discovery' || true
   ufw allow 8007/tcp comment 'gateway' || true
+  # Admin (:9201) is bound to 127.0.0.1 — use SSH tunnel. Never open 9201 to the internet.
   if [[ -n "$admin_ip" ]]; then
-    ufw allow from "$admin_ip" to any port 9201 proto tcp comment 'admin' || true
-  else
-    ufw allow 9201/tcp comment 'admin' || true
-    echo "WARN: admin port 9201 open to all — set ADMIN_ALLOW_IP to restrict" >&2
+    echo "NOTE: admin_ip ignored — admin is localhost-only. Use: ssh -L 9201:127.0.0.1:9201 root@main" >&2
   fi
   ufw --force enable || true
   ufw status || true

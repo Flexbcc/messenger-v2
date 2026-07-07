@@ -197,8 +197,10 @@ services:
   admin:
     build: ./admin-server
     restart: unless-stopped
+    # Production: bind localhost only — use SSH tunnel (see docs/HANDOFF-AUTODEPLOY.md).
+    # Dev override: ADMIN_BIND=0.0.0.0 in .env
     ports:
-      - "${ADMIN_PORT:-9201}:${ADMIN_PORT:-9201}"
+      - "${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-9201}:${ADMIN_PORT:-9201}"
     environment:
       ADMIN_PORT: ${ADMIN_PORT:-9201}
       PROJECT_ROOT: /project

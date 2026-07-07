@@ -155,9 +155,13 @@ Bare git можно не использовать, если включён Gitea
 
 ## Безопасность
 
-- Закройте порты admin `:9201` и discovery `:8003` с интернета (ufw уже настраивает `install-node.sh`).
-- Gitea `:3000` / SSH `:2222` — только для вас; лучше за nginx + SSL.
+- **Admin (:9201)** — только `127.0.0.1`, доступ через SSH-туннель. Не в `NODE_SERVICES` на production.
+- Закройте **9201** в ufw и панели хостинга на уже развёрнутых серверах.
+- Gitea `:3000` / SSH `:2222` — только для оператора; лучше за VPN или ограничение по IP.
 - `config/deploy/gitea.env` и `.env` — не в git.
+- Enrollment: `./scripts/approve-pending-nodes.sh` (терминал), не публичный веб.
+
+См. подробности: **`docs/HANDOFF-AUTODEPLOY.md`**
 
 ## Troubleshooting
 

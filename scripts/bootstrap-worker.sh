@@ -165,5 +165,5 @@ if [[ "${RUN:-Y}" =~ ^[Yy]$ ]]; then
 fi
 
 echo
-echo "Approve this node in admin UI if enrollment is pending:"
-echo "  http://${MAIN_IP}:9201/enrollment"
+echo "Approve pending nodes (terminal):"
+echo "  ssh root@${MAIN_IP} 'cd /opt/messenger/project && ./scripts/approve-pending-nodes.sh'"

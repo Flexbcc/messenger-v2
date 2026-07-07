@@ -55,8 +55,14 @@ fi
 mkdir -p "${DEPLOY_ROOT}/config/deploy"
 PROFILE="${DEPLOY_ROOT}/config/deploy/node.profile"
 touch "$PROFILE"
-grep -v '^GIT_REMOTE=' "$PROFILE" 2>/dev/null | grep -v '^GIT_BRANCH=' > "${PROFILE}.tmp" || true
-mv "${PROFILE}.tmp" "$PROFILE"
+# Preserve NODE_SERVICES and other profile fields — only update git settings.
+if grep -q '^GIT_REMOTE=' "$PROFILE" 2>/dev/null; then
+  tmp=$(mktemp)
+  grep -v '^GIT_REMOTE=' "$PROFILE" | grep -v '^GIT_BRANCH=' > "$tmp" || true
+  mv "$tmp" "$PROFILE"
+else
+  : > "$PROFILE"
+fi
 {
   echo "GIT_REMOTE=origin"
   echo "GIT_BRANCH=${GIT_BRANCH}"

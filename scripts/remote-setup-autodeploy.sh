@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 # Bootstrap MAIN autodeploy + enroll first worker (one command from laptop).
 #
-# Usage:
-#   GITEA_PASSWORD='flex_pass' ./scripts/remote-setup-autodeploy.sh
+# Prereq: ./scripts/setup-laptop-ssh.sh and config/deploy/laptop.env
 set -euo pipefail
 
-MAIN_HOST="${MAIN_HOST:-root@194.67.92.147}"
-WORKER_HOST="${WORKER_HOST:-root@161.104.18.45}"
-MAIN_IP="${MAIN_IP:-194.67.92.147}"
-WORKER_IP="${WORKER_IP:-161.104.18.45}"
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/laptop-env.sh
+source "$SCRIPT_DIR/lib/laptop-env.sh"
+load_laptop_env "$(cd "$SCRIPT_DIR/.." && pwd)"
 
 [[ -n "${GITEA_PASSWORD:-}" ]] || {
-  echo "Set GITEA_PASSWORD (Gitea user flex)." >&2
+  echo "Set GITEA_PASSWORD in config/deploy/laptop.env" >&2
   exit 1
 }
 

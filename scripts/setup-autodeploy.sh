@@ -44,8 +44,10 @@ case "$ROLE" in
   main)
     echo "=== MAIN autodeploy ==="
     ensure_orchestrator_key /root/.ssh/messenger_orchestrator
-    GITEA_HOST="$GITEA_HOST" GITEA_OWNER="$GITEA_OWNER" "$SCRIPT_DIR/setup-server-git.sh"
-    GITEA_USER="$GITEA_OWNER" "$SCRIPT_DIR/setup-gitea-webhook.sh"
+    GITEA_PASSWORD="${GITEA_PASSWORD:-}" GITEA_HOST="$GITEA_HOST" GITEA_OWNER="$GITEA_OWNER" \
+      "$SCRIPT_DIR/setup-server-git.sh"
+    GITEA_USER="$GITEA_OWNER" GITEA_PASSWORD="${GITEA_PASSWORD:-}" \
+      "$SCRIPT_DIR/setup-gitea-webhook.sh"
 
     if [[ ! -f config/deploy/node.profile ]]; then
       PUBLIC_IP="$MAIN_IP" NONINTERACTIVE=1 RUN_NODE_UPDATE=n \
@@ -62,6 +64,7 @@ case "$ROLE" in
   worker)
     echo "=== WORKER autodeploy ==="
     DEPLOY_KEY_TITLE="worker-$(hostname -s)" \
+      GITEA_PASSWORD="${GITEA_PASSWORD:-}" \
       GITEA_HOST="$GITEA_HOST" GITEA_OWNER="$GITEA_OWNER" \
       "$SCRIPT_DIR/setup-server-git.sh"
 

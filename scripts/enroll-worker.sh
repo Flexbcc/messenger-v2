@@ -2,20 +2,11 @@
 # Enroll a new WORKER node end-to-end (no manual Gitea/SSH steps).
 #
 # Run from laptop:
-#   GITEA_PASSWORD='flex_pass' ./scripts/enroll-worker.sh \
-#     --worker root@161.104.18.45 --worker-ip 161.104.18.45
-#
-# What it does:
-#   1) ensures MAIN autodeploy (webhook + git + orchestrator key)
-#   2) uploads project to worker + runs worker bootstrap
-#   3) exchanges SSH keys (main -> worker)
-#   4) registers deploy keys in Gitea via API
-#   5) adds worker to main workers.list
-#   6) runs first deploy
+#   ./scripts/setup-laptop-ssh.sh          # once
+#   cp config/deploy/laptop.env.example config/deploy/laptop.env  # set GITEA_PASSWORD
+#   ./scripts/enroll-worker.sh --worker root@161.104.18.45 --worker-ip 161.104.18.45
 set -euo pipefail
 
-MAIN_HOST="${MAIN_HOST:-root@194.67.92.147}"
-MAIN_IP="${MAIN_IP:-194.67.92.147}"
 WORKER_HOST=""
 WORKER_IP=""
 WORKER_ROLE="${WORKER_ROLE:-full}"
@@ -24,6 +15,9 @@ GITEA_OWNER="${GITEA_OWNER:-flex}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=lib/laptop-env.sh
+source "$SCRIPT_DIR/lib/laptop-env.sh"
+load_laptop_env "$PROJECT_ROOT"
 
 usage() {
   sed -n '2,8p' "$0"
@@ -47,7 +41,7 @@ done
   usage 1
 }
 [[ -n "${GITEA_PASSWORD:-}" ]] || {
-  echo "Set GITEA_PASSWORD (Gitea user flex)." >&2
+  echo "Set GITEA_PASSWORD in config/deploy/laptop.env" >&2
   exit 1
 }
 
@@ -55,35 +49,34 @@ RSYNC_OPTS=(-az --delete --exclude data --exclude .env --exclude '__pycache__' -
   --exclude 'client/messenger_app/build' --exclude 'client/messenger_app/.dart_tool')
 
 echo "=== 1/6 Ensure MAIN autodeploy ==="
-rsync "${RSYNC_OPTS[@]}" "$PROJECT_ROOT/" "${MAIN_HOST}:${INSTALL_DIR}/"
-ssh -t "$MAIN_HOST" "cd ${INSTALL_DIR} && chmod +x deploy.sh scripts/*.sh scripts/lib/*.sh 2>/dev/null; \
-  GITEA_PASSWORD='${GITEA_PASSWORD}' WORKER_HOST='${WORKER_HOST}' \
+laptop_rsync "${RSYNC_OPTS[@]}" "$PROJECT_ROOT/" "${MAIN_HOST}:${INSTALL_DIR}/"
+laptop_ssh "$MAIN_HOST" "cd ${INSTALL_DIR} && chmod +x deploy.sh scripts/*.sh scripts/lib/*.sh 2>/dev/null; \
+  GITEA_PASSWORD='${GITEA_PASSWORD}' GITEA_OWNER='${GITEA_OWNER}' WORKER_HOST='${WORKER_HOST}' \
   ./scripts/setup-autodeploy.sh --role main"
 
 echo "=== 2/6 Upload + bootstrap WORKER ==="
-rsync "${RSYNC_OPTS[@]}" "$PROJECT_ROOT/" "${WORKER_HOST}:${INSTALL_DIR}/"
-ssh -t "$WORKER_HOST" "cd ${INSTALL_DIR} && chmod +x deploy.sh scripts/*.sh scripts/lib/*.sh 2>/dev/null; \
-  MAIN_IP='${MAIN_IP}' THIS_IP='${WORKER_IP}' WORKER_ROLE='${WORKER_ROLE}' \
-  ./scripts/setup-autodeploy.sh --role worker"
+laptop_rsync "${RSYNC_OPTS[@]}" "$PROJECT_ROOT/" "${WORKER_HOST}:${INSTALL_DIR}/"
+laptop_ssh "$WORKER_HOST" "cd ${INSTALL_DIR} && chmod +x deploy.sh scripts/*.sh scripts/lib/*.sh 2>/dev/null; \
+  GITEA_PASSWORD='${GITEA_PASSWORD}' MAIN_IP='${MAIN_IP}' THIS_IP='${WORKER_IP}' WORKER_ROLE='${WORKER_ROLE}' \
+  GITEA_OWNER='${GITEA_OWNER}' ./scripts/setup-autodeploy.sh --role worker"
 
 echo "=== 3/6 SSH key exchange (main -> worker) ==="
-ORCH_PUB=$(ssh "$MAIN_HOST" 'cat /root/.ssh/messenger_orchestrator.pub')
-ssh "$WORKER_HOST" "mkdir -p /root/.ssh && chmod 700 /root/.ssh && grep -qF '${ORCH_PUB}' /root/.ssh/authorized_keys 2>/dev/null || echo '${ORCH_PUB}' >> /root/.ssh/authorized_keys"
+ORCH_PUB=$(laptop_ssh "$MAIN_HOST" 'cat /root/.ssh/messenger_orchestrator.pub')
+laptop_ssh "$WORKER_HOST" "mkdir -p /root/.ssh && chmod 700 /root/.ssh && grep -qF '${ORCH_PUB}' /root/.ssh/authorized_keys 2>/dev/null || echo '${ORCH_PUB}' >> /root/.ssh/authorized_keys"
 
 echo "=== 4/6 Register deploy keys in Gitea (API) ==="
-MAIN_DEPLOY_PUB=$(ssh "$MAIN_HOST" 'cat /root/.ssh/messenger_deploy.pub')
-WORKER_DEPLOY_PUB=$(ssh "$WORKER_HOST" 'cat /root/.ssh/messenger_deploy.pub')
-ssh "$MAIN_HOST" "cd ${INSTALL_DIR} && GITEA_PASSWORD='${GITEA_PASSWORD}' GITEA_OWNER='${GITEA_OWNER}' \
+MAIN_DEPLOY_PUB=$(laptop_ssh "$MAIN_HOST" 'cat /root/.ssh/messenger_deploy.pub')
+WORKER_DEPLOY_PUB=$(laptop_ssh "$WORKER_HOST" 'cat /root/.ssh/messenger_deploy.pub')
+laptop_ssh "$MAIN_HOST" "cd ${INSTALL_DIR} && GITEA_PASSWORD='${GITEA_PASSWORD}' GITEA_OWNER='${GITEA_OWNER}' \
   ./scripts/register-gitea-deploy-keys.sh main '${MAIN_DEPLOY_PUB}' worker '${WORKER_DEPLOY_PUB}'"
 
 echo "=== 5/6 Add worker to workers.list ==="
-ssh "$MAIN_HOST" "cd ${INSTALL_DIR} && ./scripts/add-worker.sh '${WORKER_HOST}'"
+laptop_ssh "$MAIN_HOST" "cd ${INSTALL_DIR} && ./scripts/add-worker.sh '${WORKER_HOST}'"
 
 echo "=== 6/6 First deploy ==="
-ssh "$MAIN_HOST" "cd ${INSTALL_DIR} && ./deploy.sh"
+laptop_ssh "$MAIN_HOST" "cd ${INSTALL_DIR} && ./deploy.sh"
 
 echo
 echo "=== Worker enrolled ==="
 echo "Worker: ${WORKER_HOST}"
-echo "Health: ssh ${WORKER_HOST} 'curl -s http://localhost:8001/health; echo; curl -s http://localhost:8004/health'"
-echo "Next pushes: git push origin main  (from laptop)"
+echo "Next: git push origin main"

@@ -3,16 +3,16 @@
 #
 # Usage:
 #   ./scripts/test-autodeploy.sh
-#   ./scripts/test-autodeploy.sh --host root@194.67.92.147 --worker root@161.104.18.45
 set -euo pipefail
 
-MAIN_HOST="${MAIN_HOST:-root@194.67.92.147}"
-WORKER_HOST="${WORKER_HOST:-root@161.104.18.45}"
 MARKER="autodeploy-test-$(date +%s)"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
+# shellcheck source=lib/laptop-env.sh
+source "$SCRIPT_DIR/lib/laptop-env.sh"
+load_laptop_env "$PROJECT_ROOT"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,21 +29,21 @@ git add .autodeploy-marker
 git commit -m "test: $MARKER" || true
 git push origin main
 
-echo "=== 2) Wait for webhook (30s) ==="
-sleep 30
+echo "=== 2) Wait for webhook (35s) ==="
+sleep 35
 
 echo "=== 3) Main deploy log ==="
-ssh "$MAIN_HOST" "tail -n 40 /var/log/messenger-deploy.log 2>/dev/null || echo 'no log yet'"
+laptop_ssh "$MAIN_HOST" "tail -n 50 /var/log/messenger-deploy.log 2>/dev/null || echo 'no log yet'"
 
 echo "=== 4) Main health ==="
-ssh "$MAIN_HOST" "curl -sf http://localhost:8003/health && echo && curl -sf http://localhost:8007/health && echo && curl -sf http://localhost:9201/health && echo"
+laptop_ssh "$MAIN_HOST" "curl -sf http://localhost:8003/health && echo && curl -sf http://localhost:8007/health && echo && curl -sf http://localhost:9201/health && echo"
 
 echo "=== 5) Worker health ==="
-ssh "$WORKER_HOST" "curl -sf http://localhost:8001/health && echo && curl -sf http://localhost:8004/health && echo" || \
-  echo "WARN: worker health failed (worker not set up or services down)"
+laptop_ssh "$WORKER_HOST" "curl -sf http://localhost:8001/health && echo && curl -sf http://localhost:8004/health && echo" || \
+  echo "WARN: worker health failed"
 
 echo "=== 6) Marker on servers ==="
-ssh "$MAIN_HOST" "grep -r '$MARKER' /opt/messenger/project/.autodeploy-marker 2>/dev/null && echo MAIN OK || echo MAIN marker missing"
-ssh "$WORKER_HOST" "grep -r '$MARKER' /opt/messenger/project/.autodeploy-marker 2>/dev/null && echo WORKER OK || echo WORKER marker missing"
+laptop_ssh "$MAIN_HOST" "grep -F '$MARKER' /opt/messenger/project/.autodeploy-marker 2>/dev/null && echo MAIN OK || echo MAIN marker missing"
+laptop_ssh "$WORKER_HOST" "grep -F '$MARKER' /opt/messenger/project/.autodeploy-marker 2>/dev/null && echo WORKER OK || echo WORKER marker missing"
 
 echo "=== Done ==="

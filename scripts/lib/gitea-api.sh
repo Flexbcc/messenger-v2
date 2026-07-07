@@ -48,12 +48,13 @@ gitea_register_deploy_key() {
 
   curl -sf -X POST "${GITEA_API}/repos/${GITEA_USER}/${GITEA_REPO}/keys" "${GITEA_AUTH[@]}" \
     -H "Content-Type: application/json" \
-    -d "$(python3 - <<PY
-import json
+    -d "$(python3 - "$title" "$pubkey" "$read_only" <<'PY'
+import json, sys
+title, key, ro = sys.argv[1], sys.argv[2], sys.argv[3]
 print(json.dumps({
-    "title": "${title}",
-    "key": """${pubkey}""".strip(),
-    "read_only": ${read_only},
+    "title": title,
+    "key": key.strip(),
+    "read_only": ro.lower() in ("1", "true", "yes"),
 }))
 PY
 )" >/dev/null

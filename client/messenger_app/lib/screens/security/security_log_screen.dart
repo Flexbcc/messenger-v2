@@ -40,6 +40,7 @@ class _SecurityLogScreenState extends State<SecurityLogScreen> {
         'room' => Icons.lock_open_outlined,
         'device' => Icons.devices_outlined,
         'fake' => Icons.theater_comedy_outlined,
+        'duress' => Icons.campaign_outlined,
         'session' => Icons.logout,
         _ => Icons.shield_outlined,
       };

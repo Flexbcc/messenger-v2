@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/message.dart';
 import '../../services/autodownload_policy.dart';
+import 'duress_signal_banner.dart';
 import '../../state/app_controller.dart';
 import '../../theme/app_decorations.dart';
 import '../../theme/spacing.dart';
@@ -123,6 +124,18 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> with Sing
 
   @override
   Widget build(BuildContext context) {
+    final systemKind = widget.message.systemKind;
+    final duressCode = widget.message.duressCode ??
+        (systemKind != null && systemKind != 'duress' ? duressCodeFromLegacyKind(systemKind) : null) ??
+        (systemKind == 'duress' ? widget.message.duressCode : null);
+
+    if (systemKind == 'duress' || duressCode != null) {
+      return DuressSignalBanner(
+        code: duressCode ?? 0,
+        text: widget.message.plaintext,
+      );
+    }
+
     final layout = widget.layout;
     final isMine = widget.isMine;
     final textColor = isMine ? AppColors.chatOutgoingText : AppColors.chatIncomingText;
@@ -338,6 +351,7 @@ class _ImageBubbleContentState extends ConsumerState<_ImageBubbleContent> {
   Uint8List? _bytes;
   bool _loading = true;
   bool _blocked = false;
+  String? _error;
 
   @override
   void initState() {
@@ -376,10 +390,16 @@ class _ImageBubbleContentState extends ConsumerState<_ImageBubbleContent> {
         setState(() {
           _bytes = bytes;
           _loading = false;
+          _error = null;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString();
+        });
+      }
     }
   }
 
@@ -414,7 +434,25 @@ class _ImageBubbleContentState extends ConsumerState<_ImageBubbleContent> {
       );
     }
     if (_bytes == null) {
-      return Text('🖼️ не удалось загрузить фото', style: AppTypography.caption.copyWith(color: widget.textColor));
+      return GestureDetector(
+        onTap: () => _load(force: true),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _error != null ? '🖼️ не удалось загрузить' : '🖼️ фото',
+              style: AppTypography.caption.copyWith(color: widget.textColor),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Нажмите, чтобы повторить',
+                style: AppTypography.micro.copyWith(color: AppColors.accentBlue),
+              ),
+            ],
+          ],
+        ),
+      );
     }
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadii.medium),

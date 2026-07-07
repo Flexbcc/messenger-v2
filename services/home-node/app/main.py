@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.db import init_db
 from app.node_registration import start_node_registration
-from app.routers import auth, conversations, devices, internal, media_proxy, messages, users, ws
+from app.routers import auth, conversations, devices, internal, media_proxy, messages, security_signals, users, ws
 from app.ws import manager
 from shared.security.health import security_health_snapshot
 
@@ -43,6 +43,7 @@ app.include_router(users.router)
 app.include_router(devices.router)
 app.include_router(conversations.router)
 app.include_router(messages.router)
+app.include_router(security_signals.router)
 app.include_router(internal.router)
 app.include_router(media_proxy.router)
 app.include_router(ws.router)

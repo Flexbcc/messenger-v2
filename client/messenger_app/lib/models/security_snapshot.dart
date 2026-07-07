@@ -24,6 +24,9 @@ class SecuritySnapshot {
     this.lastSecurityEventTitle,
     this.lastSecurityEventAt,
     this.lastContactVerificationAt,
+    this.lastDuressCode,
+    this.lastDuressAt,
+    this.lastDuressChannel,
   });
 
   final bool pinEnabled;
@@ -48,6 +51,9 @@ class SecuritySnapshot {
   final String? lastSecurityEventTitle;
   final DateTime? lastSecurityEventAt;
   final DateTime? lastContactVerificationAt;
+  final int? lastDuressCode;
+  final DateTime? lastDuressAt;
+  final String? lastDuressChannel;
 
   /// Honest summary — never claims absolute protection.
   String get summaryTitle {

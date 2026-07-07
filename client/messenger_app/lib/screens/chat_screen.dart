@@ -15,6 +15,11 @@ import '../state/app_controller.dart';
 import '../theme/app_decorations.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
+import '../security/secret_chat_security.dart';
+import '../services/app_privacy_session.dart';
+import '../services/duress_policy_engine.dart';
+import '../models/duress_policy.dart';
+import '../../security/pin_security.dart';
 import '../utils/api_errors.dart';
 import '../utils/message_format.dart';
 import '../utils/favorites_chat.dart';
@@ -116,6 +121,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _onDraftChanged() {
+    _controller?.touchSecretSession(widget.conversation.id);
     _draftTimer?.cancel();
     _draftTimer = Timer(const Duration(milliseconds: 400), _persistDraft);
   }
@@ -346,8 +352,45 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _sendText() async {
-    final text = _textController.text.trim();
+    final raw = _textController.text;
+    if (SecretChatSecurity.looksLikeActivationAttempt(raw) &&
+        await PinSecurity.isRealPinConfigured() &&
+        !AppPrivacySession.instance.isInDecoyMode) {
+      final candidate = raw.substring(0, raw.length - 2);
+      final controller = ref.read(appControllerProvider);
+      if (!await SecretChatSecurity.isConfigured()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Сначала задайте пароль в настройках приватности')),
+          );
+        }
+        return;
+      }
+      final activated = await controller.tryActivateSecretSession(widget.conversation.id, candidate);
+      if (activated) {
+        _textController.clear();
+        await DuressPolicyEngine.instance.handle(
+          DuressTrigger.secretRoomActivateOk,
+          controller: controller,
+          incrementCounter: false,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Секретный режим включён')),
+          );
+          setState(() {});
+        }
+        return;
+      }
+      await DuressPolicyEngine.instance.handle(
+        DuressTrigger.secretRoomActivateFail,
+        controller: controller,
+      );
+    }
+
+    final text = raw.trim();
     if (text.isEmpty || _sending) return;
+    ref.read(appControllerProvider).touchSecretSession(widget.conversation.id);
     setState(() => _sending = true);
     try {
       await ref.read(appControllerProvider).sendText(
@@ -460,6 +503,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final controller = ref.watch(appControllerProvider);
     final title = controller.conversationTitle(widget.conversation);
+    final secretActive = controller.isSecretSessionActive(widget.conversation.id);
     final messages = controller.visibleMessagesFor(widget.conversation.id);
     final layouts = buildMessageLayouts(messages);
     final isMuted = controller.chatMuted[widget.conversation.id] ?? false;
@@ -512,6 +556,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Text(title, overflow: TextOverflow.ellipsis, style: AppTypography.title),
                     if (_isFavoritesChat)
                       Text('Нажмите на источник под сообщением', style: AppTypography.caption.copyWith(fontSize: 11))
+                    else if (secretActive)
+                      Text('Секретный режим', style: AppTypography.caption.copyWith(fontSize: 11, color: AppColors.accentBlue))
                     else if (isMuted)
                       Text('Уведомления выключены', style: AppTypography.caption.copyWith(fontSize: 11)),
                   ],
@@ -521,6 +567,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ),
         actions: [
+          if (secretActive)
+            IconButton(
+              icon: const Icon(Icons.lock_open_outlined),
+              tooltip: 'Выйти из секретного режима',
+              onPressed: () {
+                controller.deactivateSecretSession(widget.conversation.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Секретный режим выключен')),
+                );
+              },
+            ),
           if (!_isFavoritesChat) ...[
             IconButton(
               icon: const Icon(Icons.touch_app_outlined),
@@ -542,6 +599,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       body: Column(
         children: [
+          if (secretActive)
+            Material(
+              color: AppColors.accentBlue.withValues(alpha: 0.1),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding, vertical: AppSpacing.sm),
+                child: Row(
+                  children: [
+                    Icon(Icons.lock_outline, size: 16, color: AppColors.accentBlue),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Секретные сообщения видны только в этом режиме',
+                        style: AppTypography.caption.copyWith(color: AppColors.accentBlue),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (!reachable && reachError != null)
             Material(
               color: AppColors.dangerRed.withValues(alpha: 0.12),

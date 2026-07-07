@@ -8,8 +8,12 @@ import '../../core/ui/app_bottom_sheet.dart';
 import '../../core/ui/app_card.dart';
 import '../../core/ui/app_switch_tile.dart';
 import '../../core/ui/app_tile.dart';
+import '../../security/pin_security.dart';
 import '../../services/app_lock_service.dart';
 import '../../services/privacy_preferences_store.dart';
+import '../secret_chat_settings_screen.dart';
+import 'decoy_pin_setup_screen.dart';
+import 'duress_policy_screen.dart';
 import 'hidden_chats_settings_screen.dart';
 import 'device_privacy_screen.dart';
 import 'pin_setup_screen.dart';
@@ -27,7 +31,7 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
   bool _loading = true;
 
   bool _faceId = false;
-  bool _fakePinEnabled = false;
+  bool _hasDecoyPin = false;
   bool _secretRoomEnabled = true;
   bool _hiddenChatsEnabled = true;
   bool _maskNotifications = false;
@@ -46,7 +50,7 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
     final pm = ref.read(privateModeStateProvider);
     setState(() => _loading = true);
 
-    final fakePin = await _store.fakePinEnabled();
+    final fakePin = await PinSecurity.hasFakePin();
     final secretRoom = await _store.secretRoomEnabled();
     final hiddenChats = await _store.hiddenChatsEnabled();
     final mask = await _store.maskNotifications();
@@ -58,7 +62,7 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
     if (!mounted) return;
     setState(() {
       _faceId = pm.biometricEnabled;
-      _fakePinEnabled = fakePin;
+      _hasDecoyPin = fakePin;
       _secretRoomEnabled = secretRoom;
       _hiddenChatsEnabled = hiddenChats;
       _maskNotifications = mask;
@@ -160,9 +164,39 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
               AppTile(
                 leading: Icon(Icons.pin_outlined, color: colors.textSecondary),
                 title: 'PIN',
-                subtitle: 'Изменить основной PIN',
+                subtitle: 'Основной PIN настроен',
                 trailing: AppTile.chevron(context),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PinSetupScreen())),
+                showDivider: true,
+              ),
+              AppTile(
+                leading: Icon(Icons.dialpad_outlined, color: colors.textSecondary),
+                title: _hasDecoyPin ? 'Изменить дополнительный PIN' : 'Дополнительный PIN',
+                subtitle: _hasDecoyPin ? 'Настроен для быстрого входа' : 'Необязательно · отличается от основного',
+                trailing: AppTile.chevron(context),
+                onTap: () async {
+                  final ok = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(builder: (_) => const DecoyPinSetupScreen()),
+                  );
+                  if (ok == true) await _load();
+                },
+                showDivider: true,
+              ),
+              AppTile(
+                leading: Icon(Icons.verified_user_outlined, color: colors.textSecondary),
+                title: 'Доверенные контакты',
+                subtitle: 'Управление в политике безопасности',
+                trailing: AppTile.chevron(context),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DuressPolicyScreen())),
+                showDivider: true,
+              ),
+              AppTile(
+                leading: Icon(Icons.lock_person_outlined, color: colors.textSecondary),
+                title: 'Секретная комната',
+                subtitle: 'Пароль, таймер, исчезающие сообщения',
+                trailing: AppTile.chevron(context),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SecretChatSettingsScreen())),
+                showDivider: true,
               ),
               AppSwitchTile(
                 leading: Icon(Icons.fingerprint, color: colors.textSecondary),
@@ -176,18 +210,9 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
                 },
               ),
               AppSwitchTile(
-                leading: Icon(Icons.theater_comedy_outlined, color: colors.textSecondary),
-                title: 'Fake PIN',
-                subtitle: 'Обманный PIN → фейк-режим',
-                value: _fakePinEnabled,
-                onChanged: (v) async {
-                  await _store.setFakePinEnabled(v);
-                  setState(() => _fakePinEnabled = v);
-                },
-              ),
-              AppSwitchTile(
                 leading: Icon(Icons.lock_open_outlined, color: colors.textSecondary),
-                title: 'Secret Room',
+                title: 'Защищённый раздел',
+                subtitle: 'Доступ по основному PIN',
                 value: _secretRoomEnabled,
                 onChanged: (v) async {
                   await _store.setSecretRoomEnabled(v);

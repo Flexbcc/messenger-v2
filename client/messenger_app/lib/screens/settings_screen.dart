@@ -20,6 +20,7 @@ import 'devices_screen.dart';
 import 'help_screen.dart';
 import 'notifications_screen.dart';
 import 'private_mode/private_mode_entry.dart';
+import 'private_mode/private_mode_state.dart';
 import 'profile_screen.dart';
 import 'security/connection_status_screen.dart';
 import 'notes_screen.dart';
@@ -47,12 +48,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = ref.watch(appControllerProvider);
+    final pmState = ref.watch(privateModeStateProvider);
     final themeSettings = ref.watch(themeSettingsProvider);
     final notifSettings = ref.watch(notificationSettingsProvider);
     final session = controller.session;
     final deviceCount = controller.devices.length;
     final colors = context.colors;
     final text = context.textStyles;
+
+    final pinConfigured = pmState.isConfigured;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Настройки')),
@@ -89,14 +93,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               AppTile(
                 leading: Icon(Icons.security_outlined, color: colors.primary),
                 title: 'Центр безопасности',
-                subtitle: 'E2E, PIN, recovery, журнал',
+                subtitle: pinConfigured ? 'E2E, PIN, recovery, журнал' : 'E2E, устройства, блокировка',
                 trailing: AppTile.chevron(context),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SecurityDashboardScreen())),
               ),
               AppTile(
                 leading: Icon(Icons.lock_outline, color: colors.secondary),
-                title: 'Конфиденциальность',
-                subtitle: 'Private Mode, скрытые чаты, PIN',
+                title: pinConfigured ? 'Конфиденциальность' : 'Блокировка и PIN',
+                subtitle: pinConfigured ? 'Скрытые разделы и дополнительная защита' : 'Защита приложения',
                 trailing: AppTile.chevron(context),
                 onTap: () async {
                   await Navigator.of(context).push(privateModeEntryRoute());

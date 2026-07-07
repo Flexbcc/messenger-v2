@@ -64,6 +64,9 @@ class MessageCacheStore {
         'decrypt_failed': message.decryptFailed,
         'reply_to_message_id': message.replyToMessageId,
         'reply_preview': message.replyPreview,
+        'is_secret': message.isSecret,
+        'system_kind': message.systemKind,
+        'duress_code': message.duressCode,
       };
 
   ChatMessage _messageFromJson(Map<String, dynamic> json) => ChatMessage(
@@ -79,6 +82,9 @@ class MessageCacheStore {
         decryptFailed: json['decrypt_failed'] as bool? ?? false,
         replyToMessageId: json['reply_to_message_id'] as String?,
         replyPreview: json['reply_preview'] as String?,
+        isSecret: json['is_secret'] as bool? ?? false,
+        systemKind: json['system_kind'] as String?,
+        duressCode: json['duress_code'] as int?,
       );
 
   Future<void> _webSaveConversation(String userId, String conversationId, List<ChatMessage> messages) async {
@@ -119,6 +125,9 @@ class MessageCacheStore {
       'decrypt_failed': message.decryptFailed,
       'reply_to_message_id': message.replyToMessageId,
       'reply_preview': message.replyPreview,
+      'is_secret': message.isSecret,
+      'system_kind': message.systemKind,
+      'duress_code': message.duressCode,
     });
     final db = await _database();
     await db.insert(
@@ -163,6 +172,9 @@ class MessageCacheStore {
         'decrypt_failed': message.decryptFailed,
         'reply_to_message_id': message.replyToMessageId,
         'reply_preview': message.replyPreview,
+        'is_secret': message.isSecret,
+        'system_kind': message.systemKind,
+        'duress_code': message.duressCode,
       });
       batch.insert(
         'cached_messages',
@@ -227,6 +239,9 @@ class MessageCacheStore {
       favoriteSourceMessageId: next.favoriteSourceMessageId,
       favoriteSourceTitle: next.favoriteSourceTitle,
       favoriteSenderLabel: next.favoriteSenderLabel,
+      isSecret: next.isSecret || prev.isSecret,
+      systemKind: next.systemKind ?? prev.systemKind,
+      duressCode: next.duressCode ?? prev.duressCode,
     );
   }
 
@@ -268,6 +283,9 @@ class MessageCacheStore {
       decryptFailed: payload['decrypt_failed'] as bool? ?? false,
       replyToMessageId: payload['reply_to_message_id'] as String?,
       replyPreview: payload['reply_preview'] as String?,
+      isSecret: payload['is_secret'] as bool? ?? false,
+      systemKind: payload['system_kind'] as String?,
+      duressCode: payload['duress_code'] as int?,
     );
   }
 

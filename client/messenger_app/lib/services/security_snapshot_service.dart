@@ -1,6 +1,7 @@
 import '../config.dart';
 import '../models/security_snapshot.dart';
 import '../security/pin_security.dart';
+import 'duress_audit_service.dart';
 import 'emergency_lock_service.dart';
 import 'local_settings_store.dart';
 import 'login_approval_service.dart';
@@ -26,6 +27,7 @@ class SecuritySnapshotService {
     final events = await SecurityLogService.instance.load();
     final meta = SecurityMetaStore.instance;
     final store = LocalSettingsStore();
+    final lastDuress = await DuressAuditService.instance.lastOutbound();
 
     return SecuritySnapshot(
       pinEnabled: await PinSecurity.hasRealPin(),
@@ -50,6 +52,9 @@ class SecuritySnapshotService {
       lastContactVerificationAt: await meta.lastContactVerificationAt(),
       lastSecurityEventTitle: events.isEmpty ? null : events.first.title,
       lastSecurityEventAt: events.isEmpty ? null : events.first.at,
+      lastDuressCode: lastDuress?.code,
+      lastDuressAt: lastDuress?.at,
+      lastDuressChannel: lastDuress?.channel,
     );
   }
 }

@@ -16,6 +16,9 @@ class ChatMessage {
     this.favoriteSourceMessageId,
     this.favoriteSourceTitle,
     this.favoriteSenderLabel,
+    this.isSecret = false,
+    this.systemKind,
+    this.duressCode,
   });
 
   final String id;
@@ -36,6 +39,15 @@ class ChatMessage {
   String? favoriteSourceMessageId;
   String? favoriteSourceTitle;
   String? favoriteSenderLabel;
+
+  /// Parsed from E2E envelope (`secret: true`) — local UI only.
+  bool isSecret;
+
+  /// Client-only system marker inside plaintext JSON (`system` field).
+  String? systemKind;
+
+  /// Numeric duress signal code when `systemKind == duress`.
+  int? duressCode;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
         id: json['id'] as String,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,20 +9,20 @@ import '../../theme/typography.dart';
 import '../../widgets/app_button.dart';
 import '../../services/security_log_service.dart';
 import '../../services/hidden_vault_session.dart';
+import '../../services/app_privacy_session.dart';
+import '../../services/duress_policy_engine.dart';
+import '../../services/duress_policy_session.dart';
 import '../../services/privacy_preferences_store.dart';
+import '../../security/pin_security.dart';
+import '../../models/duress_policy.dart';
 import 'fake_mode_screen.dart';
 import 'pin_keypad.dart';
 import 'pin_setup_screen.dart';
 import 'private_mode_state.dart';
 import 'private_home_screen.dart';
+import '../../state/app_controller.dart';
 
 /// PIN entry screen for the Private Mode module.
-///
-/// Per spec/0402_PRIVATE_MODE.md: entering the real PIN opens Secret Room,
-/// entering the configured fake/decoy PIN opens an indistinguishable
-/// "boring" mode, and anything else is rejected in place with no hint about
-/// which part was wrong. All comparisons here are a mock in-memory string
-/// check (see private_mode_state.dart) — not a real credential check.
 class UnlockScreen extends ConsumerStatefulWidget {
   const UnlockScreen({super.key});
 
@@ -32,22 +34,47 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
   String _input = '';
   String? _error;
   int _wrongAttempts = 0;
+  bool _lockedOut = false;
+  Duration? _lockoutRemaining;
+  Timer? _lockoutTimer;
   late final AnimationController _shakeController;
 
   @override
   void initState() {
     super.initState();
     _shakeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _refreshLockout();
   }
 
   @override
   void dispose() {
+    _lockoutTimer?.cancel();
     _shakeController.dispose();
     super.dispose();
   }
 
+  Future<void> _refreshLockout() async {
+    final locked = await DuressPolicyEngine.instance.isPinLockedOut();
+    final rem = await DuressPolicyEngine.instance.lockoutRemaining();
+    if (!mounted) return;
+    setState(() {
+      _lockedOut = locked;
+      _lockoutRemaining = rem;
+    });
+    _lockoutTimer?.cancel();
+    if (locked && rem != null) {
+      _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (_) => _refreshLockout());
+    }
+  }
+
+  String _formatLockout(Duration d) {
+    final m = d.inMinutes;
+    final s = d.inSeconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
   void _onDigit(String d) {
-    if (_input.length >= kPinLength) return;
+    if (_lockedOut || _input.length >= kPinLength) return;
     setState(() {
       _error = null;
       _input += d;
@@ -58,23 +85,27 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
   }
 
   void _onBackspace() {
-    if (_input.isEmpty) return;
+    if (_input.isEmpty || _lockedOut) return;
     setState(() => _input = _input.substring(0, _input.length - 1));
   }
 
   Future<void> _evaluate() async {
+    if (_lockedOut) return;
+
     final pm = ref.read(privateModeStateProvider);
     final prefs = PrivacyPreferencesStore();
-    final result = await pm.evaluate(_input);
+    final controller = ref.read(appControllerProvider);
+    final pin = _input;
+    final result = await pm.evaluate(pin);
     if (!mounted) return;
 
     if (result == UnlockResult.invalid) {
-      // Wipe after repeated failures if enabled.
       if (await prefs.wipeOnWrongAttempts()) {
         _wrongAttempts++;
         if (_wrongAttempts >= 5) {
           await pm.reset();
           await HiddenVaultSession.instance.wipe();
+          await DuressPolicySession.instance.wipe();
           _wrongAttempts = 0;
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -83,8 +114,16 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
           }
         }
       }
+      final hr = await DuressPolicyEngine.instance.handle(
+        DuressTrigger.pinUnlockFail,
+        controller: controller,
+      );
+      await _refreshLockout();
+      if (!mounted) return;
       setState(() {
-        _error = 'Неверный PIN';
+        _error = hr.lockoutUntil != null
+            ? 'Слишком много попыток. Подождите ${_formatLockout(hr.lockoutUntil!.difference(DateTime.now()))}'
+            : 'Неверный PIN';
         _input = '';
       });
       _shakeController.forward(from: 0);
@@ -92,8 +131,8 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
     }
 
     if (result == UnlockResult.fakePin) {
-      final fakeEnabled = await prefs.fakePinEnabled();
-      if (!fakeEnabled) {
+      if (!await PinSecurity.hasFakePin()) {
+        await DuressPolicyEngine.instance.handle(DuressTrigger.pinUnlockFail, controller: controller);
         setState(() {
           _error = 'Неверный PIN';
           _input = '';
@@ -101,9 +140,21 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
         _shakeController.forward(from: 0);
         return;
       }
+      AppPrivacySession.instance.enterDecoyMode();
+      controller.deactivateSecretSessionForAll();
+      await DuressPolicyEngine.instance.handle(DuressTrigger.decoyPinStreak, controller: controller);
+      if (!mounted) return;
       _openFakeMode();
       return;
     }
+
+    await DuressPolicyEngine.instance.handle(
+      DuressTrigger.pinUnlockOkReal,
+      controller: controller,
+      incrementCounter: false,
+    );
+    await DuressPolicySession.instance.unlock(pin);
+    AppPrivacySession.instance.enterPrivateMode();
 
     final secretEnabled = await prefs.secretRoomEnabled();
     if (!secretEnabled) {
@@ -113,7 +164,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
       });
       return;
     }
-    final vaultOk = await HiddenVaultSession.instance.unlock(_input);
+    final vaultOk = await HiddenVaultSession.instance.unlock(pin);
     if (!mounted) return;
     if (!vaultOk) {
       setState(() {
@@ -127,6 +178,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
   }
 
   void _openSecretRoom() {
+    AppPrivacySession.instance.enterPrivateMode();
     SecurityLogService.instance.append(
       SecurityEvent(title: 'Secret Room открыт', subtitle: 'Успешный PIN', at: DateTime.now(), icon: 'room'),
     );
@@ -135,6 +187,8 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
 
   void _openFakeMode() {
     HiddenVaultSession.instance.lock();
+    DuressPolicySession.instance.lock();
+    AppPrivacySession.instance.enterDecoyMode();
     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const FakeModeScreen()));
   }
 
@@ -188,6 +242,17 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const PinSetupScreen()),
                   ),
+                ),
+              ] else if (_lockedOut) ...[
+                Text(
+                  'Ввод PIN заблокирован',
+                  style: AppTypography.secondary,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.smallGap),
+                Text(
+                  _lockoutRemaining != null ? _formatLockout(_lockoutRemaining!) : '…',
+                  style: AppTypography.largeTitle,
                 ),
               ] else ...[
                 ShakeOnError(

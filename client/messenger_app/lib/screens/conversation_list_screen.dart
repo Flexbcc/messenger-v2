@@ -204,7 +204,7 @@ class _ConversationTile extends ConsumerWidget {
     final controller = ref.read(appControllerProvider);
     final isFavorites = FavoritesChat.isId(conversation.id);
     final title = controller.conversationTitle(conversation);
-    final last = controller.lastMessageFor(conversation.id);
+    final last = controller.lastMessageForListPreview(conversation.id);
     final unread = isFavorites ? 0 : (controller.unreadCounts[conversation.id] ?? 0);
     final isMuted = controller.chatMuted[conversation.id] ?? false;
     final reachable = controller.isConversationReachable(conversation);

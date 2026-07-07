@@ -204,7 +204,10 @@ class ApiClient {
 
   Future<String> uploadMedia(Uint8List bytes, String filename) async {
     await _trackSent(bytes.length);
+    final headers = <String, String>{};
+    if (accessToken != null) headers['Authorization'] = 'Bearer $accessToken';
     final request = http.MultipartRequest('POST', _mediaUri('/media'))
+      ..headers.addAll(headers)
       ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
     final streamed = await request.send();
     final resp = await http.Response.fromStream(streamed);
@@ -212,8 +215,11 @@ class ApiClient {
     return data['media_id'] as String;
   }
 
+  /// Production path: JWT on Home Node → federation to Media Node.
   Future<Uint8List> downloadMedia(String mediaId) async {
-    final resp = await http.get(_mediaUri('/media/$mediaId'));
+    final headers = <String, String>{};
+    if (accessToken != null) headers['Authorization'] = 'Bearer $accessToken';
+    final resp = await http.get(_homeUri('/media/$mediaId'), headers: headers);
     if (resp.statusCode != 200) {
       throw ApiException(resp.statusCode, 'media download failed');
     }
@@ -244,6 +250,18 @@ class ApiClient {
     final resp = await _postJson(_homeUri('/users/me/change-password'), {
       'current_password': currentPassword,
       'new_password': newPassword,
+    });
+    _decodeOrThrow(resp);
+  }
+
+  /// Opaque security event relay — server sees only numeric [event] + target ids.
+  Future<void> postSecuritySignal({
+    required int event,
+    required List<String> targets,
+  }) async {
+    final resp = await _postJson(_homeUri('/security-signals'), {
+      'event': event,
+      'targets': targets,
     });
     _decodeOrThrow(resp);
   }

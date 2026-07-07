@@ -5,10 +5,11 @@ import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
 import '../../widgets/app_button.dart';
+import '../../services/duress_policy_session.dart';
 import 'pin_keypad.dart';
 import 'private_mode_state.dart';
 
-enum _Step { enterPin, confirmPin, fakeChoice, enterFakePin, confirmFakePin, biometric }
+enum _Step { enterPin, confirmPin, biometric }
 
 /// "Создать PIN" — mock PIN setup flow for Private Mode.
 ///
@@ -27,7 +28,6 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
   _Step _step = _Step.enterPin;
   String _input = '';
   String? _pendingRealPin;
-  String? _pendingFakePin;
   bool _biometricEnabled = false;
   bool _saving = false;
   String? _error;
@@ -75,27 +75,11 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
         if (_input == _pendingRealPin) {
           setState(() {
             _input = '';
-            _step = _Step.fakeChoice;
+            _step = _Step.biometric;
           });
         } else {
           _fail(resetTo: _Step.enterPin, clearPending: true);
         }
-      case _Step.enterFakePin:
-        setState(() {
-          _pendingFakePin = _input;
-          _input = '';
-          _step = _Step.confirmFakePin;
-        });
-      case _Step.confirmFakePin:
-        if (_input == _pendingFakePin) {
-          setState(() {
-            _input = '';
-            _step = _Step.biometric;
-          });
-        } else {
-          _fail(resetTo: _Step.enterFakePin, clearPending: false);
-        }
-      case _Step.fakeChoice:
       case _Step.biometric:
         break;
     }
@@ -116,8 +100,9 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
     setState(() => _saving = true);
     try {
       final state = ref.read(privateModeStateProvider);
-      await state.configurePins(realPin: _pendingRealPin!, fakePin: _pendingFakePin);
+      await state.configurePins(realPin: _pendingRealPin!);
       await state.setBiometricEnabled(_biometricEnabled);
+      await DuressPolicySession.instance.unlock(_pendingRealPin!);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
@@ -133,24 +118,17 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
   String get _title => switch (_step) {
         _Step.enterPin => 'Создать PIN',
         _Step.confirmPin => 'Повторите PIN',
-        _Step.fakeChoice => 'Fake PIN',
-        _Step.enterFakePin => 'Создать Fake PIN',
-        _Step.confirmFakePin => 'Повторите Fake PIN',
         _Step.biometric => 'Готово',
       };
 
   String get _explanation => switch (_step) {
         _Step.enterPin => 'PIN защищает доступ к приложению и приватным настройкам.',
         _Step.confirmPin => 'Введите PIN ещё раз для подтверждения.',
-        _Step.fakeChoice =>
-          'Можно дополнительно настроить отдельный PIN, который открывает обычный вид приложения без доступа к скрытым чатам. Это необязательно.',
-        _Step.enterFakePin => 'Придумайте PIN, отличный от основного.',
-        _Step.confirmFakePin => 'Введите Fake PIN ещё раз для подтверждения.',
         _Step.biometric => 'На десктопе Face ID — заглушка. Переключатель сохраняет настройку для будущей интеграции.',
       };
 
   bool get _isPinStep => switch (_step) {
-        _Step.enterPin || _Step.confirmPin || _Step.enterFakePin || _Step.confirmFakePin => true,
+        _Step.enterPin || _Step.confirmPin => true,
         _ => false,
       };
 
@@ -212,29 +190,6 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
       );
     }
 
-    if (_step == _Step.fakeChoice) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AppButton(
-            label: 'Настроить Fake PIN',
-            variant: AppButtonVariant.secondary,
-            onPressed: () => setState(() {
-              _input = '';
-              _step = _Step.enterFakePin;
-            }),
-          ),
-          const SizedBox(height: AppSpacing.mediumGap),
-          AppButton(
-            label: 'Пропустить',
-            variant: AppButtonVariant.primary,
-            onPressed: () => setState(() => _step = _Step.biometric),
-          ),
-        ],
-      );
-    }
-
-    // _Step.biometric
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

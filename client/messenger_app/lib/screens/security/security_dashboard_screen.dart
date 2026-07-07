@@ -188,44 +188,54 @@ class _SecurityDashboardScreenState extends ConsumerState<SecurityDashboardScree
                     ],
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  AppSettingsGroup(
-                    title: 'Private Mode',
-                    children: [
-                      _StatusTile(
-                        icon: Icons.pin_outlined,
-                        label: 'PIN',
-                        value: snap.pinEnabled ? 'Включён' : 'Выключен',
-                        color: snap.pinEnabled ? colors.primary : colors.textMuted,
-                      ),
-                      _StatusTile(
-                        icon: Icons.lock_outline,
-                        label: 'Vault',
-                        value: snap.privateVaultUnlocked ? 'Разблокирован' : 'Заблокирован',
-                        color: snap.privateVaultUnlocked ? colors.warning : colors.textMuted,
-                      ),
-                      _StatusTile(
-                        icon: Icons.visibility_off_outlined,
-                        label: 'Secret Room',
-                        value: snap.secretRoomEnabled ? 'Включён' : 'Выключен',
-                        color: snap.secretRoomEnabled ? colors.secondary : colors.textMuted,
-                      ),
-                      _StatusTile(
-                        icon: Icons.hide_source_outlined,
-                        label: 'Hidden Chats',
-                        value: snap.hiddenChatsEnabled
-                            ? 'Включены · ${snap.secretHiddenChatCount} скрыто'
-                            : 'Выключены',
-                        color: snap.hiddenChatsEnabled ? colors.secondary : colors.textMuted,
-                      ),
-                      _StatusTile(
-                        icon: Icons.theater_comedy_outlined,
-                        label: 'Fake PIN',
-                        value: snap.fakePinEnabled ? 'Включён' : 'Выключен',
-                        color: snap.fakePinEnabled ? colors.secondary : colors.textMuted,
-                        showDivider: false,
-                      ),
-                    ],
-                  ),
+                  if (!snap.pinEnabled)
+                    AppSettingsGroup(
+                      title: 'Блокировка',
+                      children: [
+                        AppTile(
+                          leading: Icon(Icons.pin_outlined, color: colors.textSecondary),
+                          title: 'Настроить PIN',
+                          subtitle: 'Дополнительные функции защиты откроются после настройки',
+                          trailing: AppTile.chevron(context),
+                          onTap: () => Navigator.of(context).push(privateModeEntryRoute()),
+                          showDivider: false,
+                        ),
+                      ],
+                    )
+                  else
+                    AppSettingsGroup(
+                      title: 'Защищённый раздел',
+                      children: [
+                        _StatusTile(
+                          icon: Icons.pin_outlined,
+                          label: 'PIN',
+                          value: 'Включён',
+                          color: colors.primary,
+                        ),
+                        _StatusTile(
+                          icon: Icons.lock_outline,
+                          label: 'Хранилище',
+                          value: snap.privateVaultUnlocked ? 'Разблокирован' : 'Заблокирован',
+                          color: snap.privateVaultUnlocked ? colors.warning : colors.textMuted,
+                        ),
+                        if (snap.fakePinEnabled)
+                          _StatusTile(
+                            icon: Icons.dialpad_outlined,
+                            label: 'Дополнительный PIN',
+                            value: 'Настроен',
+                            color: colors.secondary,
+                          ),
+                        _StatusTile(
+                          icon: Icons.hide_source_outlined,
+                          label: 'Скрытые чаты',
+                          value: snap.hiddenChatsEnabled
+                              ? 'Включены · ${snap.secretHiddenChatCount} скрыто'
+                              : 'Выключены',
+                          color: snap.hiddenChatsEnabled ? colors.secondary : colors.textMuted,
+                          showDivider: false,
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: AppSpacing.lg),
                   AppSettingsGroup(
                     title: 'Активность',
@@ -253,8 +263,29 @@ class _SecurityDashboardScreenState extends ConsumerState<SecurityDashboardScree
                         label: 'Последнее событие',
                         value: snap.lastSecurityEventTitle ?? 'Нет событий',
                         color: colors.textSecondary,
-                        showDivider: false,
                       ),
+                      if (snap.lastDuressCode != null) ...[
+                        _StatusTile(
+                          icon: Icons.campaign_outlined,
+                          label: 'Последний сигнал duress',
+                          value: 'Код ${snap.lastDuressCode} · ${snap.lastDuressChannel ?? '—'}',
+                          color: colors.warning,
+                        ),
+                        _StatusTile(
+                          icon: Icons.schedule,
+                          label: 'Время сигнала duress',
+                          value: _formatWhen(snap.lastDuressAt),
+                          color: colors.textSecondary,
+                          showDivider: false,
+                        ),
+                      ] else
+                        _StatusTile(
+                          icon: Icons.campaign_outlined,
+                          label: 'Сигналы duress',
+                          value: 'Не отправлялись',
+                          color: colors.textMuted,
+                          showDivider: false,
+                        ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -278,7 +309,7 @@ class _SecurityDashboardScreenState extends ConsumerState<SecurityDashboardScree
                       AppTile(
                         leading: Icon(Icons.lock_outline, color: colors.textSecondary),
                         title: 'Конфиденциальность',
-                        subtitle: 'Private Mode, скрытые чаты',
+                        subtitle: snap.pinEnabled ? 'Скрытые разделы и дополнительная защита' : 'Блокировка и PIN',
                         trailing: AppTile.chevron(context),
                         onTap: () => Navigator.of(context).push(privateModeEntryRoute()),
                       ),

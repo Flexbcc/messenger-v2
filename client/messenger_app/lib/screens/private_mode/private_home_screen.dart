@@ -8,6 +8,8 @@ import '../../core/ui/app_card.dart';
 import '../../core/ui/app_tile.dart';
 import '../../services/privacy_preferences_store.dart';
 import 'hidden_chats_screen.dart';
+import '../secret_chat_settings_screen.dart';
+import 'duress_policy_screen.dart';
 import 'panic.dart';
 import 'privacy_settings_screen.dart';
 import 'private_devices_screen.dart';
@@ -83,16 +85,33 @@ class PrivateHomeScreen extends ConsumerWidget {
                 },
               ),
               AppTile(
+                leading: Icon(Icons.policy_outlined, color: colors.textSecondary),
+                title: 'Политика безопасности',
+                subtitle: 'Пресет, доверенные, реакция на PIN',
+                trailing: AppTile.chevron(context),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DuressPolicyScreen())),
+                showDivider: true,
+              ),
+              AppTile(
                 leading: Icon(Icons.tune_outlined, color: colors.textSecondary),
                 title: 'Настройки приватности',
-                subtitle: 'PIN, Fake PIN, блокировка приложения',
+                subtitle: 'PIN, дополнительный PIN, блокировка',
                 trailing: AppTile.chevron(context),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacySettingsScreen())),
+                showDivider: true,
+              ),
+              AppTile(
+                leading: Icon(Icons.lock_person_outlined, color: colors.textSecondary),
+                title: 'Секретная комната',
+                subtitle: 'Пароль и таймер в чатах',
+                trailing: AppTile.chevron(context),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SecretChatSettingsScreen())),
+                showDivider: true,
               ),
               AppTile(
                 leading: Icon(Icons.devices_outlined, color: colors.textSecondary),
                 title: 'Приватные устройства',
-                subtitle: 'Доступ к Secret Room',
+                subtitle: 'Доступ к защищённому разделу',
                 trailing: AppTile.chevron(context),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivateDevicesScreen())),
               ),

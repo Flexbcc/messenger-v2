@@ -1,0 +1,2 @@
+# Generated release env files — do not commit signatures to public repos.
+*.env

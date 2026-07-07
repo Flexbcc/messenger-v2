@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Хранилище — Admin</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <nav class="site-nav">
+      <a href="/">Мониторинг</a>
+      <a href="/setup">Настройка ноды</a>
+      <a href="/storage">Хранилище</a>
+      <a href="/enrollment">Enrollment</a>
+    </nav>
+    <h1>Хранилище и персональное облако</h1>
+    <p class="subtitle">
+      Оператор ноды хранит данные семьи на своём сервере. Пользователи могут
+      подключить личное S3/диск — первоисточник у них; для остальных сеть
+      держит <strong>кеш медиа</strong> на заданный срок (по умолчанию 48 ч).
+    </p>
+  </header>
+  <main>
+    <form id="storageForm" class="panel">
+      <section>
+        <h2>Медиа — основное хранилище оператора</h2>
+        <label>Бэкенд
+          <select name="media_primary_backend" id="mediaPrimaryBackend">
+            <option value="local">Локальный диск</option>
+            <option value="s3">S3 / MinIO</option>
+          </select>
+        </label>
+        <label>Путь на диске
+          <input name="media_local_path" type="text" placeholder="/data/media_blobs">
+        </label>
+        <div id="mediaS3Block" class="subpanel hidden">
+          <label>S3 endpoint
+            <input name="media_s3_endpoint" type="url" placeholder="https://minio.local:9000">
+          </label>
+          <label>Bucket
+            <input name="media_s3_bucket" type="text">
+          </label>
+          <label>Access key
+            <input name="media_s3_access_key" type="text" autocomplete="off">
+          </label>
+          <label>Secret key
+            <input name="media_s3_secret_key" type="password" autocomplete="off">
+          </label>
+          <label>Region
+            <input name="media_s3_region" type="text" value="us-east-1">
+          </label>
+          <label>Prefix
+            <input name="media_s3_prefix" type="text" placeholder="media/">
+          </label>
+        </div>
+        <label>TTL сетевого кеша (часы)
+          <input name="network_cache_ttl_hours" type="number" min="1" max="720" value="48">
+          <span class="field-hint">После истечения blob недоступен в сети; у кто скачал — остаётся локально в чате.</span>
+        </label>
+      </section>
+
+      <section>
+        <h2>Персональное облако</h2>
+        <label class="checkbox-row">
+          <input name="personal_cloud_enabled" type="checkbox">
+          Разрешить персональные хранилища пользователей
+        </label>
+        <label>По умолчанию для пользователей этой Home Node
+          <select name="default_for_node_users">
+            <option value="operator">operator — всё на сервере оператора (семья на вашей ноде)</option>
+            <option value="personal">personal — каждый на своём S3 (если настроен)</option>
+          </select>
+        </label>
+      </section>
+
+      <section>
+        <h2>Резервное копирование</h2>
+        <label class="checkbox-row">
+          <input name="backup_enabled" type="checkbox">
+          Включить бэкап
+        </label>
+        <label>Бэкенд бэкапа
+          <select name="backup_backend" id="backupBackend">
+            <option value="local">Локальный каталог</option>
+            <option value="s3">S3 / MinIO</option>
+          </select>
+        </label>
+        <label>Каталог бэкапа (local)
+          <input name="backup_local_path" type="text" placeholder="/data/backups">
+        </label>
+        <label>Интервал (часы)
+          <input name="backup_schedule_hours" type="number" min="1" value="24">
+        </label>
+        <div id="backupS3Block" class="subpanel hidden">
+          <label>S3 endpoint
+            <input name="backup_s3_endpoint" type="url">
+          </label>
+          <label>Bucket
+            <input name="backup_s3_bucket" type="text">
+          </label>
+          <label>Access key
+            <input name="backup_s3_access_key" type="text" autocomplete="off">
+          </label>
+          <label>Secret key
+            <input name="backup_s3_secret_key" type="password" autocomplete="off">
+          </label>
+          <label>Prefix
+            <input name="backup_s3_prefix" type="text" placeholder="backups/">
+          </label>
+        </div>
+      </section>
+
+      <div class="form-actions">
+        <button type="submit">Сохранить storage.json</button>
+        <button type="button" id="reloadMediaBtn">Применить на media-node</button>
+        <button type="button" id="backupNowBtn">Бэкап сейчас</button>
+        <span id="status" class="status-msg"></span>
+      </div>
+    </form>
+  </main>
+  <script src="/static/shared.js"></script>
+  <script src="/static/storage.js"></script>
+</body>
+</html>

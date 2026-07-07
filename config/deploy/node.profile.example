@@ -1,0 +1,17 @@
+# Copy to config/deploy/node.profile and edit (file is local per machine).
+#
+# MAIN server example:
+#   DEPLOY_ROLE=main
+#   NODE_SERVICES="discovery-node gateway-node admin"
+#   HEALTH_URLS="http://localhost:8003/health http://localhost:8007/health"
+#
+# WORKER example (full test node):
+#   DEPLOY_ROLE=worker
+#   NODE_SERVICES="home-node storage-node media-node relay-node turn-node"
+#   HEALTH_URLS="http://localhost:8001/health http://localhost:8004/health"
+
+DEPLOY_ROLE=main
+NODE_SERVICES="discovery-node gateway-node admin"
+GIT_REMOTE=origin
+GIT_BRANCH=main
+HEALTH_URLS="http://localhost:8003/health http://localhost:8007/health http://localhost:9201/health"

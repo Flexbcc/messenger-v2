@@ -1,0 +1,52 @@
+import 'package:flutter/foundation.dart';
+
+import '../security/pin_security.dart';
+import 'privacy_preferences_store.dart';
+
+/// Locks the whole app on resume when enabled in privacy settings.
+class AppLockService extends ChangeNotifier {
+  AppLockService._();
+  static final instance = AppLockService._();
+
+  bool enabled = false;
+  bool isLocked = false;
+  bool _armed = false;
+
+  Future<void> init() async {
+    enabled = await PrivacyPreferencesStore().appLockEnabled();
+    notifyListeners();
+  }
+
+  Future<void> refreshEnabled() async {
+    enabled = await PrivacyPreferencesStore().appLockEnabled();
+    if (!enabled) {
+      isLocked = false;
+      _armed = false;
+    }
+    notifyListeners();
+  }
+
+  /// Call when app goes to background — next resume will require PIN.
+  void arm() {
+    if (!enabled) return;
+    _armed = true;
+  }
+
+  /// Call on resume — lock only if we were backgrounded before.
+  Future<void> onResume() async {
+    if (!enabled || !_armed) return;
+    final configured = await PinSecurity.isRealPinConfigured();
+    if (!configured) return;
+    isLocked = true;
+    notifyListeners();
+  }
+
+  void unlock() {
+    isLocked = false;
+    notifyListeners();
+  }
+
+  Future<bool> verifyPin(String pin) async {
+    return PinSecurity.verifyRealPin(pin);
+  }
+}

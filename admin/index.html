@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Node Monitor — Admin</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="page-monitor">
+  <header>
+    <nav class="site-nav">
+      <a href="/">Мониторинг</a>
+      <a href="/setup">Настройка ноды</a>
+      <a href="/storage">Хранилище</a>
+      <a href="/enrollment">Enrollment</a>
+    </nav>
+    <h1>Node Monitor</h1>
+    <p class="subtitle">
+      Read-only обзор зарегистрированных узлов сети. Bootstrap-центр мониторинга
+      (ADR-0006) — не постоянная архитектура.
+    </p>
+    <div class="controls">
+      <label>Discovery (read-only, данные через admin-server):
+        <input id="discoveryUrl" type="text" readonly placeholder="http://194.67.92.147:8003">
+      </label>
+      <button id="refreshBtn">Обновить</button>
+      <span id="autoRefreshLabel">Автообновление: 5с</span>
+    </div>
+  </header>
+  <main>
+    <div class="table-wrap">
+    <table id="nodesTable">
+      <thead>
+        <tr>
+          <th>Доступность</th>
+          <th>node_id</th>
+          <th>Роли</th>
+          <th>URL</th>
+          <th>Версия</th>
+          <th>Пинг</th>
+          <th>Нагрузка</th>
+          <th>Доверие</th>
+          <th>Build</th>
+          <th>Attestation</th>
+          <th>Кластер</th>
+          <th>Последний heartbeat</th>
+        </tr>
+      </thead>
+      <tbody id="nodesBody">
+        <tr><td colspan="12" class="empty">Загрузка…</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </main>
+  <script src="/static/shared.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

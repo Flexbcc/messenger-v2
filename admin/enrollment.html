@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enrollment — Admin</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <nav class="site-nav">
+      <a href="/">Мониторинг</a>
+      <a href="/setup">Настройка ноды</a>
+      <a href="/storage">Хранилище</a>
+      <a href="/enrollment">Enrollment</a>
+    </nav>
+    <h1>Node Enrollment</h1>
+    <p class="subtitle">
+      Control Plane: подтверждение новых нод, suspend/compromise. Требует
+      <code>DISCOVERY_ADMIN_SECRET</code> на discovery-node.
+    </p>
+    <div class="controls panel-controls">
+      <label>Discovery URL
+        <input id="discoveryUrl" type="url" placeholder="http://discovery-node:8003">
+      </label>
+      <label>Admin secret
+        <input id="adminSecret" type="password" placeholder="DISCOVERY_ADMIN_SECRET" autocomplete="off">
+      </label>
+      <button type="button" id="refreshBtn">Обновить</button>
+    </div>
+  </header>
+  <main>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Доверие</th>
+            <th>node_id</th>
+            <th>Роли</th>
+            <th>URL</th>
+            <th>Доступность</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody id="nodesBody">
+          <tr><td colspan="6" class="empty">Загрузка…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p id="status" class="status-msg"></p>
+  </main>
+  <script src="/static/shared.js"></script>
+  <script src="/static/enrollment.js"></script>
+</body>
+</html>

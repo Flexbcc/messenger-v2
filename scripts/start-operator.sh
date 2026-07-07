@@ -10,5 +10,10 @@ if [[ ! -f config/deploy/laptop.env ]]; then
   exit 1
 fi
 
-chmod +x scripts/operator-console.py
+chmod +x scripts/operator-console.py scripts/setup-operator-secret.sh
+
+if ! grep -q '^OPERATOR_SECRET=.\+' config/deploy/laptop.env 2>/dev/null; then
+  echo "Подсказка: ./scripts/setup-operator-secret.sh — защита панели ключом" >&2
+fi
+
 exec python3 scripts/operator-console.py

@@ -313,6 +313,41 @@
     await runAction("/api/enrollment/approve-one", { node_id: btn.dataset.approve }, `Approve ${btn.dataset.approve}`);
   });
 
+  document.getElementById("btnCreateInvite").addEventListener("click", async () => {
+    const label = document.getElementById("inviteLabel").value.trim();
+    const ttl = parseInt(document.getElementById("inviteTtl").value, 10) || 300;
+    showStatus("Создаём invite…");
+    try {
+      const res = await api("/api/invite/create", {
+        method: "POST",
+        json: true,
+        body: JSON.stringify({ label: label || undefined, ttl_seconds: ttl }),
+      });
+      const box = document.getElementById("inviteResult");
+      const url = res.join_url || "";
+      document.getElementById("inviteUrl").textContent = url;
+      document.getElementById("inviteExpires").textContent = `Истекает: ${res.expires_at || "?"}`;
+      const qr = document.getElementById("inviteQr");
+      qr.innerHTML = url
+        ? `<img alt="QR" width="200" height="200" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}">`
+        : "";
+      box.classList.remove("hidden");
+      showStatus("Invite создан — одноразовый");
+    } catch (e) {
+      showStatus(e.message, false);
+    }
+  });
+
+  document.getElementById("btnCopyInvite").addEventListener("click", async () => {
+    const url = document.getElementById("inviteUrl").textContent;
+    try {
+      await navigator.clipboard.writeText(url);
+      showStatus("Скопировано");
+    } catch (_) {
+      showStatus("Не удалось скопировать", false);
+    }
+  });
+
   initAuth().then(() => refresh());
   setInterval(() => {
     if (!app.classList.contains("hidden")) refresh();

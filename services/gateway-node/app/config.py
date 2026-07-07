@@ -16,6 +16,11 @@ class Settings:
     software_version: str = os.environ.get("NODE_SOFTWARE_VERSION", "0.1.0")
     cluster_id: str = os.environ.get("CLUSTER_ID", "default")
 
+    # One-time client join invites (QR). Empty = invite API disabled.
+    invite_secret: str = os.environ.get("GATEWAY_INVITE_SECRET", "")
+    invite_db_path: str = os.environ.get("GATEWAY_INVITE_DB_PATH", "/data/invites.db")
+    invite_ttl_seconds: int = int(os.environ.get("GATEWAY_INVITE_TTL_SECONDS", "300"))
+
     enrollment_mode: str = os.environ.get("ENROLLMENT_MODE", "legacy").lower()
     node_token_path: str = os.environ.get("NODE_TOKEN_PATH", "/data/node_token")
     enrollment_secret_path: str = os.environ.get("ENROLLMENT_SECRET_PATH", "/data/enrollment_secret")

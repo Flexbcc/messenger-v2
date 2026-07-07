@@ -103,6 +103,31 @@ def test_gateway_routing() -> None:
     ok("gateway routing")
 
 
+def test_gateway_invite() -> None:
+    secret = os.environ.get("GATEWAY_INVITE_SECRET", "").strip()
+    if not secret:
+        print("SKIP gateway invite (GATEWAY_INVITE_SECRET not set)")
+        return
+    code, created = post(
+        "http://localhost:8007/gateway/invite/create",
+        {"cluster_id": "default", "ttl_seconds": 120, "label": "integration-test"},
+        headers={"X-Gateway-Invite-Secret": secret},
+    )
+    if code != 200 or "token" not in created:
+        fail("gateway invite create", f"code={code} body={created}")
+        return
+    token = created["token"]
+    code2, redeemed = get(f"http://localhost:8007/gateway/invite/redeem/{token}")
+    if code2 != 200 or "home_url" not in redeemed:
+        fail("gateway invite redeem", f"code={code2} body={redeemed}")
+        return
+    code3, again = get(f"http://localhost:8007/gateway/invite/redeem/{token}")
+    if code3 == 200:
+        fail("gateway invite single-use", "second redeem should fail")
+        return
+    ok("gateway invite create/redeem single-use")
+
+
 def test_register_and_prekeys() -> None:
     phone = f"+7999{uuid.uuid4().int % 10**7:07d}"
     bundle = {
@@ -256,6 +281,7 @@ def main() -> int:
     time.sleep(1)  # allow discovery trust cache to warm
     test_health_security_block()
     test_gateway_routing()
+    test_gateway_invite()
     test_discovery_nodes()
     test_register_and_prekeys()
     test_internal_deliver()

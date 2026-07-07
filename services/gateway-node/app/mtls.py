@@ -68,4 +68,8 @@ def mtls_required_for_path(path: str) -> bool:
         return False
     if path in ("/health", "/gateway/mtls/info"):
         return False
+    if path.startswith("/gateway/invite/redeem/"):
+        return False
+    if path == "/join":
+        return False
     return path.startswith("/gateway/")

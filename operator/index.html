@@ -32,6 +32,7 @@
         <button type="button" class="tab active" data-tab="dashboard">Обзор</button>
         <button type="button" class="tab" data-tab="nodes">Ноды</button>
         <button type="button" class="tab" data-tab="deploy">Деплой</button>
+        <button type="button" class="tab" data-tab="invite">Invite (QR)</button>
         <button type="button" class="tab" data-tab="logs">Логи</button>
       </nav>
       <p id="statusMsg" class="status"></p>
@@ -88,6 +89,25 @@
           <button id="btnUpdateWorker" type="button">node-update (worker)</button>
         </div>
         <pre id="actionOutput" class="log">—</pre>
+      </section>
+
+      <section id="tab-invite" class="tab-panel">
+        <div class="panel">
+          <h2>Приглашение в кластер (одноразовый QR)</h2>
+          <p class="meta">Клиент без своей ноды подключается по ссылке → регистрация на вашем Home.</p>
+          <label>Метка <input id="inviteLabel" type="text" placeholder="Офис / отдел"></label>
+          <label>TTL (сек) <input id="inviteTtl" type="number" value="300" min="30" max="86400"></label>
+          <div class="toolbar">
+            <button id="btnCreateInvite" type="button" class="primary">Создать invite</button>
+          </div>
+          <div id="inviteResult" class="invite-box hidden">
+            <p><strong>Ссылка</strong> (одноразовая):</p>
+            <code id="inviteUrl" class="invite-url"></code>
+            <button id="btnCopyInvite" type="button">Копировать</button>
+            <div id="inviteQr" class="qr-wrap"></div>
+            <p id="inviteExpires" class="meta"></p>
+          </div>
+        </div>
       </section>
 
       <section id="tab-logs" class="tab-panel">

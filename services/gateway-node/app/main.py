@@ -3,13 +3,17 @@ import asyncio
 import time
 from typing import Optional
 
+import hmac
+
 import httpx
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
+from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
+from app.invites import create_invite, init_db as init_invites_db, peek_invite, purge_expired, redeem_invite
 from app.mtls import (
     ALLOWED_GATEWAY_CLIENT_FINGERPRINTS,
     GATEWAY_MTLS_MODE,
@@ -63,7 +67,45 @@ _proxy_count = 0
 
 @app.on_event("startup")
 async def on_startup():
+    init_invites_db()
+    purge_expired()
     start_node_registration()
+
+
+class InviteCreateRequest(BaseModel):
+    cluster_id: Optional[str] = None
+    ttl_seconds: Optional[int] = Field(None, ge=30, le=86400)
+    label: Optional[str] = None
+
+
+def _invite_auth_ok(secret_header: Optional[str]) -> bool:
+    expected = settings.invite_secret
+    if not expected:
+        return False
+    if not secret_header:
+        return False
+    return hmac.compare_digest(secret_header, expected)
+
+
+def _join_url(token: str) -> str:
+    base = settings.public_url.rstrip("/")
+    return f"{base}/join?t={token}"
+
+
+async def _bootstrap_payload(cluster_id: str, strategy: str = "nearest") -> dict:
+    routing = await client_routing(cluster_id=cluster_id, strategy=strategy)
+    preferred = routing.get("preferred") or {}
+    defaults = routing.get("defaults") or {}
+    home_url = preferred.get("home_url") or defaults.get("home_url") or settings.default_home_url
+    media_url = preferred.get("media_url") or defaults.get("media_url") or settings.default_media_url
+    return {
+        "cluster_id": cluster_id,
+        "gateway_url": settings.public_url,
+        "discovery_url": routing.get("discovery_url") or settings.discovery_public_url,
+        "home_url": home_url,
+        "media_url": media_url,
+        "routing": routing,
+    }
 
 
 @app.get("/health")
@@ -208,4 +250,53 @@ async def proxy_discovery(path: str, request: Request):
         content=resp.content,
         status_code=resp.status_code,
         media_type=resp.headers.get("content-type"),
+    )
+
+
+@app.post("/gateway/invite/create")
+async def invite_create(
+    body: InviteCreateRequest,
+    x_gateway_invite_secret: Optional[str] = Header(None, alias="X-Gateway-Invite-Secret"),
+):
+    if not _invite_auth_ok(x_gateway_invite_secret):
+        raise HTTPException(status_code=403, detail="Invite API disabled or invalid secret")
+    cluster_id = body.cluster_id or settings.cluster_id
+    ttl = body.ttl_seconds or settings.invite_ttl_seconds
+    row = create_invite(cluster_id=cluster_id, ttl_seconds=ttl, label=body.label, created_by="operator")
+    token = row["token"]
+    return {
+        **row,
+        "join_url": _join_url(token),
+        "qr_payload": _join_url(token),
+    }
+
+
+@app.get("/gateway/invite/redeem/{token}")
+async def invite_redeem(token: str):
+    meta = redeem_invite(token)
+    if not meta:
+        raise HTTPException(status_code=404, detail="Invite invalid, expired, or already used")
+    payload = await _bootstrap_payload(meta["cluster_id"])
+    payload["invite_label"] = meta.get("label")
+    return payload
+
+
+@app.get("/join")
+async def join_landing(t: str = Query(..., min_length=8)):
+    """Browser landing for QR — does not consume the token (app redeems via API)."""
+    meta = peek_invite(t)
+    if not meta:
+        return HTMLResponse(
+            "<h1>Invite недействителен</h1><p>Срок истёк или уже использован.</p>",
+            status_code=404,
+        )
+    join_url = _join_url(t)
+    return HTMLResponse(
+        f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+        <title>Подключение к Messenger</title></head><body>
+        <h1>Приглашение в сеть</h1>
+        <p>Кластер: <code>{meta.get("cluster_id")}</code></p>
+        <p>Откройте приложение Messenger → «Подключиться к сети» → вставьте ссылку или отсканируйте QR.</p>
+        <p><code>{join_url}</code></p>
+        </body></html>"""
     )

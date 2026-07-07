@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'screens/call_screen.dart';
 import 'screens/home_shell.dart';
 import 'screens/security/login_approval_waiting_screen.dart';
+import 'screens/join_network_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'services/bootstrap_service.dart';
 import 'services/app_lock_service.dart';
 import 'services/database_init.dart';
 import 'services/os_notification_service.dart';
@@ -35,6 +37,7 @@ class _MessengerAppState extends ConsumerState<MessengerApp> with WidgetsBinding
     WidgetsBinding.instance.addObserver(this);
     Future.microtask(() async {
       await DatabaseInit.ensureInitialized();
+      await BootstrapStore.load();
       await OsNotificationService.instance.init();
       await AppLockService.instance.init();
       final controller = ref.read(appControllerProvider);

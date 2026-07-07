@@ -152,6 +152,16 @@ td.actions button { margin-right: .25rem; padding: .3rem .5rem; font-size: .75re
   white-space: pre-wrap;
 }
 
+.invite-box { margin-top: 1rem; }
+.invite-box label { display: block; margin: .5rem 0; font-size: .85rem; color: var(--muted); }
+.invite-box input[type="text"], .invite-box input[type="number"] {
+  width: 100%; margin-top: .25rem; padding: .45rem .6rem; border-radius: 8px;
+  border: 1px solid var(--border); background: #0b1018; color: var(--text);
+}
+.invite-url { display: block; word-break: break-all; margin: .5rem 0; padding: .5rem; background: #0b1018; border-radius: 8px; }
+.qr-wrap { margin-top: .75rem; }
+.qr-wrap img { background: #fff; padding: 8px; border-radius: 8px; }
+
 @media (max-width: 700px) {
   .head-row { flex-direction: column; }
 }

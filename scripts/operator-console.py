@@ -47,6 +47,8 @@ def _load_env() -> dict[str, str]:
         "WORKER_IP": "161.104.18.45",
         "LAPTOP_SSH_KEY": os.path.expanduser("~/.ssh/messenger_ops"),
         "OPERATOR_SECRET": "",
+        "GATEWAY_INVITE_SECRET": "",
+        "CLUSTER_ID": "default",
     }
     if LAPTOP_ENV.is_file():
         for line in LAPTOP_ENV.read_text(encoding="utf-8").splitlines():
@@ -57,6 +59,32 @@ def _load_env() -> dict[str, str]:
             cfg[k.strip()] = v.strip().replace("$HOME", os.path.expanduser("~"))
     cfg["OPERATOR_SECRET"] = os.environ.get("OPERATOR_SECRET", cfg.get("OPERATOR_SECRET", ""))
     return cfg
+
+
+def _http_json_request(url: str, method: str = "GET", body: dict | None = None, headers: dict | None = None) -> tuple[int, dict | str]:
+    data = None
+    hdrs = {"Accept": "application/json"}
+    if headers:
+        hdrs.update(headers)
+    if body is not None:
+        data = json.dumps(body).encode()
+        hdrs["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=data, method=method, headers=hdrs)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw = resp.read().decode()
+            try:
+                return resp.status, json.loads(raw)
+            except json.JSONDecodeError:
+                return resp.status, raw
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode()
+        try:
+            return exc.code, json.loads(raw)
+        except json.JSONDecodeError:
+            return exc.code, raw
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        return 0, str(exc)
 
 
 def _host_for_alias(cfg: dict[str, str], alias: str) -> str:
@@ -389,6 +417,26 @@ class Handler(BaseHTTPRequestHandler):
             host = _host_for_alias(c, host_alias)
             rc, out = _ssh(c, host, f"cd {INSTALL_DIR} && ./scripts/node-update.sh", timeout=600)
             self._json(200 if rc == 0 else 500, {"ok": rc == 0, "output": out})
+            return
+
+        if path == "/api/invite/create":
+            invite_secret = c.get("GATEWAY_INVITE_SECRET", "")
+            if not invite_secret:
+                self._json(400, {"error": "GATEWAY_INVITE_SECRET не задан в laptop.env"})
+                return
+            cluster_id = body.get("cluster_id") or c.get("CLUSTER_ID", "default")
+            ttl = int(body.get("ttl_seconds") or 300)
+            label = body.get("label") or ""
+            code, result = _http_json_request(
+                f"http://{c['MAIN_IP']}:8007/gateway/invite/create",
+                method="POST",
+                body={"cluster_id": cluster_id, "ttl_seconds": ttl, "label": label or None},
+                headers={"X-Gateway-Invite-Secret": invite_secret},
+            )
+            if code == 200 and isinstance(result, dict):
+                self._json(200, {"ok": True, **result})
+            else:
+                self._json(code or 500, {"ok": False, "error": str(result)})
             return
 
         self.send_error(404)

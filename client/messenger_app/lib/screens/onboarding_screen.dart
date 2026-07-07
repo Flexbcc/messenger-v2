@@ -6,6 +6,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/ui/app_button.dart';
 import '../core/ui/app_search_field.dart';
 import '../state/app_controller.dart';
+import 'join_network_screen.dart';
 import 'login_screen.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -99,6 +100,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   const SizedBox(height: AppSpacing.lg),
                   AppButton(label: 'Продолжить', onPressed: _loading ? null : _submit, loading: _loading),
                   const SizedBox(height: AppSpacing.md),
+                  TextButton(
+                    onPressed: _loading
+                        ? null
+                        : () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => JoinNetworkScreen(
+                                  onJoined: () => Navigator.of(context).pop(),
+                                ),
+                              ),
+                            ),
+                    child: Text('Подключиться к сети (QR / ссылка)', style: TextStyle(color: colors.primary)),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
                   TextButton(
                     onPressed: _loading
                         ? null

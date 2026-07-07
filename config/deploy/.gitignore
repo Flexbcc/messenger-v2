@@ -1,3 +1,4 @@
 gitea.env
 node.profile
 release.env
+workers.list

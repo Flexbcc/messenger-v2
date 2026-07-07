@@ -14,7 +14,7 @@ cd "$PROJECT_ROOT"
 
 GIT_HOST=""
 GIT_PORT="2222"
-GIT_OWNER="admin"
+GIT_OWNER="flex"
 GIT_REPO="messenger"
 BRANCH="main"
 REMOTE="origin"

@@ -2,12 +2,16 @@
 # Point this server's checkout at Gitea (flex/messenger) for git pull in node-update.
 #
 # Usage (on main or worker, as root):
-#   GITEA_HOST=194.67.92.147 GITEA_OWNER=flex ./scripts/setup-server-git.sh
+#   GITEA_PASSWORD=secret GITEA_HOST=194.67.92.147 ./scripts/setup-server-git.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/deploy-common.sh
 source "$SCRIPT_DIR/lib/deploy-common.sh"
+# shellcheck source=lib/ssh-keys.sh
+source "$SCRIPT_DIR/lib/ssh-keys.sh"
+# shellcheck source=lib/gitea-api.sh
+source "$SCRIPT_DIR/lib/gitea-api.sh"
 
 GITEA_HOST="${GITEA_HOST:-194.67.92.147}"
 GITEA_SSH_PORT="${GITEA_SSH_PORT:-2222}"
@@ -15,28 +19,15 @@ GITEA_OWNER="${GITEA_OWNER:-flex}"
 GITEA_REPO="${GITEA_REPO:-messenger}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
 SSH_KEY="${DEPLOY_SSH_KEY:-/root/.ssh/messenger_deploy}"
+KEY_TITLE="${DEPLOY_KEY_TITLE:-deploy-$(hostname -s)}"
 
 deploy_cd_root
-
-mkdir -p "$(dirname "$SSH_KEY")"
-if [[ ! -f "$SSH_KEY" ]]; then
-  echo "Generating deploy key: $SSH_KEY"
-  ssh-keygen -t ed25519 -f "$SSH_KEY" -N "" -C "messenger-deploy@$(hostname -s)"
-fi
-chmod 600 "$SSH_KEY"
-chmod 644 "${SSH_KEY}.pub"
+ensure_deploy_git_key "$SSH_KEY"
 
 git config --global --add safe.directory "$DEPLOY_ROOT"
 
 if ! git -C "$DEPLOY_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git -C "$DEPLOY_ROOT" init -b "$GIT_BRANCH"
-fi
-
-REMOTE_URL="ssh://git@${GITEA_HOST}:${GITEA_SSH_PORT}/${GITEA_OWNER}/${GITEA_REPO}.git"
-if git -C "$DEPLOY_ROOT" remote get-url origin >/dev/null 2>&1; then
-  git -C "$DEPLOY_ROOT" remote set-url origin "$REMOTE_URL"
-else
-  git -C "$DEPLOY_ROOT" remote add origin "$REMOTE_URL"
 fi
 
 mkdir -p /root/.ssh
@@ -54,7 +45,12 @@ EOF
   chmod 600 "$SSH_CONFIG"
 fi
 
-git -C "$DEPLOY_ROOT" remote set-url origin "ssh://messenger-gitea/${GITEA_OWNER}/${GITEA_REPO}.git"
+REMOTE_URL="ssh://messenger-gitea/${GITEA_OWNER}/${GITEA_REPO}.git"
+if git -C "$DEPLOY_ROOT" remote get-url origin >/dev/null 2>&1; then
+  git -C "$DEPLOY_ROOT" remote set-url origin "$REMOTE_URL"
+else
+  git -C "$DEPLOY_ROOT" remote add origin "$REMOTE_URL"
+fi
 
 mkdir -p "${DEPLOY_ROOT}/config/deploy"
 PROFILE="${DEPLOY_ROOT}/config/deploy/node.profile"
@@ -66,14 +62,10 @@ mv "${PROFILE}.tmp" "$PROFILE"
   echo "GIT_BRANCH=${GIT_BRANCH}"
 } >> "$PROFILE"
 
-echo
-echo "=== Server git configured ==="
-echo "Remote: ssh://messenger-gitea/${GITEA_OWNER}/${GITEA_REPO}.git"
-echo
-echo "Add this deploy key in Gitea (repo ${GITEA_OWNER}/${GITEA_REPO} → Settings → Deploy Keys):"
-echo "---"
-cat "${SSH_KEY}.pub"
-echo "---"
-echo
-echo "Test after adding key:"
-echo "  cd ${DEPLOY_ROOT} && git fetch origin ${GIT_BRANCH} && git merge --ff-only FETCH_HEAD"
+if gitea_load_credentials 2>/dev/null; then
+  gitea_register_deploy_key "$KEY_TITLE" "$(cat "${SSH_KEY}.pub")" true || true
+else
+  echo "WARN: GITEA_PASSWORD not set — deploy key not registered via API." >&2
+fi
+
+echo "Server git ready: $REMOTE_URL"

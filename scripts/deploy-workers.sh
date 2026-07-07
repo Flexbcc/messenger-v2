@@ -22,10 +22,16 @@ if [[ ${#WORKERS[@]} -eq 0 ]]; then
   exit 0
 fi
 
+ORCH_KEY="${ORCHESTRATOR_SSH_KEY:-/root/.ssh/messenger_orchestrator}"
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=15)
+if [[ -f "$ORCH_KEY" ]]; then
+  SSH_OPTS+=(-i "$ORCH_KEY" -o IdentitiesOnly=yes)
+fi
+
 INSTALL_DIR="${DEPLOY_ROOT}"
 for host in "${WORKERS[@]}"; do
   echo "=== Worker deploy: ${host} ==="
-  ssh -o BatchMode=yes -o ConnectTimeout=15 "$host" \
+  ssh "${SSH_OPTS[@]}" "$host" \
     "cd ${INSTALL_DIR} && ./scripts/node-update.sh"
 done
 

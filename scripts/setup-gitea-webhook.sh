@@ -97,7 +97,23 @@ PY
 )" >/dev/null
   echo "Webhook created: ${HOOK_URL}"
 else
-  echo "Webhook already exists for ${GITEA_USER}/${GITEA_REPO}"
+  for hid in $hook_ids; do
+    curl -sf -X PATCH "${API}/repos/${GITEA_USER}/${GITEA_REPO}/hooks/${hid}" "${AUTH[@]}" \
+      -H "Content-Type: application/json" \
+      -d "$(python3 - <<PY
+import json
+print(json.dumps({
+    "config": {
+        "url": "${HOOK_URL}",
+        "content_type": "json",
+        "secret": "${DEPLOY_WEBHOOK_SECRET}",
+    },
+    "active": True,
+}))
+PY
+)" >/dev/null
+  done
+  echo "Webhook updated (secret synced): ${HOOK_URL}"
 fi
 
 mkdir -p "${DEPLOY_ROOT}/config/deploy"

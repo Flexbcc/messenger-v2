@@ -4,6 +4,8 @@ in ~/secure-messenger-project/backend/app/services/routing.py (ADR-0005),
 but resolving addresses via a dedicated Discovery Node instead of
 broadcasting to every configured peer.
 """
+from __future__ import annotations
+
 import asyncio
 import logging
 from typing import Optional
@@ -20,18 +22,28 @@ logger = logging.getLogger(__name__)
 RELAY_PING_TIMEOUT_SECONDS = 3.0
 
 
-async def publish_user_to_discovery(user_id: str, display_name: str, auth_public_key: str) -> None:
+async def publish_user_to_discovery(
+    user_id: str,
+    display_name: str,
+    auth_public_key: str,
+    login: str | None = None,
+    username_search_enabled: bool = True,
+) -> None:
     async with httpx.AsyncClient(timeout=5.0) as client:
         try:
+            body = {
+                "user_id": user_id,
+                "home_node_url": settings.public_url,
+                "display_name": display_name,
+                "auth_public_key": auth_public_key,
+                "cluster_id": settings.cluster_id,
+                "username_search_enabled": username_search_enabled,
+            }
+            if login:
+                body["login"] = login
             await client.post(
                 f"{settings.discovery_url}/registry/users",
-                json={
-                    "user_id": user_id,
-                    "home_node_url": settings.public_url,
-                    "display_name": display_name,
-                    "auth_public_key": auth_public_key,
-                    "cluster_id": settings.cluster_id,
-                },
+                json=body,
             )
         except httpx.HTTPError as e:
             logger.warning("Failed to publish user %s to discovery: %s", user_id, e)
@@ -51,6 +63,13 @@ async def resolve_home_node(user_id: str) -> Optional[str]:
 
 
 async def _list_discovery_nodes(capability: str, cluster_id: Optional[str]) -> list[str]:
+    from shared.mesh.registry import get_mesh_registry
+
+    registry = get_mesh_registry()
+    cached = registry.urls_for_capability(capability, cluster_id=cluster_id)
+    if cached:
+        return cached
+
     params: dict[str, str] = {"capability": capability}
     if cluster_id:
         params["cluster_id"] = cluster_id
@@ -98,6 +117,36 @@ async def _fastest_reachable(urls: list[str]) -> Optional[str]:
     return None
 
 
+async def _rank_reachable(urls: list[str]) -> list[str]:
+    """
+    Like _fastest_reachable but returns ALL relays that answered /health,
+    ordered fastest-first. Lets the caller retry the actual forward on the
+    next relay if the fastest one passes health but fails the real request
+    or dies between the ping and the forward (retry-across-relays).
+    """
+    if not urls:
+        return []
+
+    async def ping(url: str) -> str:
+        async with httpx.AsyncClient(timeout=RELAY_PING_TIMEOUT_SECONDS) as client:
+            resp = await client.get(f"{url}/health")
+            resp.raise_for_status()
+            return url
+
+    ranked: list[str] = []
+    pending = {asyncio.create_task(ping(u)) for u in urls}
+    try:
+        while pending:
+            done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                if task.exception() is None:
+                    ranked.append(task.result())
+    finally:
+        for task in pending:
+            task.cancel()
+    return ranked
+
+
 def _discovery_cluster_filter() -> Optional[str]:
     """Which cluster_id to pass to Discovery when resolving aux nodes."""
     if settings.resource_policy == "cluster":
@@ -115,8 +164,13 @@ async def _find_capability_node(capability: str) -> Optional[str]:
     return await _fastest_reachable(candidates)
 
 
-async def _find_relay_url() -> Optional[str]:
-    return await _find_capability_node("relay")
+async def _reachable_relays() -> list[str]:
+    """All live relays from Discovery, fastest-first, for retry-across-relays."""
+    if settings.resource_policy == "local":
+        return []
+    cluster_id = _discovery_cluster_filter()
+    candidates = await _list_discovery_nodes("relay", cluster_id)
+    return await _rank_reachable(candidates)
 
 
 async def _resolve_storage_url() -> str:
@@ -166,8 +220,8 @@ async def deliver_to_remote_home_node(home_node_url: str, envelope: dict, conver
     if settings.resource_policy == "local":
         raise RuntimeError(f"Direct delivery to {home_node_url} failed and relay fallback disabled (local policy)")
 
-    relay_url = await _find_relay_url()
-    if not relay_url:
+    relay_urls = await _reachable_relays()
+    if not relay_urls:
         raise RuntimeError(f"Direct delivery to {home_node_url} failed and no relay available")
 
     relay_payload = build_relay_forward_payload(
@@ -177,16 +231,32 @@ async def deliver_to_remote_home_node(home_node_url: str, envelope: dict, conver
         conversation_meta=conversation_meta,
         target_home_node_url=home_node_url,
     )
+    # Retry across relays: a relay can pass /health yet fail the actual forward
+    # (or die between ping and forward) — try the next live relay instead of
+    # failing the whole delivery on the first one.
+    last_error: Optional[Exception] = None
     async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await federation_post(
-            client,
-            f"{relay_url}/relay/forward",
-            path="/relay/forward",
-            payload=relay_payload,
-            signing_key=fs.signing_key,
-            node_id=fs.node_id,
-        )
-        resp.raise_for_status()
+        for relay_url in relay_urls:
+            try:
+                resp = await federation_post(
+                    client,
+                    f"{relay_url}/relay/forward",
+                    path="/relay/forward",
+                    payload=relay_payload,
+                    signing_key=fs.signing_key,
+                    node_id=fs.node_id,
+                )
+                resp.raise_for_status()
+                return
+            except httpx.HTTPError as e:
+                last_error = e
+                logger.warning(
+                    "Relay %s forward failed (%s), trying next relay", relay_url, e
+                )
+    raise RuntimeError(
+        f"Direct delivery to {home_node_url} failed and all {len(relay_urls)} "
+        f"relay(s) failed"
+    ) from last_error
 
 
 async def buffer_for_offline_user(user_id: str, envelope: dict) -> None:

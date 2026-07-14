@@ -6,24 +6,45 @@ user and is unauthenticated by design (needed by any sender before X3DH).
 This router is auth-scoped to "me" only — no endpoint here can read or
 change another user's account.
 """
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.deps import get_current_device
+from app.discovery_publish import republish_user_to_discovery
+from app.profile_helpers import normalize_login
 from app.models import Device, User
 from app.schemas import (
     ChangePasswordRequest,
     DeviceSummaryResponse,
     MeResponse,
+    ProfileSettingsPayload,
     UpdateDisplayNameRequest,
+    UpdateProfileRequest,
 )
 from app.security import hash_password, verify_password
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+def _me_response(user: User) -> MeResponse:
+    return MeResponse(
+        user_id=user.id,
+        display_name=user.display_name,
+        phone=user.phone,
+        login=user.login,
+        email=user.email,
+        bio=user.bio,
+        created_at=user.created_at,
+    )
+
+
+async def _device_for_user(db: AsyncSession, user_id: str, device_id: str) -> Device | None:
+    device = await db.get(Device, device_id)
+    if device is None or device.user_id != user_id:
+        return None
+    return device
 
 
 @router.get("/me", response_model=MeResponse)
@@ -35,14 +56,7 @@ async def get_me(
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return MeResponse(
-        user_id=user.id,
-        display_name=user.display_name,
-        phone=user.phone,
-        login=user.login,
-        email=user.email,
-        created_at=user.created_at,
-    )
+    return _me_response(user)
 
 
 @router.patch("/me", response_model=MeResponse)
@@ -51,7 +65,7 @@ async def update_me(
     current: tuple[str, str] = Depends(get_current_device),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id, _device_id = current
+    user_id, device_id = current
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -63,14 +77,108 @@ async def update_me(
     user.display_name = display_name
     await db.commit()
 
-    return MeResponse(
-        user_id=user.id,
-        display_name=user.display_name,
-        phone=user.phone,
-        login=user.login,
-        email=user.email,
-        created_at=user.created_at,
-    )
+    device = await _device_for_user(db, user_id, device_id)
+    if device:
+        await republish_user_to_discovery(user, device)
+
+    return _me_response(user)
+
+
+@router.put("/me/profile", response_model=MeResponse)
+async def update_profile(
+    payload: UpdateProfileRequest,
+    current: tuple[str, str] = Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id, device_id = current
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if payload.display_name is not None:
+        name = payload.display_name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="display_name cannot be empty")
+        user.display_name = name
+
+    if payload.login is not None:
+        raw = payload.login.strip()
+        if not raw:
+            user.login = None
+        else:
+            try:
+                normalized = normalize_login(raw)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            conflict = await db.execute(
+                select(User).where(User.login == normalized, User.id != user_id)
+            )
+            if conflict.scalar_one_or_none():
+                raise HTTPException(status_code=409, detail="login already taken")
+            user.login = normalized
+
+    if payload.email is not None:
+        email = payload.email.strip() or None
+        if email:
+            conflict = await db.execute(
+                select(User).where(User.email == email, User.id != user_id)
+            )
+            if conflict.scalar_one_or_none():
+                raise HTTPException(status_code=409, detail="email already taken")
+        user.email = email
+
+    if payload.phone is not None:
+        phone = payload.phone.strip()
+        if phone:
+            conflict = await db.execute(
+                select(User).where(User.phone == phone, User.id != user_id)
+            )
+            if conflict.scalar_one_or_none():
+                raise HTTPException(status_code=409, detail="phone already taken")
+            user.phone = phone
+
+    if payload.bio is not None:
+        user.bio = payload.bio.strip() or None
+
+    await db.commit()
+
+    device = await _device_for_user(db, user_id, device_id)
+    if device:
+        await republish_user_to_discovery(user, device)
+
+    return _me_response(user)
+
+
+@router.get("/me/profile-settings")
+async def get_profile_settings(
+    current: tuple[str, str] = Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id, _device_id = current
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user.profile_settings or {"values": {}, "lists": {}}
+
+
+@router.put("/me/profile-settings")
+async def put_profile_settings(
+    payload: ProfileSettingsPayload,
+    current: tuple[str, str] = Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id, device_id = current
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.profile_settings = {"values": payload.values, "lists": payload.lists}
+    await db.commit()
+
+    device = await _device_for_user(db, user_id, device_id)
+    if device:
+        await republish_user_to_discovery(user, device)
+
+    return {"ok": True}
 
 
 @router.post("/me/change-password")

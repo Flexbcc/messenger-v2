@@ -33,6 +33,8 @@ class User(Base):
     phone: Mapped[str] = mapped_column(String(32), unique=True, index=True)
     login: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True, index=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    profile_settings: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     password_hash: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

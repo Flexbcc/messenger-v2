@@ -8,6 +8,8 @@ class RegisterUserRecord(BaseModel):
     display_name: Optional[str] = None
     auth_public_key: str  # base64 Ed25519 public key
     cluster_id: str = "default"
+    login: Optional[str] = None
+    username_search_enabled: bool = True
 
 
 class UserRecordResponse(BaseModel):
@@ -16,6 +18,8 @@ class UserRecordResponse(BaseModel):
     display_name: Optional[str] = None
     auth_public_key: str
     cluster_id: str = "default"
+    login: Optional[str] = None
+    username_search_enabled: bool = True
     updated_at: str
 
 
@@ -55,6 +59,12 @@ class NodeCapabilityResponse(BaseModel):
     attestation_status: str = "skipped"
     attestation_detail: Optional[str] = None
     signing_public_key: Optional[str] = None
+    # Active health-check (may be None until first probe)
+    health_status: Optional[str] = None
+    last_health_check: Optional[str] = None
+    # Vulnerability response
+    version_status: str = "ok"
+    quarantine_action: str = "off"
 
 
 class NodeCapabilityListResponse(BaseModel):
@@ -86,3 +96,48 @@ class AdminActionResponse(BaseModel):
 
 class SuspendNodeRequest(BaseModel):
     reason: Optional[str] = None
+
+
+# --- Vulnerability response ------------------------------------------------
+
+class BlockedVersion(BaseModel):
+    version: str
+    reason: Optional[str] = None
+    blocked_at: str
+
+
+class BlockVersionRequest(BaseModel):
+    version: str
+    reason: Optional[str] = None
+
+
+class BlockedVersionListResponse(BaseModel):
+    blocked_versions: List[BlockedVersion]
+
+
+class QuarantineModeRequest(BaseModel):
+    mode: str  # off | warn | isolate
+
+
+class ForceUpgradeRequest(BaseModel):
+    force_upgrade: bool
+
+
+class VulnerabilityPolicyResponse(BaseModel):
+    quarantine_mode: str
+    force_upgrade: bool
+    blocked_versions: List[BlockedVersion]
+
+
+# --- Health-check ----------------------------------------------------------
+
+class HealthCheckResult(BaseModel):
+    node_id: str
+    reachability: str
+    health_status: str
+    last_health_check: str
+
+
+class HealthCheckRunResponse(BaseModel):
+    checked: int
+    results: List[HealthCheckResult]

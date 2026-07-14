@@ -115,7 +115,21 @@ class MeResponse(BaseModel):
     phone: str
     login: Optional[str]
     email: Optional[str]
+    bio: Optional[str] = None
     created_at: datetime
+
+
+class UpdateProfileRequest(BaseModel):
+    display_name: Optional[str] = None
+    login: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    bio: Optional[str] = None
+
+
+class ProfileSettingsPayload(BaseModel):
+    values: dict = {}
+    lists: dict = {}
 
 
 class UpdateDisplayNameRequest(BaseModel):

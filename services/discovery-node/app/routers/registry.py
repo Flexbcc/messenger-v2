@@ -16,10 +16,10 @@ from app.schemas import (
 from app.security import generate_enrollment_secret, hash_value, verify_hash
 from app.attestation_flow import apply_attestation
 from app.trust import enrollment_required, initial_trust_status_for_register, now_iso, reachability_for
+from app.policy import blocked_version_set, get_quarantine_mode, evaluate_version
+from app.mesh_notify import schedule_mesh_peer_notify, should_notify_on_register
 
 router = APIRouter()
-
-OFFLINE_THRESHOLD_SECONDS = 120
 
 
 def _cluster_from_row(row) -> str:
@@ -62,6 +62,14 @@ def _attestation_from_row(row) -> dict:
         }
 
 
+def _row_field(row, name, default=None):
+    try:
+        val = row[name]
+        return val if val is not None else default
+    except (KeyError, IndexError):
+        return default
+
+
 def _node_response(row, *, last_heartbeat: str) -> NodeCapabilityResponse:
     reachability = reachability_for(last_heartbeat)
     trust_status = _trust_from_row(row)
@@ -76,6 +84,10 @@ def _node_response(row, *, last_heartbeat: str) -> NodeCapabilityResponse:
         reachability=reachability,
         last_heartbeat=last_heartbeat,
         status=reachability,
+        health_status=_row_field(row, "health_status"),
+        last_health_check=_row_field(row, "last_health_check"),
+        version_status=_row_field(row, "version_status", "ok"),
+        quarantine_action=_row_field(row, "quarantine_action", "off"),
         **att,
     )
 
@@ -83,6 +95,17 @@ def _node_response(row, *, last_heartbeat: str) -> NodeCapabilityResponse:
 def _register_response(row, *, last_heartbeat: str, enrollment_secret: Optional[str] = None) -> RegisterNodeResponse:
     base = _node_response(row, last_heartbeat=last_heartbeat)
     return RegisterNodeResponse(**base.model_dump(), enrollment_secret=enrollment_secret)
+
+
+def _apply_version_policy(conn, node_id: str, software_version: str) -> None:
+    """Recompute version_status/quarantine_action for a node against blocked_versions."""
+    version_status, quarantine_action = evaluate_version(
+        software_version, blocked_version_set(), get_quarantine_mode()
+    )
+    conn.execute(
+        "UPDATE node_capabilities SET version_status = ?, quarantine_action = ? WHERE node_id = ?",
+        (version_status, quarantine_action, node_id),
+    )
 
 
 def _bearer_token(authorization: Optional[str]) -> Optional[str]:
@@ -100,13 +123,15 @@ def register_user(payload: RegisterUserRecord):
     with get_conn() as conn:
         conn.execute(
             """
-            INSERT INTO user_records (user_id, home_node_url, display_name, auth_public_key, cluster_id, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO user_records (user_id, home_node_url, display_name, auth_public_key, cluster_id, login, username_search_enabled, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id) DO UPDATE SET
                 home_node_url=excluded.home_node_url,
                 display_name=excluded.display_name,
                 auth_public_key=excluded.auth_public_key,
                 cluster_id=excluded.cluster_id,
+                login=COALESCE(excluded.login, user_records.login),
+                username_search_enabled=excluded.username_search_enabled,
                 updated_at=excluded.updated_at
             """,
             (
@@ -115,6 +140,8 @@ def register_user(payload: RegisterUserRecord):
                 payload.display_name,
                 payload.auth_public_key,
                 payload.cluster_id,
+                payload.login,
+                1 if payload.username_search_enabled else 0,
                 now,
             ),
         )
@@ -125,8 +152,29 @@ def register_user(payload: RegisterUserRecord):
         display_name=payload.display_name,
         auth_public_key=payload.auth_public_key,
         cluster_id=payload.cluster_id,
+        login=payload.login,
+        username_search_enabled=payload.username_search_enabled,
         updated_at=now,
     )
+
+
+@router.get("/registry/users/search", response_model=UserRecordResponse)
+def search_user_by_login(login: str = Query(..., min_length=3)):
+    normalized = login.strip().lstrip('@').lower()
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM user_records WHERE LOWER(login) = ? LIMIT 1",
+            (normalized,),
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    data = dict(row)
+    data.setdefault("cluster_id", "default")
+    if not data.get("username_search_enabled", 1):
+        raise HTTPException(status_code=403, detail="Username search disabled for this user")
+    if not data.get("login"):
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserRecordResponse(**data)
 
 
 @router.get("/registry/users/{user_id}", response_model=UserRecordResponse)
@@ -219,10 +267,15 @@ def register_node_capability(payload: RegisterNodeCapability):
                 payload.signing_public_key,
             ),
         )
+        _apply_version_policy(conn, payload.node_id, payload.software_version)
         row = conn.execute(
             "SELECT * FROM node_capabilities WHERE node_id = ?", (payload.node_id,)
         ).fetchone()
+        notify = should_notify_on_register(existing, payload, _trust_from_row(row))
         conn.commit()
+
+    if notify and row:
+        schedule_mesh_peer_notify(dict(row), reason="register")
 
     return _register_response(row, last_heartbeat=now, enrollment_secret=enrollment_secret_plain)
 
@@ -284,6 +337,7 @@ def heartbeat(
                 node_id,
             ),
         )
+        _apply_version_policy(conn, node_id, version)
         conn.commit()
         row = conn.execute("SELECT * FROM node_capabilities WHERE node_id = ?", (node_id,)).fetchone()
 
@@ -302,6 +356,10 @@ def list_nodes(
     for row in rows:
         trust = _trust_from_row(row)
         if not include_untrusted and trust != "trusted":
+            continue
+        # Vulnerability quarantine (isolate): exclude blocked nodes from the
+        # public listing so they receive no relay/storage/discovery work.
+        if not include_untrusted and _row_field(row, "quarantine_action", "off") == "isolate":
             continue
         caps = json.loads(row["capabilities"])
         if capability and capability not in caps:

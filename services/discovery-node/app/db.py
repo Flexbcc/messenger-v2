@@ -34,6 +34,11 @@ def init_db():
             """
         )
         _add_column_if_missing(conn, "user_records", "cluster_id", "TEXT NOT NULL DEFAULT 'default'")
+        _add_column_if_missing(conn, "user_records", "login", "TEXT")
+        _add_column_if_missing(conn, "user_records", "username_search_enabled", "INTEGER NOT NULL DEFAULT 1")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_user_records_login ON user_records(login)"
+        )
 
         conn.execute(
             """
@@ -75,8 +80,34 @@ def init_db():
             ("attestation_status", "TEXT NOT NULL DEFAULT 'skipped'"),
             ("attestation_detail", "TEXT"),
             ("signing_public_key", "TEXT"),
+            # Active health-check (Node Monitor)
+            ("health_status", "TEXT"),
+            ("last_health_check", "TEXT"),
+            # Vulnerability response / version quarantine
+            ("version_status", "TEXT NOT NULL DEFAULT 'ok'"),
+            ("quarantine_action", "TEXT NOT NULL DEFAULT 'off'"),
         ):
             _add_column_if_missing(conn, "node_capabilities", col, defn)
+
+        # Vulnerability response: blocked (vulnerable) software versions.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS blocked_versions (
+                version TEXT PRIMARY KEY,
+                reason TEXT,
+                blocked_at TEXT NOT NULL
+            )
+            """
+        )
+        # Network-level policy KV (quarantine_mode, force_upgrade, ...).
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS discovery_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+            """
+        )
 
         # Grandfather existing rows from pre-enrollment schema.
         conn.execute(
@@ -90,6 +121,9 @@ def init_db():
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_node_trust_status ON node_capabilities(trust_status)"
         )
+        # Seed policy defaults from env (idempotent — INSERT OR IGNORE).
+        from app.policy import _seed_settings
+        _seed_settings(conn)
         conn.commit()
 
 

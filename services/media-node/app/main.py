@@ -4,10 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config_loader import get_settings
+from app.config import settings as node_settings
 from app.db import init_db
 from app.node_registration import start_node_registration
 from app.routers import admin_storage, media
 from app.storage_service import purge_expired
+from shared.mesh.install import install_mesh
 from shared.security.health import security_health_snapshot
 
 app = FastAPI(title="Media Node", version="0.2.0")
@@ -54,3 +56,10 @@ def health():
 
 app.include_router(media.router)
 app.include_router(admin_storage.router)
+
+install_mesh(
+    app,
+    discovery_url=node_settings.discovery_url,
+    node_id=node_settings.node_id,
+    cluster_id=node_settings.cluster_id,
+)

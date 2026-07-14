@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.fed_security import FederationAuthDep, get_federation_security
 from app.node_registration import start_node_registration
+from shared.mesh.install import install_mesh
 from shared.security.envelope_verify import verify_incoming_federation
 from shared.security.health import security_health_snapshot
 from shared.security.http_client import federation_post
@@ -91,3 +92,11 @@ async def forward(payload: dict, _verified: str = FederationAuthDep):
 
     _forwarded_count += 1
     return {"status": "forwarded"}
+
+
+install_mesh(
+    app,
+    discovery_url=settings.discovery_url,
+    node_id=settings.node_id,
+    cluster_id=settings.cluster_id,
+)

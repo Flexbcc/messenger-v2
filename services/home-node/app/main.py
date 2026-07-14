@@ -6,6 +6,7 @@ from app.db import init_db
 from app.node_registration import start_node_registration
 from app.routers import auth, conversations, devices, internal, media_proxy, messages, security_signals, users, ws
 from app.ws import manager
+from shared.mesh.install import install_mesh
 from shared.security.health import security_health_snapshot
 
 app = FastAPI(title="Home Node", version="0.1.0")
@@ -47,3 +48,10 @@ app.include_router(security_signals.router)
 app.include_router(internal.router)
 app.include_router(media_proxy.router)
 app.include_router(ws.router)
+
+install_mesh(
+    app,
+    discovery_url=settings.discovery_url,
+    node_id=settings.node_id,
+    cluster_id=settings.cluster_id,
+)

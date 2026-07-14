@@ -28,7 +28,11 @@ def _resolve_backends(owner_user_id: Optional[str], tier: str):
 
     personal = None
     if owner_user_id and settings.personal_cloud.enabled:
+        from app.home_storage_profile import fetch_user_storage_profile_sync, home_storage_profiles_enabled
+
         has_profile = owner_user_id in settings.personal_cloud.users
+        if home_storage_profiles_enabled():
+            has_profile = has_profile or fetch_user_storage_profile_sync(owner_user_id) is not None
         use_personal = settings.personal_cloud.default_for_node_users == "personal" or has_profile
         if use_personal:
             personal = personal_backend_for_user(owner_user_id, settings)

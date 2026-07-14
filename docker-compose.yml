@@ -103,6 +103,7 @@ services:
       STORAGE_CONFIG: /project/config/storage.json
       MEDIA_DB_PATH: /data/media.db
       HOME_DB_BACKUP_PATH: /data/home/home.db
+      HOME_NODE_URL: ${HOME_NODE_PUBLIC_URL:-http://home-node:8001}
     volumes:
       - ./data/media:/data/media_blobs
       - ./data/media-meta:/data
@@ -164,7 +165,9 @@ services:
       - ./data/turn:/data
 
   gateway-node:
-    build: ./services/gateway-node
+    build:
+      context: .
+      dockerfile: services/gateway-node/Dockerfile
     restart: unless-stopped
     ports:
       - "${GATEWAY_PORT:-8007}:8007"

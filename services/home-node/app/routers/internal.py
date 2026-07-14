@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db import get_db
 from app.fanout import deliver_locally_for_federated_message, upsert_conversation_mirror
 from app.fed_security import FederationAuthDep, get_federation_security
-from app.models import Message
+from app.models import Message, User
 from app.schemas import InternalDeliverRequest
+from app.storage_policy import build_media_user_profile, build_storage_policy_summary
 from shared.security.config import INTERNAL_SECURITY_MODE
 from shared.security.envelope_verify import verify_incoming_federation
 
@@ -52,3 +54,24 @@ async def deliver(
 
     await deliver_locally_for_federated_message(db, payload.conversation_meta, envelope)
     return {"status": "delivered"}
+
+
+@router.get("/users/{user_id}/storage-profile")
+async def user_storage_profile(user_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Media-node (federation) reads per-user storage policy derived from
+    profile_settings.storage_ownership catalog values.
+    """
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    profile = build_media_user_profile(
+        user_id,
+        user.profile_settings,
+        default_relay_url=settings.public_url,
+    )
+    return {
+        "user_id": user_id,
+        "profile": profile,
+        "policy": build_storage_policy_summary(user.profile_settings),
+    }

@@ -25,6 +25,7 @@ from app.mtls import (
     server_cert_fingerprint,
 )
 from app.node_registration import start_node_registration
+from shared.mesh.install import install_mesh
 
 app = FastAPI(title="Gateway Node", version="0.2.0")
 
@@ -300,3 +301,11 @@ async def join_landing(t: str = Query(..., min_length=8)):
         <p><code>{join_url}</code></p>
         </body></html>"""
     )
+
+
+install_mesh(
+    app,
+    discovery_url=settings.discovery_url,
+    node_id=settings.node_id,
+    cluster_id=settings.cluster_id,
+)

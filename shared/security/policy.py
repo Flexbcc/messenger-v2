@@ -3,6 +3,8 @@
 ENDPOINT_CAPABILITIES: dict[tuple[str, str], set[str]] = {
     ("POST", "/internal/deliver"): {"home", "relay"},
     ("POST", "/relay/forward"): {"home", "relay"},
+    ("POST", "/internal/mesh/peer-joined"): {"discovery", "home", "relay", "storage", "media", "gateway", "turn"},
+    ("GET", "/internal/mesh/peers"): {"discovery", "home", "relay", "storage", "media", "gateway", "turn"},
     ("POST", "/buffer"): {"home", "relay"},
     ("GET", "/buffer"): {"home"},  # prefix match handled separately
     ("DELETE", "/buffer"): {"home"},

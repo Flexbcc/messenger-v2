@@ -1,4 +1,4 @@
-import 'bootstrap_service.dart';
+import 'services/bootstrap_service.dart';
 
 /// MVP config: compile-time defaults, overridden by [BootstrapStore] after invite.
 class AppConfig {

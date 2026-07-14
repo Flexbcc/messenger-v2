@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db import get_conn, init_db
 from app.node_registration import start_node_registration
 from app.routers import buffer
+from app.config import settings
+from shared.mesh.install import install_mesh
 from shared.security.health import security_health_snapshot
 
 app = FastAPI(title="Storage Node", version="0.1.0")
@@ -29,3 +31,10 @@ def health():
 
 
 app.include_router(buffer.router)
+
+install_mesh(
+    app,
+    discovery_url=settings.discovery_url,
+    node_id=settings.node_id,
+    cluster_id=settings.cluster_id,
+)

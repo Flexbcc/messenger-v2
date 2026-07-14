@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import get_db
-from app.federation import publish_user_to_discovery
+from app.discovery_publish import republish_user_to_discovery
+from app.profile_helpers import normalize_login
 from app.models import Device, User
 from app.schemas import (
     ChallengeRequest,
@@ -48,10 +49,17 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="phone/login/email already registered")
 
+    login = None
+    if payload.login:
+        try:
+            login = normalize_login(payload.login)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
     user = User(
         display_name=payload.display_name,
         phone=payload.phone,
-        login=payload.login,
+        login=login,
         email=payload.email,
         password_hash=hash_password(payload.password),
     )
@@ -68,7 +76,7 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
     db.add(device)
     await db.commit()
 
-    await publish_user_to_discovery(user.id, user.display_name, device.auth_public_key)
+    await republish_user_to_discovery(user, device)
 
     access_token = create_access_token({"sub": user.id, "device_id": device.id})
     return RegisterResponse(user_id=user.id, device_id=device.id, access_token=access_token)
@@ -140,6 +148,8 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
         )
         db.add(device)
         await db.commit()
+
+    await republish_user_to_discovery(user, device)
 
     access_token = create_access_token({"sub": user.id, "device_id": device.id})
     return LoginResponse(user_id=user.id, device_id=device.id, access_token=access_token)

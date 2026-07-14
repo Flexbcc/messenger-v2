@@ -7,6 +7,7 @@
 //
 // Requires the backend to be running locally (see project/services/).
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:messenger_app/crypto/crypto_service.dart';
@@ -14,6 +15,7 @@ import 'package:messenger_app/services/api_client.dart';
 
 void main() {
   test('Two real users register, message each other, and only the recipient can decrypt', () async {
+    final suffix = Random().nextInt(999999).toString().padLeft(6, '0');
     final aliceApi = ApiClient();
     final bobApi = ApiClient();
     final aliceCrypto = CryptoService.ephemeral();
@@ -22,7 +24,7 @@ void main() {
     final aliceBundle = await aliceCrypto.generatePublishableBundle();
     final aliceReg = await aliceApi.register(
       displayName: 'Alice-IT',
-      phone: '+70000000001',
+      phone: '+7000$suffix',
       password: 'test-password-1',
       deviceName: 'test',
       deviceType: 'linux',
@@ -35,7 +37,7 @@ void main() {
     final bobBundle = await bobCrypto.generatePublishableBundle();
     final bobReg = await bobApi.register(
       displayName: 'Bob-IT',
-      phone: '+70000000002',
+      phone: '+7001$suffix',
       password: 'test-password-2',
       deviceName: 'test',
       deviceType: 'linux',

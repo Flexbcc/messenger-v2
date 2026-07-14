@@ -4,6 +4,7 @@ from app.db import get_conn, init_db
 from app.routers import admin_enrollment, enrollment, registry
 from app.config import ENROLLMENT_MODE
 from app.attestation import ATTESTATION_MODE, MTLS_MODE
+from app.health import start_health_monitor
 
 app = FastAPI(title="Discovery Node", version="0.2.0")
 
@@ -16,8 +17,9 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-def on_startup():
+async def on_startup():
     init_db()
+    start_health_monitor()
 
 
 @app.get("/health")

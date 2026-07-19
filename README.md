@@ -19,33 +19,31 @@
 | `docs/` | Документация модулей |
 | `ouo-settings-web-spec/` | Каталог настроек (спека) |
 
-## Gitea (цель)
+## Remotes
 
-Старый прод-репо (не трогаем без нужды):
+| Host | URL |
+|------|-----|
+| **Gitea (primary)** | http://194.67.92.147:3000/flex/messenger-v2 |
+| **GitHub (mirror)** | https://github.com/Flexbcc/messenger-v2 |
+
+```bash
+# Push both (после одноразовой настройки GitHub deploy key — см. ниже)
+./scripts/push-remotes.sh
+```
+
+### GitHub: одноразово добавить deploy key (write)
+
+1. Открой https://github.com/Flexbcc/messenger-v2/settings/keys  
+2. **Add deploy key** → Allow write access  
+3. Вставь ключ из `~/.ssh/github_messenger_v2.pub`  
+4. `./scripts/push-remotes.sh`
+
+Старый прод-репо (не трогаем):
 
 ```text
 ssh://git@194.67.92.147:2222/flex/messenger.git
 ```
 
-Новый репозиторий (создать в UI Gitea под пользователем `flex`):
-
-```text
-имя: messenger-v2
-remote: ssh://git@194.67.92.147:2222/flex/messenger-v2.git
-```
-
-После создания пустого репо на Gitea:
-
-```bash
-cd /Users/apple/messenger-v2
-git remote add origin ssh://git@194.67.92.147:2222/flex/messenger-v2.git
-GIT_SSH_COMMAND='ssh -i ~/.ssh/messenger_ops -o IdentitiesOnly=yes -p 2222' \
-  git push -u origin main
-```
-
-Gitea UI: `http://194.67.92.147:3000`
-
-Автодеплой webhook со старого `flex/messenger` на v2 **не вешаем**, пока не решите переключить pipeline.
 
 ## Локально
 

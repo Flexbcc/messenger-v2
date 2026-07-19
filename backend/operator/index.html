@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operator Console</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="loginScreen" class="login hidden">
+    <div class="login-box">
+      <h1>Operator Console</h1>
+      <p>Локальная панель управления. Только ваш Mac.</p>
+      <label>Операторский ключ
+        <input id="secretInput" type="password" autocomplete="off" placeholder="OPERATOR_SECRET">
+      </label>
+      <button id="btnLogin" type="button" class="primary">Войти</button>
+      <p id="loginError" class="err"></p>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <header>
+      <div class="head-row">
+        <div>
+          <h1>Operator Console</h1>
+          <p class="sub">Управление сетью с Mac · ноды не видят эту панель</p>
+        </div>
+        <button id="btnLogout" type="button" class="ghost">Выйти</button>
+      </div>
+      <nav class="tabs">
+        <button type="button" class="tab active" data-tab="dashboard">Обзор</button>
+        <button type="button" class="tab" data-tab="nodes">Ноды</button>
+        <button type="button" class="tab" data-tab="deploy">Деплой</button>
+        <button type="button" class="tab" data-tab="invite">Invite (QR)</button>
+        <button type="button" class="tab" data-tab="logs">Логи</button>
+      </nav>
+      <p id="statusMsg" class="status"></p>
+    </header>
+
+    <main>
+      <section id="tab-dashboard" class="tab-panel active">
+        <div id="summaryCards" class="cards"></div>
+        <div class="panel">
+          <h2>Использование функций</h2>
+          <div id="featureFlags" class="feature-grid"></div>
+        </div>
+        <div class="panel">
+          <h2>Деплой</h2>
+          <p id="deployMeta" class="meta"></p>
+        </div>
+      </section>
+
+      <section id="tab-nodes" class="tab-panel">
+        <div class="toolbar">
+          <button id="btnApproveAll" type="button">Approve все pending</button>
+          <button id="btnRefresh" type="button">Обновить</button>
+        </div>
+        <div class="panel wide">
+          <h2>Сервисы</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>сервис</th><th>хост</th><th>docker</th><th>health</th><th>действия</th></tr>
+              </thead>
+              <tbody id="servicesBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel wide">
+          <h2>Discovery registry</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>trust</th><th>node_id</th><th>roles</th><th>url</th><th>status</th><th></th></tr>
+              </thead>
+              <tbody id="nodesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-deploy" class="tab-panel">
+        <div class="toolbar">
+          <button id="btnPush" type="button" class="primary">Commit + Push → автодеплой</button>
+          <button id="btnDeploy" type="button">Deploy на main + workers</button>
+          <button id="btnEnsure" type="button">Проверить autodeploy</button>
+          <button id="btnUpdateMain" type="button">node-update (main)</button>
+          <button id="btnUpdateWorker" type="button">node-update (worker)</button>
+        </div>
+        <pre id="actionOutput" class="log">—</pre>
+      </section>
+
+      <section id="tab-invite" class="tab-panel">
+        <div class="panel">
+          <h2>Приглашение в кластер (одноразовый QR)</h2>
+          <p class="meta">Клиент без своей ноды подключается по ссылке → регистрация на вашем Home.</p>
+          <label>Метка <input id="inviteLabel" type="text" placeholder="Офис / отдел"></label>
+          <label>TTL (сек) <input id="inviteTtl" type="number" value="300" min="30" max="86400"></label>
+          <div class="toolbar">
+            <button id="btnCreateInvite" type="button" class="primary">Создать invite</button>
+          </div>
+          <div id="inviteResult" class="invite-box hidden">
+            <p><strong>Ссылка</strong> (одноразовая):</p>
+            <code id="inviteUrl" class="invite-url"></code>
+            <button id="btnCopyInvite" type="button">Копировать</button>
+            <div id="inviteQr" class="qr-wrap"></div>
+            <p id="inviteExpires" class="meta"></p>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-logs" class="tab-panel">
+        <div class="toolbar">
+          <button id="btnLoadDeployLog" type="button">Deploy log</button>
+          <select id="logServiceSelect"></select>
+          <button id="btnLoadServiceLog" type="button">Лог сервиса</button>
+        </div>
+        <pre id="deployLog" class="log">—</pre>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/console.js"></script>
+</body>
+</html>

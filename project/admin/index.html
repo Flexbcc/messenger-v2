@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<script>
+window.__ADMIN_BASE=(location.pathname==="/ops"||location.pathname.startsWith("/ops/"))?"/ops":"";
+document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operator Admin — Мониторинг</title>
+<link rel="stylesheet" href="static/theme.css">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body class="page-monitor">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Operator Admin</h1>
+          <p class="subtitle">Project-стек · <span id="localStackLabel">—</span></p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup">Настройка</a>
+        <a href="storage">Хранилище</a>
+        <a href="enrollment">Доверие</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить" aria-label="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему" aria-label="Сменить тему">◐</button>
+        <span id="autoRefreshLabel" class="toolbar-hint hidden">5с</span>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="hero-card card" id="localNodeCard">
+        <div class="hero-left">
+          <div class="status-pill" id="runtimeStatusPill">—</div>
+          <h2 id="localNodeTitle">Локальная нода</h2>
+          <p class="muted" id="localNodeMeta">Загрузка…</p>
+        </div>
+        <div class="health-ring" aria-label="Health score">
+          <svg viewBox="0 0 120 120">
+            <circle class="health-bg" cx="60" cy="60" r="52"></circle>
+            <circle class="health-fg" id="healthArc" cx="60" cy="60" r="52"></circle>
+          </svg>
+          <div class="health-value">
+            <span id="healthScore">—</span>
+            <small>Health</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="summary-row" id="networkSummary">
+        <div class="summary-chip card"><strong id="sumTotal">—</strong><span>площадок</span></div>
+        <div class="summary-chip card"><strong id="sumOnline">—</strong><span>активных</span></div>
+        <div class="summary-chip card"><strong id="sumOffline">—</strong><span>проблем</span></div>
+        <div class="summary-chip card"><strong id="sumDevices">—</strong><span>устройств</span></div>
+      </section>
+
+      <div class="info-banner card warn-banner hidden" id="alertsBanner"></div>
+
+      <section class="metrics-grid" id="metricsGrid">
+        <div class="metric-card card"><span class="metric-label">CPU</span><span class="metric-value" id="mCpu">—</span></div>
+        <div class="metric-card card"><span class="metric-label">RAM</span><span class="metric-value" id="mRam">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Диск</span><span class="metric-value" id="mDisk">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Подключения</span><span class="metric-value" id="mConn">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Очередь sync</span><span class="metric-value" id="mSync">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Аптайм</span><span class="metric-value" id="mUptime">—</span></div>
+      </section>
+
+      <div class="two-col">
+        <section class="card panel-section">
+          <div class="section-head">
+            <h3>Подключённые устройства</h3>
+            <span class="badge" id="connCount">0</span>
+          </div>
+          <p class="section-hint">Анонимные ID — без имён и телефонов.</p>
+          <div class="table-wrap">
+            <table class="data-table" id="connectionsTable">
+              <thead>
+                <tr>
+                  <th>user_id</th>
+                  <th>device_id</th>
+                  <th>Тип</th>
+                  <th>WS</th>
+                </tr>
+              </thead>
+              <tbody id="connectionsBody">
+                <tr><td colspan="4" class="empty">Нет активных сессий</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card panel-section">
+          <div class="section-head">
+            <h3>Участие в сети</h3>
+            <a href="setup" class="link-setup">Настроить →</a>
+          </div>
+          <p class="section-hint">Только обзор. Изменения — на странице «Настройка».</p>
+          <div id="participationOverview" class="participation-readonly">
+            <div class="priority-bar readonly" aria-hidden="true">
+              <div class="priority-owner" id="priorityOwnerBar" style="width:40%"></div>
+              <div class="priority-network" id="priorityNetworkBar" style="width:60%"></div>
+            </div>
+            <p class="participation-summary" id="participationSummary">—</p>
+            <ul class="participation-tags" id="participationTags"></ul>
+          </div>
+        </section>
+      </div>
+
+      <section class="card panel-section services-panel-compact">
+        <div class="section-head">
+          <h3>Локальные сервисы</h3>
+          <a href="setup" class="link-setup">Управление →</a>
+        </div>
+        <div id="servicesStatusRow" class="services-status-row"></div>
+      </section>
+
+      <section class="card panel-section deployments-strip" id="deploymentsStrip">
+        <div class="section-head"><h3>Где что запущено</h3></div>
+        <ul class="deploy-list" id="deployList"></ul>
+      </section>
+
+      <section class="card panel-section">
+        <div class="section-head">
+          <h3>Площадки в сети</h3>
+          <span class="muted">Home · Media · Relay · Storage</span>
+        </div>
+        <p class="section-hint">Одна строка = один CLUSTER_ID (ваша или чужая нода). Серый — сервис не поднят.</p>
+        <div class="role-legend">
+          <span><span class="role-icon role-icon-ok">🏠</span> OK</span>
+          <span><span class="role-icon role-icon-warn">🏠</span> нагрузка</span>
+          <span><span class="role-icon role-icon-bad">🏠</span> ошибка</span>
+          <span><span class="role-icon role-icon-off">🏠</span> выкл.</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table compact" id="nodesTable">
+            <thead>
+              <tr>
+                <th>Площадка</th>
+                <th>Home</th>
+                <th>Media</th>
+                <th>Relay</th>
+                <th>Storage</th>
+                <th>Доверие</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="nodesBody">
+              <tr><td colspan="7" class="empty">Загрузка…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="static/shared.js"></script>
+  <script src="static/clusters.js"></script>
+  <script src="static/services.js"></script>
+  <script src="static/app.js"></script>
+</body>
+</html>

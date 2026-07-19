@@ -1,0 +1,31 @@
+# Gitea — private Git server for messenger deploys.
+# Install: ../../scripts/setup-gitea.sh
+#
+# Default UI: http://SERVER_IP:3000
+# SSH git:     git@SERVER_IP:2222
+services:
+  gitea:
+    image: gitea/gitea:1.22-rootless
+    container_name: gitea
+    restart: unless-stopped
+    environment:
+      GITEA__server__DOMAIN: ${GITEA_DOMAIN:-localhost}
+      GITEA__server__ROOT_URL: ${GITEA_ROOT_URL:-http://localhost:3000/}
+      GITEA__server__SSH_DOMAIN: ${GITEA_SSH_DOMAIN:-localhost}
+      GITEA__server__SSH_PORT: ${GITEA_SSH_PORT:-2222}
+      GITEA__server__HTTP_PORT: "3000"
+      GITEA__server__DISABLE_SSH: "false"
+      GITEA__server__START_SSH_SERVER: "true"
+      GITEA__security__INSTALL_LOCK: ${GITEA_INSTALL_LOCK:-false}
+    ports:
+      - "${GITEA_HTTP_PORT:-3000}:3000"
+      - "${GITEA_SSH_PORT:-2222}:2222"
+    volumes:
+      - gitea_data:/var/lib/gitea
+      - gitea_config:/etc/gitea
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+
+volumes:
+  gitea_data:
+  gitea_config:

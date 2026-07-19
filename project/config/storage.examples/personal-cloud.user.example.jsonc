@@ -1,0 +1,25 @@
+# Пример: личный S3 пользователя (personal cloud)
+# Добавьте в storage.json → personal_cloud.users после применения профиля.
+#
+# "users": {
+#   "USER_UUID_FROM_HOME_DB": {
+#     "backend": "s3",
+#     "s3": {
+#       "enabled": true,
+#       "endpoint_url": "https://storage.yandexcloud.net",
+#       "bucket": "user-personal-bucket",
+#       "access_key": "...",
+#       "secret_key": "...",
+#       "region": "ru-central1",
+#       "prefix": "messenger/"
+#     }
+#   }
+# }
+#
+# Или локальный диск пользователя:
+# "users": {
+#   "USER_UUID": {
+#     "backend": "local",
+#     "local_path": "/data/personal/USER_UUID"
+#   }
+# }

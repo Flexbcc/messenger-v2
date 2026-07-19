@@ -1,0 +1,18 @@
+# Пример сценария симуляции (черновик формата)
+name: relay-failover
+duration_s: 120
+nodes:
+  discovery: { count: 1 }
+  home:      { count: 3 }
+  relay:     { count: 3, versions: ["0.1.0", "0.2.0"] }
+  storage:   { count: 1 }
+events:
+  - at_s: 30
+    type: node_down
+    target: relay-0        # выбранный relay падает, heartbeat ещё не протух
+  - at_s: 31
+    type: send_message     # ожидаем retry на другой relay, а не фейл доставки
+    from: home-0
+    to: home-2
+assert:
+  - delivered: true

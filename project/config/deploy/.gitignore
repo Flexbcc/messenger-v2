@@ -1,0 +1,6 @@
+gitea.env
+laptop.env
+node.profile
+release.env
+workers.list
+../storage.secrets.env

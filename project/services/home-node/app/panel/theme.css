@@ -1,0 +1,65 @@
+/* Messenger-aligned design tokens — light/dark via data-theme on <html> */
+:root,
+[data-theme="light"] {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --card: #ffffff;
+  --card-soft: #f1f3f7;
+  --primary: #2563eb;
+  --secondary: #7c3aed;
+  --gradient: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #ef4444;
+  --text: #0f172a;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --border: rgba(15, 23, 42, 0.08);
+  --code-bg: #f1f5f9;
+  --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  --radius: 14px;
+  --radius-sm: 10px;
+}
+
+[data-theme="dark"] {
+  --bg: #071018;
+  --surface: #0d1621;
+  --surface-elevated: #121d2b;
+  --card: #182231;
+  --card-soft: #202b3a;
+  --primary: #4f6bff;
+  --secondary: #8b5cf6;
+  --gradient: linear-gradient(135deg, #4f6bff 0%, #8b5cf6 100%);
+  --success: #35d07f;
+  --warning: #ffb020;
+  --danger: #ff4d5e;
+  --text: #f4f7fb;
+  --text-secondary: #9aa6b5;
+  --text-muted: #667085;
+  --border: rgba(255, 255, 255, 0.06);
+  --code-bg: #121d2b;
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #071018;
+    --surface: #0d1621;
+    --surface-elevated: #121d2b;
+    --card: #182231;
+    --card-soft: #202b3a;
+    --primary: #4f6bff;
+    --secondary: #8b5cf6;
+    --gradient: linear-gradient(135deg, #4f6bff 0%, #8b5cf6 100%);
+    --success: #35d07f;
+    --warning: #ffb020;
+    --danger: #ff4d5e;
+    --text: #f4f7fb;
+    --text-secondary: #9aa6b5;
+    --text-muted: #667085;
+    --border: rgba(255, 255, 255, 0.06);
+    --code-bg: #121d2b;
+    --shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+}

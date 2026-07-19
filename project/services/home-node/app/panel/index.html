@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Моя Home Node</title>
+<link rel="stylesheet" href="/panel/assets/theme.css">
+<link rel="stylesheet" href="/panel/assets/panel.css">
+<link rel="stylesheet" href="/panel/assets/wizard.css">
+<style>
+.qr-scanner-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.qr-scanner-overlay[hidden] { display: none; }
+.qr-scanner-card { width: min(420px, 100%); padding: 18px 20px; }
+.qr-scanner-viewport { min-height: 280px; border-radius: var(--radius-sm); overflow: hidden; background: var(--card-soft); }
+#qrScannerVideo { width: 100%; display: block; border-radius: var(--radius-sm); background: #000; }
+#qrScannerVideo[hidden] { display: none; }
+</style>
+</head>
+<body>
+  <div id="wizardOverlay" class="wizard-overlay">
+    <div class="wizard-shell">
+      <div class="wizard-progress" id="wizardProgress"></div>
+
+      <div id="step-welcome" class="wizard-card">
+        <h2>Добро пожаловать</h2>
+        <p class="lead">Home Node — ваша личная точка в сети Messenger. Она хранит ваши данные, связывает устройства и при желании помогает другим участникам.</p>
+        <ul class="wizard-list">
+          <li>Данные остаются у вас — не на чужом сервере</li>
+          <li>Сеть видна обезличенно: только роли и статус, без адресов</li>
+          <li>Участие в relay/storage — по вашему выбору, можно отключить</li>
+        </ul>
+        <p class="wizard-hint">Настройка займёт пару минут. Всё можно пропустить — система подберёт разумные значения сама.</p>
+        <div class="wizard-actions">
+          <button type="button" id="wizardToProfile" class="btn-primary">Начать</button>
+          <button type="button" class="wizard-skip btn-link">Пропустить — настроить автоматически</button>
+        </div>
+      </div>
+
+      <div id="step-profile" class="wizard-card" hidden>
+        <h2>О вас</h2>
+        <p class="lead">Имя для панели и необязательный вход администратора — только рекомендации, жёстких правил нет.</p>
+        <div class="wizard-field">
+          <label for="profileName">Как вас называть</label>
+          <input type="text" id="profileName" placeholder="Например: Алексей" autocomplete="nickname">
+          <p class="wizard-hint">Отображается в панели, не уходит в сеть.</p>
+        </div>
+        <div class="wizard-field">
+          <label for="profileLogin">Логин админки <span class="muted">(необязательно)</span></label>
+          <input type="text" id="profileLogin" placeholder="admin" autocomplete="username">
+          <p class="wizard-hint">Рекомендуем не оставлять пустым, если панель доступна из интернета.</p>
+        </div>
+        <div class="wizard-field">
+          <label for="profilePassword">Пароль <span class="muted">(необязательно)</span></label>
+          <input type="password" id="profilePassword" placeholder="8+ символов" autocomplete="new-password">
+          <p class="wizard-hint">Сохраняется локально на ноде. Полноценная авторизация будет позже.</p>
+        </div>
+        <div class="wizard-actions">
+          <button type="button" class="wizard-back btn-ghost">Назад</button>
+          <span class="spacer"></span>
+          <button type="button" id="wizardSaveProfile" class="btn-primary">Далее</button>
+        </div>
+      </div>
+
+      <div id="step-network" class="wizard-card" hidden>
+        <h2>Участие в сети</h2>
+        <p class="lead">Без внешних сервисов и ключей — только то, что нода уже умеет. Можно включить позже в панели.</p>
+        <label class="toggle-row"><input type="checkbox" id="wizRelay" checked> Relay — помогать пересылать сообщения</label>
+        <label class="toggle-row"><input type="checkbox" id="wizStorage" checked> Storage — буфер для медиа соседей</label>
+        <div class="wizard-priority">
+          <p class="wizard-hint" id="wizardOwnerLabel">40% для вас · 60% для сети</p>
+          <input type="range" id="wizardOwnerPct" min="20" max="100" step="5" value="40">
+          <p class="wizard-hint">Чем выше «для вас», тем меньше ресурсов уходит на помощь сети.</p>
+        </div>
+        <div class="wizard-actions">
+          <button type="button" class="wizard-back btn-ghost">Назад</button>
+          <span class="spacer"></span>
+          <button type="button" id="wizardToOverview" class="btn-primary">К обзору</button>
+        </div>
+      </div>
+
+      <div id="step-overview" class="wizard-card" hidden>
+        <h2>Обзор и проверка</h2>
+        <p class="lead">Нажмите шаги по очереди — так видно, как нода подключается к сети. Или завершите сразу: недостающее доделается само.</p>
+        <div class="checklist">
+          <div class="check-item" id="check-connect">
+            <div class="check-head">
+              <div>
+                <h4>1. Подключить к сети</h4>
+                <p>Проверка Discovery и регистрации вашей ноды</p>
+              </div>
+              <span class="check-badge badge">—</span>
+            </div>
+            <button type="button" id="btn-connect" class="btn-primary" data-label="Проверить">Проверить</button>
+            <div id="result-connect" class="check-result"></div>
+          </div>
+          <div class="check-item" id="check-discover">
+            <div class="check-head">
+              <div>
+                <h4>2. Соседи для общения</h4>
+                <p>Список доступных нод (роль и статус, без адресов)</p>
+              </div>
+              <span class="check-badge badge">—</span>
+            </div>
+            <button type="button" id="btn-discover" class="btn-primary" data-label="Найти">Найти</button>
+            <div id="result-discover" class="check-result"></div>
+          </div>
+          <div class="check-item" id="check-benchmark">
+            <div class="check-head">
+              <div>
+                <h4>3. Тест скорости</h4>
+                <p>Задержка до онлайн-нод в каталоге</p>
+              </div>
+              <span class="check-badge badge">—</span>
+            </div>
+            <button type="button" id="btn-benchmark" class="btn-primary" data-label="Тест">Тест</button>
+            <div id="result-benchmark" class="check-result"></div>
+          </div>
+          <div class="check-item" id="check-recommend">
+            <div class="check-head">
+              <div>
+                <h4>4. Рекомендации</h4>
+                <p>Какие роли соседей удобнее для вашей ноды</p>
+              </div>
+              <span class="check-badge badge">—</span>
+            </div>
+            <button type="button" id="btn-recommend" class="btn-primary" data-label="Подобрать">Подобрать</button>
+            <div id="result-recommend" class="check-result"></div>
+          </div>
+        </div>
+        <div class="wizard-actions">
+          <button type="button" class="wizard-back btn-ghost">Назад</button>
+          <button type="button" class="wizard-skip btn-link">Пропустить остальное</button>
+          <span class="spacer"></span>
+          <button type="button" id="wizardFinish" class="btn-primary">Готово — открыть панель</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Моя нода</h1>
+          <p class="muted">Личный центр · сеть видна обезличенно</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <a href="/ops/" class="btn-ghost ops-link" title="Полная операторская консоль">Operator Console</a>
+        <button type="button" id="themeToggle" class="btn-ghost" title="Тема">🌓</button>
+        <button type="button" id="refreshBtn" class="btn-primary">Обновить</button>
+        <span class="muted">Авто · 5с</span>
+      </div>
+    </header>
+
+    <main id="mainDashboard" class="dashboard dashboard-hidden">
+      <section class="hero-card card">
+        <div>
+          <div class="status-pill" id="runtimeStatusPill">—</div>
+          <h2 id="localNodeTitle">Home Node</h2>
+          <p class="muted" id="localNodeMeta">Загрузка…</p>
+        </div>
+        <div class="health-ring">
+          <svg viewBox="0 0 120 120">
+            <circle class="health-bg" cx="60" cy="60" r="52"></circle>
+            <circle class="health-fg" id="healthArc" cx="60" cy="60" r="52"></circle>
+          </svg>
+          <div class="health-value">
+            <span id="healthScore">—</span>
+            <small>Health</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="metrics-grid">
+        <div class="metric-card card"><span class="metric-label">CPU</span><span class="metric-value" id="mCpu">—</span></div>
+        <div class="metric-card card"><span class="metric-label">RAM</span><span class="metric-value" id="mRam">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Диск</span><span class="metric-value" id="mDisk">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Устройства</span><span class="metric-value" id="mConn">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Sync</span><span class="metric-value" id="mSync">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Аптайм</span><span class="metric-value" id="mUptime">—</span></div>
+      </section>
+
+      <div class="two-col">
+        <section class="card panel-section">
+          <div class="section-head">
+            <h3>Мои устройства</h3>
+            <span class="badge" id="connCount">0</span>
+          </div>
+          <p class="section-hint">Только ID — без имён и телефонов.</p>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr><th>user</th><th>device</th><th>Тип</th><th>WS</th></tr>
+              </thead>
+              <tbody id="connectionsBody">
+                <tr><td colspan="4" class="empty">Нет сессий</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card panel-section">
+          <div class="section-head"><h3>Участие в сети</h3></div>
+          <form id="prefsForm" class="participation-form">
+            <label class="toggle-row"><input type="checkbox" name="relay"> Relay</label>
+            <label class="toggle-row"><input type="checkbox" name="storage"> Storage</label>
+            <label class="toggle-row"><input type="checkbox" name="witness"> Witness</label>
+            <label class="toggle-row"><input type="checkbox" name="media_cache"> Media Cache</label>
+            <label class="toggle-row"><input type="checkbox" name="nat_assist"> NAT Assist</label>
+            <div class="priority-block">
+              <div class="section-head">
+                <h4>Приоритет владельца</h4>
+                <span class="badge" id="ownerPctLabel">40% / 60%</span>
+              </div>
+              <input type="range" id="ownerPct" min="20" max="100" step="5" value="40">
+              <div class="priority-bar">
+                <div class="priority-owner" id="barOwner" style="width:40%"></div>
+                <div class="priority-network" id="barNet" style="width:60%"></div>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">Сохранить</button>
+              <span id="prefsStatus" class="status-msg"></span>
+            </div>
+            <p class="section-hint muted">Применяется сразу на этой ноде.</p>
+          </form>
+        </section>
+      </div>
+
+      <section class="card panel-section">
+        <div class="section-head"><h3>Личное хранилище (ПК)</h3></div>
+        <p class="section-hint">
+          Вставьте JSON из storage-app (кнопка «Копировать JSON для ноды») или отсканируйте QR.
+        </p>
+        <form id="storagePairForm" class="participation-form">
+          <label>User ID <input type="text" name="user_id" placeholder="uuid пользователя" required></label>
+          <label>Pairing JSON
+            <textarea name="payload" rows="5" placeholder='{"kind":"ouo_ppc_pair",...}' required></textarea>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Сопряжить с ПК</button>
+            <button type="button" id="storageQrScanBtn" class="btn-ghost">Сканировать QR</button>
+            <span id="storagePairStatus" class="status-msg"></span>
+          </div>
+        </form>
+      </section>
+
+      <div id="qrScannerOverlay" class="qr-scanner-overlay" hidden>
+        <div class="card qr-scanner-card">
+          <div class="section-head">
+            <h3>Сканирование QR</h3>
+            <button type="button" id="qrScannerClose" class="btn-ghost" aria-label="Закрыть">✕</button>
+          </div>
+          <p class="section-hint">Наведите камеру на QR из storage-app</p>
+          <div id="qrScannerViewport" class="qr-scanner-viewport"></div>
+          <video id="qrScannerVideo" playsinline muted hidden></video>
+          <p id="qrScannerStatus" class="status-msg"></p>
+        </div>
+      </div>
+
+      <section class="card panel-section">
+        <div class="section-head">
+          <h3>Сеть</h3>
+          <span class="muted" id="peerSummary">обезличенные роли</span>
+        </div>
+        <p class="section-hint">Другие ноды без адресов и ID — только роль и состояние.</p>
+        <div class="network-map">
+          <svg id="networkSvg" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <div class="peer-chips" id="peerChips"></div>
+      </section>
+    </main>
+  </div>
+  <script src="/panel/assets/wizard.js"></script>
+  <script src="/panel/assets/panel.js"></script>
+</body>
+</html>

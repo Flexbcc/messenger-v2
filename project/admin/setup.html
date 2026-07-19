@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<script>
+window.__ADMIN_BASE=(location.pathname==="/ops"||location.pathname.startsWith("/ops/"))?"/ops":"";
+document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operator Admin — Настройка</title>
+<link rel="stylesheet" href="static/theme.css">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body class="page-form page-setup">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Настройка</h1>
+          <p class="subtitle">Project-стек · <code>.env</code></p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup">Настройка</a>
+        <a href="storage">Хранилище</a>
+        <a href="enrollment">Доверие</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему">◐</button>
+      </div>
+    </header>
+
+    <main class="dashboard setup-compact">
+      <div class="deployments-hint card" id="deploymentsHint">
+        <strong>Где что запущено</strong>
+        <ul class="deploy-list" id="deployList"></ul>
+      </div>
+
+      <form id="setupForm" class="card form-card setup-form-compact">
+        <div class="setup-grid">
+          <section class="setup-block">
+            <h2>Сервисы</h2>
+            <div id="servicesGrid" class="services-grid services-grid-tight"></div>
+            <button type="button" id="refreshServicesBtn" class="btn-ghost btn-xs">↻ обновить</button>
+          </section>
+
+          <section class="setup-block">
+            <h2>Сеть</h2>
+            <label class="field-compact">Discovery
+              <div class="input-row">
+                <input name="discovery_node_url" type="url" required placeholder="http://discovery-node:8003">
+                <button type="button" class="btn-secondary btn-check btn-xs" data-check="discovery">✓</button>
+              </div>
+              <div class="field-check-result hidden" data-check-for="discovery"></div>
+            </label>
+            <div class="field-row-2">
+              <label class="field-compact">CLUSTER_ID
+                <input name="cluster_id" type="text" required placeholder="default">
+              </label>
+              <label class="field-compact">LAN IP <span class="muted-xs">подсказка</span>
+                <input name="lan_ip" type="text" placeholder="192.168.1.10">
+              </label>
+            </div>
+            <label class="field-compact">Политика ресурсов
+              <select name="node_resource_policy">
+                <option value="federated">federated</option>
+                <option value="cluster">cluster</option>
+                <option value="local">local</option>
+              </select>
+            </label>
+          </section>
+
+          <section class="setup-block">
+            <h2>Участие и приоритет</h2>
+            <div class="check-grid">
+              <label class="checkbox-row"><input name="participate_relay" type="checkbox" checked> Relay</label>
+              <label class="checkbox-row"><input name="participate_storage" type="checkbox" checked> Storage</label>
+              <label class="checkbox-row"><input name="participate_witness" type="checkbox"> Witness</label>
+              <label class="checkbox-row"><input name="participate_media_cache" type="checkbox"> Media cache</label>
+              <label class="checkbox-row"><input name="participate_nat_assist" type="checkbox"> NAT</label>
+            </div>
+            <label class="field-compact">Приоритет владельца (%)
+              <input name="owner_resource_percent" type="number" min="20" max="100" step="5" value="40">
+            </label>
+          </section>
+
+          <section class="setup-block">
+            <h2>Адрес для клиентов</h2>
+            <label class="field-compact">Режим
+              <select name="access_mode" id="accessMode">
+                <option value="local">localhost</option>
+                <option value="lan">Wi‑Fi / LAN</option>
+                <option value="custom">Свой хост</option>
+              </select>
+            </label>
+            <label class="field-compact hidden" id="publicHostWrap">Хост
+              <input name="public_host" id="publicHost" type="text" placeholder="localhost">
+            </label>
+            <div class="field-row-2">
+              <label class="field-compact">Home :порт
+                <input name="port_home" type="number" min="1" max="65535" value="8001">
+              </label>
+              <label class="field-compact optional-port">Media :порт
+                <input name="port_media" type="number" min="1" max="65535" value="8004">
+              </label>
+            </div>
+            <label class="checkbox-row"><input name="enable_media" type="checkbox" id="enableMedia" checked> Media Node</label>
+            <label class="checkbox-row"><input name="enable_relay" type="checkbox" id="enableRelay" checked> Relay Node</label>
+            <p class="url-preview" id="urlPreview">—</p>
+            <input type="hidden" name="home_node_public_url">
+            <input type="hidden" name="storage_node_url">
+            <input type="hidden" name="media_node_public_url">
+            <input type="hidden" name="relay_node_public_url">
+            <div class="check-actions-row">
+              <button type="button" class="btn-secondary btn-check btn-xs" data-check="home">Home</button>
+              <button type="button" class="btn-secondary btn-check btn-xs" data-check="storage">Storage</button>
+              <button type="button" class="btn-secondary btn-check btn-xs" data-check="media" id="checkMediaBtn">Media</button>
+              <button type="button" class="btn-secondary btn-check btn-xs" data-check="relay" id="checkRelayBtn">Relay</button>
+              <button type="button" id="checkAllBtn" class="btn-secondary btn-xs">Всё</button>
+            </div>
+            <div class="field-check-result hidden" data-check-for="home"></div>
+            <div class="field-check-result hidden" data-check-for="storage"></div>
+            <div class="field-check-result hidden" data-check-for="media"></div>
+            <div class="field-check-result hidden" data-check-for="relay"></div>
+          </section>
+        </div>
+
+        <div class="setup-footer">
+          <span class="security-badge" id="jwtBadge">JWT — …</span>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Сохранить</button>
+            <button type="button" id="applyConfigBtn" class="btn-secondary">Применить</button>
+            <span id="status" class="status-msg"></span>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+  <script src="static/shared.js"></script>
+  <script src="static/services.js"></script>
+  <script src="static/clusters.js"></script>
+  <script src="static/setup.js"></script>
+</body>
+</html>

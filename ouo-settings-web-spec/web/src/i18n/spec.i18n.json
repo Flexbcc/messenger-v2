@@ -1,0 +1,2074 @@
+{
+  "sections": {
+    "profile": {
+      "en": "Profile"
+    },
+    "identity": {
+      "en": "Phone, email & sign-in"
+    },
+    "privacy": {
+      "en": "Privacy"
+    },
+    "security": {
+      "en": "Security"
+    },
+    "hidden_chats": {
+      "en": "Hidden chats"
+    },
+    "contacts": {
+      "en": "Contacts & trust"
+    },
+    "notifications": {
+      "en": "Notifications"
+    },
+    "messages": {
+      "en": "Messages & chats"
+    },
+    "media": {
+      "en": "Media & files"
+    },
+    "devices": {
+      "en": "Devices"
+    },
+    "node": {
+      "en": "Node & network"
+    },
+    "sync": {
+      "en": "Synchronization"
+    },
+    "storage_ownership": {
+      "en": "Data storage & ownership"
+    },
+    "backup": {
+      "en": "Backups"
+    },
+    "calls": {
+      "en": "Calls"
+    },
+    "appearance": {
+      "en": "Appearance"
+    },
+    "data": {
+      "en": "Data & deletion"
+    },
+    "developer": {
+      "en": "Developer"
+    }
+  },
+  "settings": {
+    "profile.avatar": {
+      "title": {
+        "en": "Avatar"
+      },
+      "description": {
+        "en": "User profile image. Stored as a reference to a local or remote encrypted media object."
+      }
+    },
+    "profile.display_name": {
+      "title": {
+        "en": "Display name"
+      },
+      "description": {
+        "en": "Name shown to others and in the chat list. Not a unique identifier."
+      }
+    },
+    "profile.username_enabled": {
+      "title": {
+        "en": "Use username"
+      },
+      "description": {
+        "en": "Enables a public username as an extra way to search for and add the user."
+      }
+    },
+    "profile.username": {
+      "title": {
+        "en": "Username"
+      },
+      "description": {
+        "en": "Unique public username. Used for search without phone or QR code."
+      }
+    },
+    "profile.bio": {
+      "title": {
+        "en": "Profile description"
+      },
+      "description": {
+        "en": "Short profile description visible to users according to privacy settings."
+      }
+    },
+    "profile.public_id": {
+      "title": {
+        "en": "Public ID"
+      },
+      "description": {
+        "en": "Immutable public profile identifier, generated automatically by the client."
+      }
+    },
+    "profile.qr": {
+      "title": {
+        "en": "Profile QR code"
+      },
+      "description": {
+        "en": "Opens the profile QR code for secure exchange of identifier and keys."
+      }
+    },
+    "profile.language": {
+      "title": {
+        "en": "Interface language"
+      },
+      "description": {
+        "en": "Selects one value for «Interface language» from a fixed list of allowed options."
+      }
+    },
+    "profile.time_format": {
+      "title": {
+        "en": "Time format"
+      },
+      "description": {
+        "en": "Selects one value for «Time format» from a fixed list of allowed options."
+      }
+    },
+    "profile.date_format": {
+      "title": {
+        "en": "Date format"
+      },
+      "description": {
+        "en": "Selects one value for «Date format» from a fixed list of allowed options."
+      }
+    },
+    "identity.phone_enabled": {
+      "title": {
+        "en": "Link phone"
+      },
+      "description": {
+        "en": "Enables linking a phone number to the profile."
+      }
+    },
+    "identity.phone": {
+      "title": {
+        "en": "Phone"
+      },
+      "description": {
+        "en": "Phone number in international E.164 format."
+      }
+    },
+    "identity.phone_verified": {
+      "title": {
+        "en": "Phone verified"
+      },
+      "description": {
+        "en": "System flag for successful phone number verification."
+      }
+    },
+    "identity.phone_login": {
+      "title": {
+        "en": "Allow phone login"
+      },
+      "description": {
+        "en": "Toggle for «Allow phone login». true enables the feature, false disables it."
+      }
+    },
+    "identity.phone_recovery": {
+      "title": {
+        "en": "Use phone for recovery"
+      },
+      "description": {
+        "en": "Toggle for «Use phone for recovery». true enables the feature, false disables it."
+      }
+    },
+    "identity.email_enabled": {
+      "title": {
+        "en": "Link email"
+      },
+      "description": {
+        "en": "Enables linking an email address to the profile."
+      }
+    },
+    "identity.email": {
+      "title": {
+        "en": "Email"
+      },
+      "description": {
+        "en": "Email address for login, recovery and notifications."
+      }
+    },
+    "identity.email_verified": {
+      "title": {
+        "en": "Email verified"
+      },
+      "description": {
+        "en": "System flag for successful email verification."
+      }
+    },
+    "identity.email_login": {
+      "title": {
+        "en": "Allow email login"
+      },
+      "description": {
+        "en": "Toggle for «Allow email login». true enables the feature, false disables it."
+      }
+    },
+    "identity.email_recovery": {
+      "title": {
+        "en": "Use email for recovery"
+      },
+      "description": {
+        "en": "Toggle for «Use email for recovery». true enables the feature, false disables it."
+      }
+    },
+    "identity.security_notifications": {
+      "title": {
+        "en": "Receive security notifications"
+      },
+      "description": {
+        "en": "Selects one or more values for «Receive security notifications». Stored as an array of unique values."
+      }
+    },
+    "privacy.phone_visibility": {
+      "title": {
+        "en": "Who sees phone"
+      },
+      "description": {
+        "en": "Selects one value for «Who sees phone» from a fixed list of allowed options."
+      }
+    },
+    "privacy.phone_visibility_list": {
+      "title": {
+        "en": "Selected users"
+      },
+      "description": {
+        "en": "Managed list «Selected users». Each item has its own identifier and type user."
+      }
+    },
+    "privacy.phone_search": {
+      "title": {
+        "en": "Who can find by phone"
+      },
+      "description": {
+        "en": "Selects one value for «Who can find by phone» from a fixed list of allowed options."
+      }
+    },
+    "privacy.email_visibility": {
+      "title": {
+        "en": "Who sees email"
+      },
+      "description": {
+        "en": "Selects one value for «Who sees email» from a fixed list of allowed options."
+      }
+    },
+    "privacy.email_visibility_list": {
+      "title": {
+        "en": "Selected users"
+      },
+      "description": {
+        "en": "Managed list «Selected users». Each item has its own identifier and type user."
+      }
+    },
+    "privacy.username_search": {
+      "title": {
+        "en": "Allow search by username"
+      },
+      "description": {
+        "en": "Toggle for «Allow search by username». true enables the feature, false disables it."
+      }
+    },
+    "privacy.avatar_visibility": {
+      "title": {
+        "en": "Who sees avatar"
+      },
+      "description": {
+        "en": "Selects one value for «Who sees avatar» from a fixed list of allowed options."
+      }
+    },
+    "privacy.last_seen": {
+      "title": {
+        "en": "Last seen"
+      },
+      "description": {
+        "en": "Selects one value for «Last seen» from a fixed list of allowed options."
+      }
+    },
+    "privacy.last_seen_list": {
+      "title": {
+        "en": "Exceptions"
+      },
+      "description": {
+        "en": "Managed list «Exceptions». Each item has its own identifier and type user."
+      }
+    },
+    "privacy.online_status": {
+      "title": {
+        "en": "Show online status"
+      },
+      "description": {
+        "en": "Toggle for «Show online status». true enables the feature, false disables it."
+      }
+    },
+    "privacy.read_receipts": {
+      "title": {
+        "en": "Send read receipts"
+      },
+      "description": {
+        "en": "Toggle for «Send read receipts». true enables the feature, false disables it."
+      }
+    },
+    "privacy.typing_status": {
+      "title": {
+        "en": "Show typing"
+      },
+      "description": {
+        "en": "Toggle for «Show typing». true enables the feature, false disables it."
+      }
+    },
+    "privacy.voice_record_status": {
+      "title": {
+        "en": "Show voice recording"
+      },
+      "description": {
+        "en": "Toggle for «Show voice recording». true enables the feature, false disables it."
+      }
+    },
+    "privacy.incoming_messages": {
+      "title": {
+        "en": "Who can message first"
+      },
+      "description": {
+        "en": "Selects one value for «Who can message first» from a fixed list of allowed options."
+      }
+    },
+    "privacy.calls_from": {
+      "title": {
+        "en": "Who can call"
+      },
+      "description": {
+        "en": "Selects one value for «Who can call» from a fixed list of allowed options."
+      }
+    },
+    "privacy.calls_allowlist": {
+      "title": {
+        "en": "Allowlist"
+      },
+      "description": {
+        "en": "Managed list «Allowlist». Each item has its own identifier and type user."
+      }
+    },
+    "privacy.group_invites": {
+      "title": {
+        "en": "Who can add to groups"
+      },
+      "description": {
+        "en": "Selects one value for «Who can add to groups» from a fixed list of allowed options."
+      }
+    },
+    "privacy.qr_only": {
+      "title": {
+        "en": "QR-only mode"
+      },
+      "description": {
+        "en": "Toggle for «QR-only mode». true enables the feature, false disables it."
+      }
+    },
+    "privacy.qr_mode": {
+      "title": {
+        "en": "QR access type"
+      },
+      "description": {
+        "en": "Selects one value for «QR access type» from a fixed list of allowed options."
+      }
+    },
+    "privacy.qr_ttl_minutes": {
+      "title": {
+        "en": "QR lifetime, minutes"
+      },
+      "description": {
+        "en": "Numeric value for «QR lifetime, minutes». The client must validate the minimum and maximum."
+      }
+    },
+    "privacy.invisible_mode": {
+      "title": {
+        "en": "Invisible mode"
+      },
+      "description": {
+        "en": "Toggle for «Invisible mode». true enables the feature, false disables it."
+      }
+    },
+    "security.pin_enabled": {
+      "title": {
+        "en": "Enable PIN"
+      },
+      "description": {
+        "en": "Enables local client lock with a PIN code."
+      }
+    },
+    "security.pin": {
+      "title": {
+        "en": "Primary PIN"
+      },
+      "description": {
+        "en": "Secret local PIN. Must not be stored in plaintext and is never sent to the server."
+      }
+    },
+    "security.pin_length": {
+      "title": {
+        "en": "PIN length"
+      },
+      "description": {
+        "en": "Selects one value for «PIN length» from a fixed list of allowed options."
+      }
+    },
+    "security.alphanumeric_password": {
+      "title": {
+        "en": "Allow alphanumeric code"
+      },
+      "description": {
+        "en": "Toggle for «Allow alphanumeric code». true enables the feature, false disables it."
+      }
+    },
+    "security.autolock": {
+      "title": {
+        "en": "Auto-lock"
+      },
+      "description": {
+        "en": "Selects one value for «Auto-lock» from a fixed list of allowed options."
+      }
+    },
+    "security.lock_on_background": {
+      "title": {
+        "en": "Lock when backgrounded"
+      },
+      "description": {
+        "en": "Toggle for «Lock when backgrounded». true enables the feature, false disables it."
+      }
+    },
+    "security.lock_on_screen_off": {
+      "title": {
+        "en": "Lock when screen off"
+      },
+      "description": {
+        "en": "Toggle for «Lock when screen off». true enables the feature, false disables it."
+      }
+    },
+    "security.biometry": {
+      "title": {
+        "en": "Use biometrics"
+      },
+      "description": {
+        "en": "Toggle for «Use biometrics». true enables the feature, false disables it."
+      }
+    },
+    "security.pin_attempt_policy": {
+      "title": {
+        "en": "Wrong PIN policy"
+      },
+      "description": {
+        "en": "Informational description of delays and protective actions on wrong PIN entry."
+      }
+    },
+    "security.wipe_enabled": {
+      "title": {
+        "en": "Wipe local data after failures"
+      },
+      "description": {
+        "en": "Toggle for «Wipe local data after failures». true enables the feature, false disables it."
+      }
+    },
+    "security.wipe_after": {
+      "title": {
+        "en": "Attempts before wipe"
+      },
+      "description": {
+        "en": "Selects one value for «Attempts before wipe» from a fixed list of allowed options."
+      }
+    },
+    "security.fake_pin_enabled": {
+      "title": {
+        "en": "Fake PIN"
+      },
+      "description": {
+        "en": "Enables an alternative PIN that opens a safe or decoy profile."
+      }
+    },
+    "security.fake_pin": {
+      "title": {
+        "en": "Fake PIN"
+      },
+      "description": {
+        "en": "Alternative PIN, outwardly indistinguishable from the primary PIN."
+      }
+    },
+    "security.fake_profile_mode": {
+      "title": {
+        "en": "What fake PIN opens"
+      },
+      "description": {
+        "en": "Selects one value for «What fake PIN opens» from a fixed list of allowed options."
+      }
+    },
+    "security.fake_profile_chats": {
+      "title": {
+        "en": "Fake profile chats"
+      },
+      "description": {
+        "en": "Managed list «Fake profile chats». Each item has its own identifier and type chat."
+      }
+    },
+    "security.distress_signal": {
+      "title": {
+        "en": "Send hidden distress signal"
+      },
+      "description": {
+        "en": "Toggle for «Send hidden distress signal». true enables the feature, false disables it."
+      }
+    },
+    "security.distress_contacts": {
+      "title": {
+        "en": "Distress signal recipients"
+      },
+      "description": {
+        "en": "Managed list «Distress signal recipients». Each item has its own identifier and type user."
+      }
+    },
+    "security.recovery_key_enabled": {
+      "title": {
+        "en": "Create Recovery Key"
+      },
+      "description": {
+        "en": "Toggle for «Create Recovery Key». true enables the feature, false disables it."
+      }
+    },
+    "security.recovery_key": {
+      "title": {
+        "en": "Recovery Key"
+      },
+      "description": {
+        "en": "Secret recovery key for the profile and cryptographic data."
+      }
+    },
+    "security.require_pin_for_critical": {
+      "title": {
+        "en": "Require PIN for critical actions"
+      },
+      "description": {
+        "en": "Selects one or more values for «Require PIN for critical actions». Stored as an array of unique values."
+      }
+    },
+    "hidden.enabled": {
+      "title": {
+        "en": "Enable hidden chats"
+      },
+      "description": {
+        "en": "Toggle for «Enable hidden chats». true enables the feature, false disables it."
+      }
+    },
+    "hidden.open_method": {
+      "title": {
+        "en": "Open method"
+      },
+      "description": {
+        "en": "Selects one value for «Open method» from a fixed list of allowed options."
+      }
+    },
+    "hidden.pin": {
+      "title": {
+        "en": "Hidden chats PIN"
+      },
+      "description": {
+        "en": "Secret value «Hidden chats PIN». Never shown openly, never logged, stored only in protected form."
+      }
+    },
+    "hidden.chat_list": {
+      "title": {
+        "en": "Hidden chats list"
+      },
+      "description": {
+        "en": "Managed list «Hidden chats list». Each item has its own identifier and type chat."
+      }
+    },
+    "hidden.hide_from_search": {
+      "title": {
+        "en": "Hide from search"
+      },
+      "description": {
+        "en": "Toggle for «Hide from search». true enables the feature, false disables it."
+      }
+    },
+    "hidden.hide_notifications": {
+      "title": {
+        "en": "Hide notifications"
+      },
+      "description": {
+        "en": "Toggle for «Hide notifications». true enables the feature, false disables it."
+      }
+    },
+    "hidden.hide_media": {
+      "title": {
+        "en": "Hide media from shared gallery"
+      },
+      "description": {
+        "en": "Toggle for «Hide media from shared gallery». true enables the feature, false disables it."
+      }
+    },
+    "hidden.autolock": {
+      "title": {
+        "en": "Hidden section auto-lock"
+      },
+      "description": {
+        "en": "Selects one value for «Hidden section auto-lock» from a fixed list of allowed options."
+      }
+    },
+    "contacts.import_enabled": {
+      "title": {
+        "en": "Import phone book"
+      },
+      "description": {
+        "en": "Toggle for «Import phone book». true enables the feature, false disables it."
+      }
+    },
+    "contacts.hash_lookup": {
+      "title": {
+        "en": "Match by number hashes"
+      },
+      "description": {
+        "en": "Toggle for «Match by number hashes». true enables the feature, false disables it."
+      }
+    },
+    "contacts.auto_add_mutual": {
+      "title": {
+        "en": "Auto-add mutual contacts"
+      },
+      "description": {
+        "en": "Toggle for «Auto-add mutual contacts». true enables the feature, false disables it."
+      }
+    },
+    "contacts.trusted_enabled": {
+      "title": {
+        "en": "Use trusted users list"
+      },
+      "description": {
+        "en": "Toggle for «Use trusted users list». true enables the feature, false disables it."
+      }
+    },
+    "contacts.trusted_list": {
+      "title": {
+        "en": "Trusted users list"
+      },
+      "description": {
+        "en": "Managed list «Trusted users list». Each item has its own identifier and type user."
+      }
+    },
+    "contacts.trust_levels_enabled": {
+      "title": {
+        "en": "Use trust levels"
+      },
+      "description": {
+        "en": "Toggle for «Use trust levels». true enables the feature, false disables it."
+      }
+    },
+    "contacts.trust_levels": {
+      "title": {
+        "en": "Available trust levels"
+      },
+      "description": {
+        "en": "Selects one or more values for «Available trust levels». Stored as an array of unique values."
+      }
+    },
+    "contacts.blocked_list": {
+      "title": {
+        "en": "Blocked users"
+      },
+      "description": {
+        "en": "Managed list «Blocked users». Each item has its own identifier and type user."
+      }
+    },
+    "contacts.key_change_warning": {
+      "title": {
+        "en": "Warn on key change"
+      },
+      "description": {
+        "en": "Toggle for «Warn on key change». true enables the feature, false disables it."
+      }
+    },
+    "contacts.block_on_key_change": {
+      "title": {
+        "en": "Block sending on key change"
+      },
+      "description": {
+        "en": "Toggle for «Block sending on key change». true enables the feature, false disables it."
+      }
+    },
+    "notifications.enabled": {
+      "title": {
+        "en": "Enable notifications"
+      },
+      "description": {
+        "en": "Toggle for «Enable notifications». true enables the feature, false disables it."
+      }
+    },
+    "notifications.preview": {
+      "title": {
+        "en": "Notification content"
+      },
+      "description": {
+        "en": "Selects one value for «Notification content» from a fixed list of allowed options."
+      }
+    },
+    "notifications.types": {
+      "title": {
+        "en": "Notification types"
+      },
+      "description": {
+        "en": "Selects one or more values for «Notification types». Stored as an array of unique values."
+      }
+    },
+    "notifications.dnd_enabled": {
+      "title": {
+        "en": "Do not disturb"
+      },
+      "description": {
+        "en": "Toggle for «Do not disturb». true enables the feature, false disables it."
+      }
+    },
+    "notifications.dnd_schedule": {
+      "title": {
+        "en": "Schedule"
+      },
+      "description": {
+        "en": "Managed list «Schedule». Each item has its own identifier and type time_range."
+      }
+    },
+    "notifications.dnd_exceptions": {
+      "title": {
+        "en": "Exceptions"
+      },
+      "description": {
+        "en": "Managed list «Exceptions». Each item has its own identifier and type user_or_chat."
+      }
+    },
+    "notifications.hidden_chat_policy": {
+      "title": {
+        "en": "Hidden chat notifications"
+      },
+      "description": {
+        "en": "Selects one value for «Hidden chat notifications» from a fixed list of allowed options."
+      }
+    },
+    "messages.send_key": {
+      "title": {
+        "en": "Send message"
+      },
+      "description": {
+        "en": "Selects one value for «Send message» from a fixed list of allowed options."
+      }
+    },
+    "messages.save_drafts": {
+      "title": {
+        "en": "Auto-save drafts"
+      },
+      "description": {
+        "en": "Toggle for «Auto-save drafts». true enables the feature, false disables it."
+      }
+    },
+    "messages.confirm_delete": {
+      "title": {
+        "en": "Confirm deletion"
+      },
+      "description": {
+        "en": "Toggle for «Confirm deletion». true enables the feature, false disables it."
+      }
+    },
+    "messages.confirm_large_files": {
+      "title": {
+        "en": "Confirm large files"
+      },
+      "description": {
+        "en": "Toggle for «Confirm large files». true enables the feature, false disables it."
+      }
+    },
+    "messages.large_file_mb": {
+      "title": {
+        "en": "Large file threshold, MB"
+      },
+      "description": {
+        "en": "Numeric value for «Large file threshold, MB». The client must validate the minimum and maximum."
+      }
+    },
+    "messages.read_receipts_override": {
+      "title": {
+        "en": "Show read status locally"
+      },
+      "description": {
+        "en": "Toggle for «Show read status locally». true enables the feature, false disables it."
+      }
+    },
+    "messages.auto_delete_enabled": {
+      "title": {
+        "en": "Auto-delete messages"
+      },
+      "description": {
+        "en": "Toggle for «Auto-delete messages». true enables the feature, false disables it."
+      }
+    },
+    "messages.auto_delete_ttl": {
+      "title": {
+        "en": "Retention period"
+      },
+      "description": {
+        "en": "Selects one value for «Retention period» from a fixed list of allowed options."
+      }
+    },
+    "messages.link_preview": {
+      "title": {
+        "en": "Link preview"
+      },
+      "description": {
+        "en": "Selects one value for «Link preview» from a fixed list of allowed options."
+      }
+    },
+    "media.autoload_wifi": {
+      "title": {
+        "en": "Auto-download on Wi-Fi"
+      },
+      "description": {
+        "en": "Selects one or more values for «Auto-download on Wi-Fi». Stored as an array of unique values."
+      }
+    },
+    "media.autoload_mobile": {
+      "title": {
+        "en": "Auto-download on mobile"
+      },
+      "description": {
+        "en": "Selects one or more values for «Auto-download on mobile». Stored as an array of unique values."
+      }
+    },
+    "media.max_autoload_mb": {
+      "title": {
+        "en": "Max auto-download size, MB"
+      },
+      "description": {
+        "en": "Numeric value for «Max auto-download size, MB». The client must validate the minimum and maximum."
+      }
+    },
+    "media.image_quality": {
+      "title": {
+        "en": "Photo quality"
+      },
+      "description": {
+        "en": "Selects one value for «Photo quality» from a fixed list of allowed options."
+      }
+    },
+    "media.video_quality": {
+      "title": {
+        "en": "Video quality"
+      },
+      "description": {
+        "en": "Selects one value for «Video quality» from a fixed list of allowed options."
+      }
+    },
+    "media.save_to_gallery": {
+      "title": {
+        "en": "Save to gallery"
+      },
+      "description": {
+        "en": "Toggle for «Save to gallery». true enables the feature, false disables it."
+      }
+    },
+    "media.cache_limit_gb": {
+      "title": {
+        "en": "Cache limit, GB"
+      },
+      "description": {
+        "en": "Numeric value for «Cache limit, GB». The client must validate the minimum and maximum."
+      }
+    },
+    "media.auto_cleanup": {
+      "title": {
+        "en": "Auto cache cleanup"
+      },
+      "description": {
+        "en": "Toggle for «Auto cache cleanup». true enables the feature, false disables it."
+      }
+    },
+    "media.auto_cleanup_after": {
+      "title": {
+        "en": "Delete after"
+      },
+      "description": {
+        "en": "Selects one value for «Delete after» from a fixed list of allowed options."
+      }
+    },
+    "devices.current": {
+      "title": {
+        "en": "Current device"
+      },
+      "description": {
+        "en": "Informational field «Current device». Filled by the system and not editable by the user."
+      }
+    },
+    "devices.list": {
+      "title": {
+        "en": "All devices"
+      },
+      "description": {
+        "en": "Managed list «All devices». Each item has its own identifier and type device."
+      }
+    },
+    "devices.add": {
+      "title": {
+        "en": "Add device"
+      },
+      "description": {
+        "en": "Action «Add device». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "devices.require_approval": {
+      "title": {
+        "en": "Require new device approval"
+      },
+      "description": {
+        "en": "Toggle for «Require new device approval». true enables the feature, false disables it."
+      }
+    },
+    "devices.approval_methods": {
+      "title": {
+        "en": "Approval methods"
+      },
+      "description": {
+        "en": "Selects one or more values for «Approval methods». Stored as an array of unique values."
+      }
+    },
+    "devices.history_sync_default": {
+      "title": {
+        "en": "History for new device"
+      },
+      "description": {
+        "en": "Selects one value for «History for new device» from a fixed list of allowed options."
+      }
+    },
+    "devices.hidden_access_default": {
+      "title": {
+        "en": "New devices access to hidden chats"
+      },
+      "description": {
+        "en": "Toggle for «New devices access to hidden chats». true enables the feature, false disables it."
+      }
+    },
+    "devices.remote_wipe": {
+      "title": {
+        "en": "Allow remote wipe"
+      },
+      "description": {
+        "en": "Toggle for «Allow remote wipe». true enables the feature, false disables it."
+      }
+    },
+    "node.mode": {
+      "title": {
+        "en": "Connection mode"
+      },
+      "description": {
+        "en": "Selects one value for «Connection mode» from a fixed list of allowed options."
+      }
+    },
+    "node.current": {
+      "title": {
+        "en": "Current node"
+      },
+      "description": {
+        "en": "Informational field «Current node». Filled by the system and not editable by the user."
+      }
+    },
+    "node.custom_enabled": {
+      "title": {
+        "en": "Use custom node"
+      },
+      "description": {
+        "en": "Toggle for «Use custom node». true enables the feature, false disables it."
+      }
+    },
+    "node.custom_address": {
+      "title": {
+        "en": "Custom node address"
+      },
+      "description": {
+        "en": "URL of the user's own node."
+      }
+    },
+    "node.certificate_fingerprint": {
+      "title": {
+        "en": "Certificate fingerprint"
+      },
+      "description": {
+        "en": "Node TLS certificate fingerprint for verifying connection authenticity."
+      }
+    },
+    "node.allow_fallback": {
+      "title": {
+        "en": "Allow fallback to shared network"
+      },
+      "description": {
+        "en": "Toggle for «Allow fallback to shared network». true enables the feature, false disables it."
+      }
+    },
+    "node.allow_relays": {
+      "title": {
+        "en": "Allow relay nodes"
+      },
+      "description": {
+        "en": "Toggle for «Allow relay nodes». true enables the feature, false disables it."
+      }
+    },
+    "node.allow_service_nodes": {
+      "title": {
+        "en": "Allow service nodes"
+      },
+      "description": {
+        "en": "Toggle for «Allow service nodes». true enables the feature, false disables it."
+      }
+    },
+    "node.proxy_enabled": {
+      "title": {
+        "en": "Use proxy"
+      },
+      "description": {
+        "en": "Toggle for «Use proxy». true enables the feature, false disables it."
+      }
+    },
+    "node.proxy_type": {
+      "title": {
+        "en": "Proxy type"
+      },
+      "description": {
+        "en": "Selects one value for «Proxy type» from a fixed list of allowed options."
+      }
+    },
+    "node.proxy_address": {
+      "title": {
+        "en": "Proxy address"
+      },
+      "description": {
+        "en": "Text value for «Proxy address» in the «Node & network» section."
+      }
+    },
+    "node.mobile_data": {
+      "title": {
+        "en": "Allow mobile network"
+      },
+      "description": {
+        "en": "Toggle for «Allow mobile network». true enables the feature, false disables it."
+      }
+    },
+    "node.roaming": {
+      "title": {
+        "en": "Allow roaming"
+      },
+      "description": {
+        "en": "Toggle for «Allow roaming». true enables the feature, false disables it."
+      }
+    },
+    "sync.enabled": {
+      "title": {
+        "en": "Enable synchronization"
+      },
+      "description": {
+        "en": "Toggle for «Enable synchronization». true enables the feature, false disables it."
+      }
+    },
+    "sync.types": {
+      "title": {
+        "en": "What to sync"
+      },
+      "description": {
+        "en": "Selects one or more values for «What to sync». Stored as an array of unique values."
+      }
+    },
+    "sync.network": {
+      "title": {
+        "en": "Sync network"
+      },
+      "description": {
+        "en": "Selects one value for «Sync network» from a fixed list of allowed options."
+      }
+    },
+    "sync.history_depth": {
+      "title": {
+        "en": "History depth"
+      },
+      "description": {
+        "en": "Selects one value for «History depth» from a fixed list of allowed options."
+      }
+    },
+    "storage.summary": {
+      "title": {
+        "en": "Data placement overview"
+      },
+      "description": {
+        "en": "Informational field «Data placement overview». Filled by the system and not editable by the user."
+      }
+    },
+    "storage.message_location": {
+      "title": {
+        "en": "Where messages are stored"
+      },
+      "description": {
+        "en": "Determines the physical storage location of encrypted messages."
+      }
+    },
+    "storage.message_nodes": {
+      "title": {
+        "en": "Message storage nodes"
+      },
+      "description": {
+        "en": "Managed list «Message storage nodes». Each item has its own identifier and type node."
+      }
+    },
+    "storage.replication_factor": {
+      "title": {
+        "en": "Message copy count"
+      },
+      "description": {
+        "en": "Selects one value for «Message copy count» from a fixed list of allowed options."
+      }
+    },
+    "storage.media_location": {
+      "title": {
+        "en": "Where media is stored"
+      },
+      "description": {
+        "en": "Determines the physical storage location of encrypted media files."
+      }
+    },
+    "storage.s3_endpoint": {
+      "title": {
+        "en": "S3 endpoint"
+      },
+      "description": {
+        "en": "Text value for «S3 endpoint» in the «Data storage & ownership» section."
+      }
+    },
+    "storage.s3_bucket": {
+      "title": {
+        "en": "S3 bucket"
+      },
+      "description": {
+        "en": "Text value for «S3 bucket» in the «Data storage & ownership» section."
+      }
+    },
+    "storage.s3_access_key": {
+      "title": {
+        "en": "S3 access key"
+      },
+      "description": {
+        "en": "Secret value «S3 access key». Never shown openly, never logged, stored only in protected form."
+      }
+    },
+    "storage.s3_secret_key": {
+      "title": {
+        "en": "S3 secret key"
+      },
+      "description": {
+        "en": "Secret value «S3 secret key». Never shown openly, never logged, stored only in protected form."
+      }
+    },
+    "storage.media_ttl_enabled": {
+      "title": {
+        "en": "Delete media by TTL"
+      },
+      "description": {
+        "en": "Toggle for «Delete media by TTL». true enables the feature, false disables it."
+      }
+    },
+    "storage.media_ttl": {
+      "title": {
+        "en": "Media TTL"
+      },
+      "description": {
+        "en": "Selects one value for «Media TTL» from a fixed list of allowed options."
+      }
+    },
+    "storage.key_location": {
+      "title": {
+        "en": "Where keys are stored"
+      },
+      "description": {
+        "en": "Determines where the client stores local cryptographic keys."
+      }
+    },
+    "storage.backup_location": {
+      "title": {
+        "en": "Where backups are stored"
+      },
+      "description": {
+        "en": "Selects one or more values for «Where backups are stored». Stored as an array of unique values."
+      }
+    },
+    "storage.access_devices": {
+      "title": {
+        "en": "Devices with data access"
+      },
+      "description": {
+        "en": "Managed list «Devices with data access». Each item has its own identifier and type device."
+      }
+    },
+    "storage.access_nodes": {
+      "title": {
+        "en": "Nodes storing encrypted data"
+      },
+      "description": {
+        "en": "Managed list «Nodes storing encrypted data». Each item has its own identifier and type node."
+      }
+    },
+    "storage.last_sync": {
+      "title": {
+        "en": "Last synchronization"
+      },
+      "description": {
+        "en": "Informational field «Last synchronization». Filled by the system and not editable by the user."
+      }
+    },
+    "storage.last_backup": {
+      "title": {
+        "en": "Last backup"
+      },
+      "description": {
+        "en": "Informational field «Last backup». Filled by the system and not editable by the user."
+      }
+    },
+    "storage.integrity_check": {
+      "title": {
+        "en": "Verify data integrity"
+      },
+      "description": {
+        "en": "Action «Verify data integrity». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "storage.route_audit": {
+      "title": {
+        "en": "Audit delivery route"
+      },
+      "description": {
+        "en": "Action «Audit delivery route». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "storage.delete_local": {
+      "title": {
+        "en": "Delete local copies"
+      },
+      "description": {
+        "en": "Action «Delete local copies». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "storage.delete_remote": {
+      "title": {
+        "en": "Request deletion of remote copies"
+      },
+      "description": {
+        "en": "Action «Request deletion of remote copies». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "backup.enabled": {
+      "title": {
+        "en": "Enable backups"
+      },
+      "description": {
+        "en": "Toggle for «Enable backups». true enables the feature, false disables it."
+      }
+    },
+    "backup.schedule": {
+      "title": {
+        "en": "Frequency"
+      },
+      "description": {
+        "en": "Selects one value for «Frequency» from a fixed list of allowed options."
+      }
+    },
+    "backup.contents": {
+      "title": {
+        "en": "What to include"
+      },
+      "description": {
+        "en": "Selects one or more values for «What to include». Stored as an array of unique values."
+      }
+    },
+    "backup.encryption": {
+      "title": {
+        "en": "Encrypt backup"
+      },
+      "description": {
+        "en": "Toggle for «Encrypt backup». true enables the feature, false disables it."
+      }
+    },
+    "backup.password": {
+      "title": {
+        "en": "Backup password"
+      },
+      "description": {
+        "en": "Separate encryption password for the backup."
+      }
+    },
+    "backup.create_now": {
+      "title": {
+        "en": "Create backup now"
+      },
+      "description": {
+        "en": "Action «Create backup now». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "backup.restore": {
+      "title": {
+        "en": "Restore from backup"
+      },
+      "description": {
+        "en": "Action «Restore from backup». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "calls.p2p": {
+      "title": {
+        "en": "Allow P2P"
+      },
+      "description": {
+        "en": "Toggle for «Allow P2P». true enables the feature, false disables it."
+      }
+    },
+    "calls.force_relay": {
+      "title": {
+        "en": "Always use relay"
+      },
+      "description": {
+        "en": "Toggle for «Always use relay». true enables the feature, false disables it."
+      }
+    },
+    "calls.video": {
+      "title": {
+        "en": "Allow video"
+      },
+      "description": {
+        "en": "Toggle for «Allow video». true enables the feature, false disables it."
+      }
+    },
+    "calls.quality": {
+      "title": {
+        "en": "Video quality"
+      },
+      "description": {
+        "en": "Selects one value for «Video quality» from a fixed list of allowed options."
+      }
+    },
+    "calls.noise_suppression": {
+      "title": {
+        "en": "Noise suppression"
+      },
+      "description": {
+        "en": "Toggle for «Noise suppression». true enables the feature, false disables it."
+      }
+    },
+    "calls.echo_cancellation": {
+      "title": {
+        "en": "Echo cancellation"
+      },
+      "description": {
+        "en": "Toggle for «Echo cancellation». true enables the feature, false disables it."
+      }
+    },
+    "calls.data_saver": {
+      "title": {
+        "en": "Data saver"
+      },
+      "description": {
+        "en": "Toggle for «Data saver». true enables the feature, false disables it."
+      }
+    },
+    "appearance.theme": {
+      "title": {
+        "en": "Theme"
+      },
+      "description": {
+        "en": "Selects one value for «Theme» from a fixed list of allowed options."
+      }
+    },
+    "appearance.text_size": {
+      "title": {
+        "en": "Text size"
+      },
+      "description": {
+        "en": "Selects one value for «Text size» from a fixed list of allowed options."
+      }
+    },
+    "appearance.compact": {
+      "title": {
+        "en": "Compact mode"
+      },
+      "description": {
+        "en": "Toggle for «Compact mode». true enables the feature, false disables it."
+      }
+    },
+    "appearance.animations": {
+      "title": {
+        "en": "Animations"
+      },
+      "description": {
+        "en": "Toggle for «Animations». true enables the feature, false disables it."
+      }
+    },
+    "appearance.reduce_motion": {
+      "title": {
+        "en": "Reduce motion"
+      },
+      "description": {
+        "en": "Toggle for «Reduce motion». true enables the feature, false disables it."
+      }
+    },
+    "appearance.chat_bubbles": {
+      "title": {
+        "en": "Message style"
+      },
+      "description": {
+        "en": "Selects one value for «Message style» from a fixed list of allowed options."
+      }
+    },
+    "data.export_profile": {
+      "title": {
+        "en": "Export profile"
+      },
+      "description": {
+        "en": "Action «Export profile». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "data.export_history": {
+      "title": {
+        "en": "Export history"
+      },
+      "description": {
+        "en": "Action «Export history». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "data.export_contacts": {
+      "title": {
+        "en": "Export contacts"
+      },
+      "description": {
+        "en": "Action «Export contacts». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "data.clear_cache": {
+      "title": {
+        "en": "Clear cache"
+      },
+      "description": {
+        "en": "Action «Clear cache». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "data.clear_local": {
+      "title": {
+        "en": "Delete local data"
+      },
+      "description": {
+        "en": "Action «Delete local data». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "data.delete_profile": {
+      "title": {
+        "en": "Delete profile"
+      },
+      "description": {
+        "en": "Action «Delete profile». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "data.revoke_all_devices": {
+      "title": {
+        "en": "Revoke all devices"
+      },
+      "description": {
+        "en": "Action «Revoke all devices». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "developer.enabled": {
+      "title": {
+        "en": "Developer mode"
+      },
+      "description": {
+        "en": "Toggle for «Developer mode». true enables the feature, false disables it."
+      }
+    },
+    "developer.logs": {
+      "title": {
+        "en": "Logs"
+      },
+      "description": {
+        "en": "Action «Logs». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "developer.network_debug": {
+      "title": {
+        "en": "Network requests"
+      },
+      "description": {
+        "en": "Action «Network requests». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "developer.test_notifications": {
+      "title": {
+        "en": "Test notifications"
+      },
+      "description": {
+        "en": "Action «Test notifications». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "developer.test_crypto": {
+      "title": {
+        "en": "Test encryption"
+      },
+      "description": {
+        "en": "Action «Test encryption». Holds no persistent value; it triggers a separate flow."
+      }
+    },
+    "developer.protocol_version": {
+      "title": {
+        "en": "Protocol version"
+      },
+      "description": {
+        "en": "Informational field «Protocol version». Filled by the system and not editable by the user."
+      }
+    }
+  },
+  "enums": {
+    "2": {
+      "ru": "2",
+      "en": "2"
+    },
+    "3": {
+      "ru": "3",
+      "en": "3"
+    },
+    "4": {
+      "ru": "4",
+      "en": "4"
+    },
+    "5": {
+      "ru": "5",
+      "en": "5"
+    },
+    "6": {
+      "ru": "6",
+      "en": "6"
+    },
+    "8": {
+      "ru": "8",
+      "en": "8"
+    },
+    "10": {
+      "ru": "10",
+      "en": "10"
+    },
+    "12": {
+      "ru": "12",
+      "en": "12"
+    },
+    "15": {
+      "ru": "15",
+      "en": "15"
+    },
+    "20": {
+      "ru": "20",
+      "en": "20"
+    },
+    "12h": {
+      "ru": "12 часов",
+      "en": "12-hour"
+    },
+    "24h": {
+      "ru": "24 часа",
+      "en": "24-hour"
+    },
+    "15m": {
+      "ru": "15 минут",
+      "en": "15 min"
+    },
+    "30s": {
+      "ru": "30 секунд",
+      "en": "30 sec"
+    },
+    "1m": {
+      "ru": "1 минута",
+      "en": "1 min"
+    },
+    "5m": {
+      "ru": "5 минут",
+      "en": "5 min"
+    },
+    "1h": {
+      "ru": "1 час",
+      "en": "1 hour"
+    },
+    "1d": {
+      "ru": "1 день",
+      "en": "1 day"
+    },
+    "7d": {
+      "ru": "7 дней",
+      "en": "7 days"
+    },
+    "30d": {
+      "ru": "30 дней",
+      "en": "30 days"
+    },
+    "90d": {
+      "ru": "90 дней",
+      "en": "90 days"
+    },
+    "1y": {
+      "ru": "1 год",
+      "en": "1 year"
+    },
+    "DD.MM.YYYY": {
+      "ru": "DD.MM.YYYY",
+      "en": "DD.MM.YYYY"
+    },
+    "MM/DD/YYYY": {
+      "ru": "MM/DD/YYYY",
+      "en": "MM/DD/YYYY"
+    },
+    "YYYY-MM-DD": {
+      "ru": "YYYY-MM-DD",
+      "en": "YYYY-MM-DD"
+    },
+    "add_device": {
+      "ru": "Добавление устройства",
+      "en": "Add device"
+    },
+    "all": {
+      "ru": "Все",
+      "en": "All"
+    },
+    "any": {
+      "ru": "Любая",
+      "en": "Any"
+    },
+    "audio": {
+      "ru": "Аудио",
+      "en": "Audio"
+    },
+    "auto": {
+      "ru": "Авто",
+      "en": "Auto"
+    },
+    "balanced": {
+      "ru": "Сбалансированное",
+      "en": "Balanced"
+    },
+    "blocked": {
+      "ru": "Заблокирован",
+      "en": "Blocked"
+    },
+    "bubbles": {
+      "ru": "Пузыри",
+      "en": "Bubbles"
+    },
+    "button_only": {
+      "ru": "Только кнопка",
+      "en": "Button only"
+    },
+    "calculator_screen": {
+      "ru": "Экран калькулятора",
+      "en": "Calculator screen"
+    },
+    "calls": {
+      "ru": "Звонки",
+      "en": "Calls"
+    },
+    "change_node": {
+      "ru": "Смена ноды",
+      "en": "Change node"
+    },
+    "community": {
+      "ru": "Сообщество",
+      "en": "Community"
+    },
+    "compact": {
+      "ru": "Компактно",
+      "en": "Compact"
+    },
+    "compressed": {
+      "ru": "Сжатое",
+      "en": "Compressed"
+    },
+    "contact": {
+      "ru": "Контакт",
+      "en": "Contact"
+    },
+    "contact_requests": {
+      "ru": "Запросы в контакты",
+      "en": "Contact requests"
+    },
+    "contacts": {
+      "ru": "Контакты",
+      "en": "Contacts"
+    },
+    "corporate_verified": {
+      "ru": "Корпоративно подтверждён",
+      "en": "Corporate verified"
+    },
+    "ctrl_enter": {
+      "ru": "Ctrl+Enter",
+      "en": "Ctrl+Enter"
+    },
+    "daily": {
+      "ru": "Ежедневно",
+      "en": "Daily"
+    },
+    "dark": {
+      "ru": "Тёмная",
+      "en": "Dark"
+    },
+    "delete_profile": {
+      "ru": "Удаление профиля",
+      "en": "Delete profile"
+    },
+    "delivery_errors": {
+      "ru": "Ошибки доставки",
+      "en": "Delivery errors"
+    },
+    "device_encrypted": {
+      "ru": "Зашифровано на устройстве",
+      "en": "Device-encrypted"
+    },
+    "device_only": {
+      "ru": "Только устройство",
+      "en": "Device only"
+    },
+    "device_secure_store": {
+      "ru": "Защищённое хранилище устройства",
+      "en": "Device secure store"
+    },
+    "direct": {
+      "ru": "Личные",
+      "en": "Direct"
+    },
+    "documents": {
+      "ru": "Документы",
+      "en": "Documents"
+    },
+    "drafts": {
+      "ru": "Черновики",
+      "en": "Drafts"
+    },
+    "email": {
+      "ru": "Почта",
+      "en": "Email"
+    },
+    "empty_profile": {
+      "ru": "Пустой профиль",
+      "en": "Empty profile"
+    },
+    "en": {
+      "ru": "Английский",
+      "en": "English"
+    },
+    "enter": {
+      "ru": "Enter",
+      "en": "Enter"
+    },
+    "everyone": {
+      "ru": "Все",
+      "en": "Everyone"
+    },
+    "export": {
+      "ru": "Экспорт",
+      "en": "Export"
+    },
+    "extra_large": {
+      "ru": "Очень крупный",
+      "en": "Extra large"
+    },
+    "favorites": {
+      "ru": "Избранное",
+      "en": "Favorites"
+    },
+    "flat": {
+      "ru": "Плоский",
+      "en": "Flat"
+    },
+    "folders": {
+      "ru": "Папки",
+      "en": "Folders"
+    },
+    "from_now": {
+      "ru": "С текущего момента",
+      "en": "From now"
+    },
+    "from_pairing": {
+      "ru": "С момента привязки",
+      "en": "From pairing"
+    },
+    "full": {
+      "ru": "Полное",
+      "en": "Full"
+    },
+    "generic": {
+      "ru": "Обычное",
+      "en": "Generic"
+    },
+    "gesture": {
+      "ru": "Жест",
+      "en": "Gesture"
+    },
+    "groups": {
+      "ru": "Группы",
+      "en": "Groups"
+    },
+    "hardware_keystore": {
+      "ru": "Аппаратное хранилище",
+      "en": "Hardware keystore"
+    },
+    "hidden": {
+      "ru": "Скрыто",
+      "en": "Hidden"
+    },
+    "hidden_chats": {
+      "ru": "Скрытые чаты",
+      "en": "Hidden chats"
+    },
+    "high": {
+      "ru": "Высокое",
+      "en": "High"
+    },
+    "http": {
+      "ru": "HTTP",
+      "en": "HTTP"
+    },
+    "immediately": {
+      "ru": "Немедленно",
+      "en": "Immediately"
+    },
+    "invites": {
+      "ru": "По приглашению",
+      "en": "By invite"
+    },
+    "keys": {
+      "ru": "Ключи",
+      "en": "Keys"
+    },
+    "large": {
+      "ru": "Крупный",
+      "en": "Large"
+    },
+    "light": {
+      "ru": "Светлая",
+      "en": "Light"
+    },
+    "local_file": {
+      "ru": "Локальный файл",
+      "en": "Local file"
+    },
+    "local_only": {
+      "ru": "Только локально",
+      "en": "Local only"
+    },
+    "low": {
+      "ru": "Низкое",
+      "en": "Low"
+    },
+    "manual": {
+      "ru": "Вручную",
+      "en": "Manual"
+    },
+    "media": {
+      "ru": "Медиа",
+      "en": "Media"
+    },
+    "mentions": {
+      "ru": "Упоминания",
+      "en": "Mentions"
+    },
+    "messages": {
+      "ru": "Сообщения",
+      "en": "Messages"
+    },
+    "monthly": {
+      "ru": "Ежемесячно",
+      "en": "Monthly"
+    },
+    "never": {
+      "ru": "Никогда",
+      "en": "Never"
+    },
+    "nobody": {
+      "ru": "Никто",
+      "en": "Nobody"
+    },
+    "node_errors": {
+      "ru": "Ошибки ноды",
+      "en": "Node errors"
+    },
+    "none": {
+      "ru": "Нет",
+      "en": "None"
+    },
+    "normal": {
+      "ru": "Обычный",
+      "en": "Normal"
+    },
+    "off": {
+      "ru": "Выкл",
+      "en": "Off"
+    },
+    "original": {
+      "ru": "Оригинал",
+      "en": "Original"
+    },
+    "permanent": {
+      "ru": "Постоянный",
+      "en": "Permanent"
+    },
+    "personal": {
+      "ru": "Личная",
+      "en": "Personal"
+    },
+    "personal_node": {
+      "ru": "Личная нода",
+      "en": "Personal node"
+    },
+    "personal_node_s3": {
+      "ru": "Личная нода + S3",
+      "en": "Personal node + S3"
+    },
+    "photos": {
+      "ru": "Фото",
+      "en": "Photos"
+    },
+    "pin": {
+      "ru": "PIN",
+      "en": "PIN"
+    },
+    "profile": {
+      "ru": "Профиль",
+      "en": "Profile"
+    },
+    "push": {
+      "ru": "Push",
+      "en": "Push"
+    },
+    "qr": {
+      "ru": "QR",
+      "en": "QR"
+    },
+    "qr_verified": {
+      "ru": "Подтверждён по QR",
+      "en": "QR verified"
+    },
+    "recipient_cache": {
+      "ru": "Кэш получателя",
+      "en": "Recipient cache"
+    },
+    "recovery_key": {
+      "ru": "Ключ восстановления",
+      "en": "Recovery key"
+    },
+    "replicated_nodes": {
+      "ru": "Реплицированные ноды",
+      "en": "Replicated nodes"
+    },
+    "replies": {
+      "ru": "Ответы",
+      "en": "Replies"
+    },
+    "ru": {
+      "ru": "Русский",
+      "en": "Russian"
+    },
+    "safe_profile": {
+      "ru": "Безопасный профиль",
+      "en": "Safe profile"
+    },
+    "secret_command": {
+      "ru": "Секретная команда",
+      "en": "Secret command"
+    },
+    "security": {
+      "ru": "Безопасность",
+      "en": "Security"
+    },
+    "selected": {
+      "ru": "Выбранные",
+      "en": "Selected"
+    },
+    "selected_chats": {
+      "ru": "Выбранные чаты",
+      "en": "Selected chats"
+    },
+    "selected_node": {
+      "ru": "Выбранная нода",
+      "en": "Selected node"
+    },
+    "selected_s3": {
+      "ru": "Выбранный S3",
+      "en": "Selected S3"
+    },
+    "sender_device": {
+      "ru": "Устройство отправителя",
+      "en": "Sender device"
+    },
+    "sender_only": {
+      "ru": "Только отправитель",
+      "en": "Sender only"
+    },
+    "settings": {
+      "ru": "Настройки",
+      "en": "Settings"
+    },
+    "single_use": {
+      "ru": "Одноразовый",
+      "en": "Single use"
+    },
+    "small": {
+      "ru": "Мелкий",
+      "en": "Small"
+    },
+    "socks5": {
+      "ru": "SOCKS5",
+      "en": "SOCKS5"
+    },
+    "system": {
+      "ru": "Системная",
+      "en": "System"
+    },
+    "temporary": {
+      "ru": "Временный",
+      "en": "Temporary"
+    },
+    "through_node": {
+      "ru": "Через ноду",
+      "en": "Through node"
+    },
+    "trusted": {
+      "ru": "Доверенный",
+      "en": "Trusted"
+    },
+    "trusted_device": {
+      "ru": "Доверенное устройство",
+      "en": "Trusted device"
+    },
+    "unknown": {
+      "ru": "Неизвестный",
+      "en": "Unknown"
+    },
+    "unverified": {
+      "ru": "Не подтверждён",
+      "en": "Unverified"
+    },
+    "videos": {
+      "ru": "Видео",
+      "en": "Videos"
+    },
+    "view_keys": {
+      "ru": "Просмотр ключей",
+      "en": "View keys"
+    },
+    "weekly": {
+      "ru": "Еженедельно",
+      "en": "Weekly"
+    },
+    "wifi_only": {
+      "ru": "Только Wi-Fi",
+      "en": "Wi-Fi only"
+    }
+  }
+}

@@ -1,0 +1,1667 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ouo.local/schemas/settings-values.schema.json",
+  "title": "OUO Messenger Settings Values",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "profile.avatar": {
+      "title": "Аватар",
+      "description": "Изображение профиля пользователя. Хранится как ссылка на локальный или удалённый зашифрованный медиа-объект.",
+      "type": "null"
+    },
+    "profile.display_name": {
+      "title": "Отображаемое имя",
+      "description": "Имя, которое показывается собеседникам и в списке чатов. Не является уникальным идентификатором.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "profile.username_enabled": {
+      "title": "Использовать username",
+      "description": "Включает публичный username как дополнительный способ поиска и добавления пользователя.",
+      "type": "boolean",
+      "default": false
+    },
+    "profile.username": {
+      "title": "Username",
+      "description": "Уникальное публичное имя пользователя. Используется для поиска без телефона и QR-кода.",
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 32,
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_]{2,31}$"
+    },
+    "profile.bio": {
+      "title": "Описание профиля",
+      "description": "Краткое описание профиля, которое видят пользователи согласно настройкам приватности.",
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 500
+    },
+    "profile.public_id": {
+      "title": "Публичный ID",
+      "description": "Неизменяемый публичный идентификатор профиля, создаваемый клиентом автоматически.",
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ],
+      "readOnly": true
+    },
+    "profile.qr": {
+      "title": "QR-код профиля",
+      "description": "Открывает QR-код профиля для безопасного обмена идентификатором и ключами.",
+      "type": "null"
+    },
+    "profile.language": {
+      "title": "Язык интерфейса",
+      "description": "Выбор одного значения для параметра «Язык интерфейса» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "ru",
+        "en"
+      ],
+      "default": "ru"
+    },
+    "profile.time_format": {
+      "title": "Формат времени",
+      "description": "Выбор одного значения для параметра «Формат времени» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "24h",
+        "12h"
+      ],
+      "default": "24h"
+    },
+    "profile.date_format": {
+      "title": "Формат даты",
+      "description": "Выбор одного значения для параметра «Формат даты» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "DD.MM.YYYY",
+        "YYYY-MM-DD",
+        "MM/DD/YYYY"
+      ],
+      "default": "DD.MM.YYYY"
+    },
+    "identity.phone_enabled": {
+      "title": "Привязать телефон",
+      "description": "Включает привязку номера телефона к профилю.",
+      "type": "boolean",
+      "default": false
+    },
+    "identity.phone": {
+      "title": "Телефон",
+      "description": "Номер телефона в международном формате E.164.",
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 16,
+      "pattern": "^\\+[1-9]\\d{7,14}$"
+    },
+    "identity.phone_verified": {
+      "title": "Телефон подтвержден",
+      "description": "Системный признак успешного подтверждения номера телефона.",
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ],
+      "readOnly": true
+    },
+    "identity.phone_login": {
+      "title": "Разрешить вход по телефону",
+      "description": "Переключатель «Разрешить вход по телефону». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "identity.phone_recovery": {
+      "title": "Использовать телефон для восстановления",
+      "description": "Переключатель «Использовать телефон для восстановления». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "identity.email_enabled": {
+      "title": "Привязать почту",
+      "description": "Включает привязку электронной почты к профилю.",
+      "type": "boolean",
+      "default": false
+    },
+    "identity.email": {
+      "title": "Электронная почта",
+      "description": "Адрес электронной почты для входа, восстановления и уведомлений.",
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 254,
+      "format": "email"
+    },
+    "identity.email_verified": {
+      "title": "Почта подтверждена",
+      "description": "Информационное поле «Почта подтверждена». Заполняется системой и не редактируется пользователем.",
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ],
+      "readOnly": true
+    },
+    "identity.email_login": {
+      "title": "Разрешить вход по почте",
+      "description": "Переключатель «Разрешить вход по почте». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "identity.email_recovery": {
+      "title": "Использовать почту для восстановления",
+      "description": "Переключатель «Использовать почту для восстановления». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "identity.security_notifications": {
+      "title": "Получать уведомления безопасности",
+      "description": "Выбор одного или нескольких значений для параметра «Получать уведомления безопасности». Хранится как массив уникальных значений.",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 0,
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "enum": [
+          "email",
+          "push",
+          "trusted_device"
+        ]
+      },
+      "default": [
+        "push"
+      ]
+    },
+    "privacy.phone_visibility": {
+      "title": "Кто видит телефон",
+      "description": "Выбор одного значения для параметра «Кто видит телефон» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "nobody",
+        "contacts",
+        "selected",
+        "everyone"
+      ],
+      "default": "nobody"
+    },
+    "privacy.phone_visibility_list": {
+      "title": "Выбранные пользователи",
+      "description": "Управляемый список «Выбранные пользователи». Каждый элемент имеет собственный идентификатор и тип user.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "privacy.phone_search": {
+      "title": "Кто может найти по телефону",
+      "description": "Выбор одного значения для параметра «Кто может найти по телефону» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "nobody",
+        "contacts",
+        "everyone"
+      ],
+      "default": "nobody"
+    },
+    "privacy.email_visibility": {
+      "title": "Кто видит почту",
+      "description": "Выбор одного значения для параметра «Кто видит почту» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "nobody",
+        "contacts",
+        "selected",
+        "everyone"
+      ],
+      "default": "nobody"
+    },
+    "privacy.email_visibility_list": {
+      "title": "Выбранные пользователи",
+      "description": "Управляемый список «Выбранные пользователи». Каждый элемент имеет собственный идентификатор и тип user.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "privacy.username_search": {
+      "title": "Разрешить поиск по username",
+      "description": "Переключатель «Разрешить поиск по username». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "privacy.avatar_visibility": {
+      "title": "Кто видит аватар",
+      "description": "Выбор одного значения для параметра «Кто видит аватар» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "nobody",
+        "contacts",
+        "everyone"
+      ],
+      "default": "contacts"
+    },
+    "privacy.last_seen": {
+      "title": "Последнее посещение",
+      "description": "Выбор одного значения для параметра «Последнее посещение» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "nobody",
+        "contacts",
+        "selected",
+        "everyone"
+      ],
+      "default": "contacts"
+    },
+    "privacy.last_seen_list": {
+      "title": "Исключения",
+      "description": "Управляемый список «Исключения». Каждый элемент имеет собственный идентификатор и тип user.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "privacy.online_status": {
+      "title": "Показывать онлайн-статус",
+      "description": "Переключатель «Показывать онлайн-статус». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "privacy.read_receipts": {
+      "title": "Отправлять отметки о прочтении",
+      "description": "Переключатель «Отправлять отметки о прочтении». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "privacy.typing_status": {
+      "title": "Показывать набор текста",
+      "description": "Переключатель «Показывать набор текста». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "privacy.voice_record_status": {
+      "title": "Показывать запись голосового",
+      "description": "Переключатель «Показывать запись голосового». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "privacy.incoming_messages": {
+      "title": "Кто может писать первым",
+      "description": "Выбор одного значения для параметра «Кто может писать первым» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "nobody",
+        "contacts",
+        "invites",
+        "everyone"
+      ],
+      "default": "invites"
+    },
+    "privacy.calls_from": {
+      "title": "Кто может звонить",
+      "description": "Выбор одного значения для параметра «Кто может звонить» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "nobody",
+        "contacts",
+        "selected",
+        "everyone"
+      ],
+      "default": "contacts"
+    },
+    "privacy.calls_allowlist": {
+      "title": "Список разрешенных",
+      "description": "Управляемый список «Список разрешенных». Каждый элемент имеет собственный идентификатор и тип user.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "privacy.group_invites": {
+      "title": "Кто может добавлять в группы",
+      "description": "Выбор одного значения для параметра «Кто может добавлять в группы» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "nobody",
+        "contacts",
+        "everyone"
+      ],
+      "default": "contacts"
+    },
+    "privacy.qr_only": {
+      "title": "QR-only режим",
+      "description": "Переключатель «QR-only режим». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "privacy.qr_mode": {
+      "title": "Тип QR-доступа",
+      "description": "Выбор одного значения для параметра «Тип QR-доступа» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "permanent",
+        "temporary",
+        "single_use"
+      ],
+      "default": "temporary"
+    },
+    "privacy.qr_ttl_minutes": {
+      "title": "Срок действия QR, минут",
+      "description": "Числовое значение параметра «Срок действия QR, минут». Клиент должен проверять минимальное и максимальное значение.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10080,
+      "default": 30
+    },
+    "privacy.invisible_mode": {
+      "title": "Невидимый режим",
+      "description": "Переключатель «Невидимый режим». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "security.pin_enabled": {
+      "title": "Включить PIN",
+      "description": "Включает локальную блокировку клиента PIN-кодом.",
+      "type": "boolean",
+      "default": false
+    },
+    "security.pin": {
+      "title": "Основной PIN",
+      "description": "Секретный локальный PIN. Не должен сохраняться в открытом виде и не передаётся на сервер.",
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 12,
+      "pattern": "^\\d{4,12}$"
+    },
+    "security.pin_length": {
+      "title": "Длина PIN",
+      "description": "Выбор одного значения для параметра «Длина PIN» из фиксированного списка допустимых вариантов.",
+      "type": "integer",
+      "enum": [
+        4,
+        6,
+        8,
+        10,
+        12
+      ],
+      "default": 6
+    },
+    "security.alphanumeric_password": {
+      "title": "Разрешить буквенно-цифровой код",
+      "description": "Переключатель «Разрешить буквенно-цифровой код». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "security.autolock": {
+      "title": "Автоблокировка",
+      "description": "Выбор одного значения для параметра «Автоблокировка» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "immediately",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "1h",
+        "never"
+      ],
+      "default": "5m"
+    },
+    "security.lock_on_background": {
+      "title": "Блокировать при сворачивании",
+      "description": "Переключатель «Блокировать при сворачивании». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "security.lock_on_screen_off": {
+      "title": "Блокировать при выключении экрана",
+      "description": "Переключатель «Блокировать при выключении экрана». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "security.biometry": {
+      "title": "Использовать биометрию",
+      "description": "Переключатель «Использовать биометрию». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "security.pin_attempt_policy": {
+      "title": "Политика неверного PIN",
+      "description": "Информационное описание задержек и защитных действий при неверном вводе PIN.",
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ],
+      "readOnly": true
+    },
+    "security.wipe_enabled": {
+      "title": "Стирать локальные данные после ошибок",
+      "description": "Переключатель «Стирать локальные данные после ошибок». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "security.wipe_after": {
+      "title": "Количество попыток до стирания",
+      "description": "Выбор одного значения для параметра «Количество попыток до стирания» из фиксированного списка допустимых вариантов.",
+      "type": "integer",
+      "enum": [
+        10,
+        15,
+        20
+      ],
+      "default": 15
+    },
+    "security.fake_pin_enabled": {
+      "title": "Фейковый PIN",
+      "description": "Включает альтернативный PIN, открывающий безопасный или подставной профиль.",
+      "type": "boolean",
+      "default": false
+    },
+    "security.fake_pin": {
+      "title": "Фейковый PIN",
+      "description": "Альтернативный PIN, внешне неотличимый от основного PIN.",
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 12,
+      "pattern": "^\\d{4,12}$"
+    },
+    "security.fake_profile_mode": {
+      "title": "Что открывать по фейковому PIN",
+      "description": "Выбор одного значения для параметра «Что открывать по фейковому PIN» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "empty_profile",
+        "safe_profile",
+        "selected_chats"
+      ],
+      "default": "safe_profile"
+    },
+    "security.fake_profile_chats": {
+      "title": "Чаты фейкового профиля",
+      "description": "Управляемый список «Чаты фейкового профиля». Каждый элемент имеет собственный идентификатор и тип chat.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "security.distress_signal": {
+      "title": "Отправлять скрытый тревожный сигнал",
+      "description": "Переключатель «Отправлять скрытый тревожный сигнал». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "security.distress_contacts": {
+      "title": "Получатели тревожного сигнала",
+      "description": "Управляемый список «Получатели тревожного сигнала». Каждый элемент имеет собственный идентификатор и тип user.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "security.recovery_key_enabled": {
+      "title": "Создать Recovery Key",
+      "description": "Переключатель «Создать Recovery Key». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "security.recovery_key": {
+      "title": "Recovery Key",
+      "description": "Секретный ключ восстановления профиля и криптографических данных.",
+      "type": "string",
+      "minLength": 32,
+      "maxLength": 256
+    },
+    "security.require_pin_for_critical": {
+      "title": "Требовать PIN для критичных действий",
+      "description": "Выбор одного или нескольких значений для параметра «Требовать PIN для критичных действий». Хранится как массив уникальных значений.",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 0,
+      "maxItems": 5,
+      "items": {
+        "type": "string",
+        "enum": [
+          "export",
+          "add_device",
+          "change_node",
+          "view_keys",
+          "delete_profile"
+        ]
+      },
+      "default": [
+        "export",
+        "add_device",
+        "view_keys"
+      ]
+    },
+    "hidden.enabled": {
+      "title": "Включить скрытые чаты",
+      "description": "Переключатель «Включить скрытые чаты». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "hidden.open_method": {
+      "title": "Способ открытия",
+      "description": "Выбор одного значения для параметра «Способ открытия» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "pin",
+        "gesture",
+        "secret_command",
+        "calculator_screen"
+      ],
+      "default": "pin"
+    },
+    "hidden.pin": {
+      "title": "PIN скрытых чатов",
+      "description": "Секретное значение «PIN скрытых чатов». Не отображается открыто, не логируется и хранится только в защищённом виде.",
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 12,
+      "pattern": "^\\d{4,12}$"
+    },
+    "hidden.chat_list": {
+      "title": "Список скрытых чатов",
+      "description": "Управляемый список «Список скрытых чатов». Каждый элемент имеет собственный идентификатор и тип chat.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "hidden.hide_from_search": {
+      "title": "Скрывать из поиска",
+      "description": "Переключатель «Скрывать из поиска». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "hidden.hide_notifications": {
+      "title": "Скрывать уведомления",
+      "description": "Переключатель «Скрывать уведомления». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "hidden.hide_media": {
+      "title": "Скрывать медиа из общей галереи",
+      "description": "Переключатель «Скрывать медиа из общей галереи». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "hidden.autolock": {
+      "title": "Автоблокировка скрытого раздела",
+      "description": "Выбор одного значения для параметра «Автоблокировка скрытого раздела» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "immediately",
+        "30s",
+        "1m",
+        "5m",
+        "15m"
+      ],
+      "default": "1m"
+    },
+    "contacts.import_enabled": {
+      "title": "Импортировать телефонную книгу",
+      "description": "Переключатель «Импортировать телефонную книгу». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "contacts.hash_lookup": {
+      "title": "Искать совпадения по хэшам номеров",
+      "description": "Переключатель «Искать совпадения по хэшам номеров». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "contacts.auto_add_mutual": {
+      "title": "Автоматически добавлять взаимные контакты",
+      "description": "Переключатель «Автоматически добавлять взаимные контакты». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "contacts.trusted_enabled": {
+      "title": "Использовать список доверенных пользователей",
+      "description": "Переключатель «Использовать список доверенных пользователей». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "contacts.trusted_list": {
+      "title": "Список доверенных пользователей",
+      "description": "Управляемый список «Список доверенных пользователей». Каждый элемент имеет собственный идентификатор и тип user.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "contacts.trust_levels_enabled": {
+      "title": "Использовать уровни доверия",
+      "description": "Переключатель «Использовать уровни доверия». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "contacts.trust_levels": {
+      "title": "Доступные уровни доверия",
+      "description": "Выбор одного или нескольких значений для параметра «Доступные уровни доверия». Хранится как массив уникальных значений.",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 0,
+      "maxItems": 7,
+      "items": {
+        "type": "string",
+        "enum": [
+          "unknown",
+          "unverified",
+          "contact",
+          "qr_verified",
+          "trusted",
+          "corporate_verified",
+          "blocked"
+        ]
+      },
+      "default": [
+        "unknown",
+        "unverified",
+        "contact",
+        "qr_verified",
+        "trusted",
+        "blocked"
+      ]
+    },
+    "contacts.blocked_list": {
+      "title": "Заблокированные пользователи",
+      "description": "Управляемый список «Заблокированные пользователи». Каждый элемент имеет собственный идентификатор и тип user.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "contacts.key_change_warning": {
+      "title": "Предупреждать об изменении ключей",
+      "description": "Переключатель «Предупреждать об изменении ключей». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "contacts.block_on_key_change": {
+      "title": "Блокировать отправку при изменении ключа",
+      "description": "Переключатель «Блокировать отправку при изменении ключа». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "notifications.enabled": {
+      "title": "Включить уведомления",
+      "description": "Переключатель «Включить уведомления». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "notifications.preview": {
+      "title": "Содержимое уведомления",
+      "description": "Выбор одного значения для параметра «Содержимое уведомления» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "full",
+        "sender_only",
+        "hidden"
+      ],
+      "default": "sender_only"
+    },
+    "notifications.types": {
+      "title": "Типы уведомлений",
+      "description": "Выбор одного или нескольких значений для параметра «Типы уведомлений». Хранится как массив уникальных значений.",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 0,
+      "maxItems": 9,
+      "items": {
+        "type": "string",
+        "enum": [
+          "direct",
+          "groups",
+          "mentions",
+          "replies",
+          "calls",
+          "contact_requests",
+          "security",
+          "node_errors",
+          "delivery_errors"
+        ]
+      },
+      "default": [
+        "direct",
+        "mentions",
+        "replies",
+        "calls",
+        "security"
+      ]
+    },
+    "notifications.dnd_enabled": {
+      "title": "Не беспокоить",
+      "description": "Переключатель «Не беспокоить». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "notifications.dnd_schedule": {
+      "title": "Расписание",
+      "description": "Управляемый список «Расписание». Каждый элемент имеет собственный идентификатор и тип time_range.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "notifications.dnd_exceptions": {
+      "title": "Исключения",
+      "description": "Управляемый список «Исключения». Каждый элемент имеет собственный идентификатор и тип user_or_chat.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "notifications.hidden_chat_policy": {
+      "title": "Уведомления скрытых чатов",
+      "description": "Выбор одного значения для параметра «Уведомления скрытых чатов» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "none",
+        "generic",
+        "normal"
+      ],
+      "default": "none"
+    },
+    "messages.send_key": {
+      "title": "Отправка сообщения",
+      "description": "Выбор одного значения для параметра «Отправка сообщения» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "enter",
+        "ctrl_enter",
+        "button_only"
+      ],
+      "default": "enter"
+    },
+    "messages.save_drafts": {
+      "title": "Автосохранение черновиков",
+      "description": "Переключатель «Автосохранение черновиков». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "messages.confirm_delete": {
+      "title": "Подтверждать удаление",
+      "description": "Переключатель «Подтверждать удаление». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "messages.confirm_large_files": {
+      "title": "Подтверждать большие файлы",
+      "description": "Переключатель «Подтверждать большие файлы». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "messages.large_file_mb": {
+      "title": "Порог большого файла, МБ",
+      "description": "Числовое значение параметра «Порог большого файла, МБ». Клиент должен проверять минимальное и максимальное значение.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 102400,
+      "default": 100
+    },
+    "messages.read_receipts_override": {
+      "title": "Локально показывать статусы прочтения",
+      "description": "Переключатель «Локально показывать статусы прочтения». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "messages.auto_delete_enabled": {
+      "title": "Автоудаление сообщений",
+      "description": "Переключатель «Автоудаление сообщений». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "messages.auto_delete_ttl": {
+      "title": "Срок хранения",
+      "description": "Выбор одного значения для параметра «Срок хранения» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "1h",
+        "1d",
+        "7d",
+        "30d",
+        "90d"
+      ],
+      "default": "7d"
+    },
+    "messages.link_preview": {
+      "title": "Превью ссылок",
+      "description": "Выбор одного значения для параметра «Превью ссылок» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "off",
+        "local_only",
+        "through_node"
+      ],
+      "default": "local_only"
+    },
+    "media.autoload_wifi": {
+      "title": "Автозагрузка по Wi‑Fi",
+      "description": "Выбор одного или нескольких значений для параметра «Автозагрузка по Wi‑Fi». Хранится как массив уникальных значений.",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 0,
+      "maxItems": 4,
+      "items": {
+        "type": "string",
+        "enum": [
+          "photos",
+          "videos",
+          "audio",
+          "documents"
+        ]
+      },
+      "default": [
+        "photos",
+        "audio"
+      ]
+    },
+    "media.autoload_mobile": {
+      "title": "Автозагрузка по мобильной сети",
+      "description": "Выбор одного или нескольких значений для параметра «Автозагрузка по мобильной сети». Хранится как массив уникальных значений.",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 0,
+      "maxItems": 4,
+      "items": {
+        "type": "string",
+        "enum": [
+          "photos",
+          "videos",
+          "audio",
+          "documents"
+        ]
+      },
+      "default": [
+        "photos"
+      ]
+    },
+    "media.max_autoload_mb": {
+      "title": "Максимальный размер автозагрузки, МБ",
+      "description": "Числовое значение параметра «Максимальный размер автозагрузки, МБ». Клиент должен проверять минимальное и максимальное значение.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 102400,
+      "default": 20
+    },
+    "media.image_quality": {
+      "title": "Качество фото",
+      "description": "Выбор одного значения для параметра «Качество фото» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "compressed",
+        "balanced",
+        "original"
+      ],
+      "default": "balanced"
+    },
+    "media.video_quality": {
+      "title": "Качество видео",
+      "description": "Выбор одного значения для параметра «Качество видео» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "low",
+        "balanced",
+        "original"
+      ],
+      "default": "balanced"
+    },
+    "media.save_to_gallery": {
+      "title": "Сохранять в галерею",
+      "description": "Переключатель «Сохранять в галерею». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "media.cache_limit_gb": {
+      "title": "Лимит кэша, ГБ",
+      "description": "Числовое значение параметра «Лимит кэша, ГБ». Клиент должен проверять минимальное и максимальное значение.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1024,
+      "default": 2
+    },
+    "media.auto_cleanup": {
+      "title": "Автоочистка кэша",
+      "description": "Переключатель «Автоочистка кэша». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "media.auto_cleanup_after": {
+      "title": "Удалять через",
+      "description": "Выбор одного значения для параметра «Удалять через» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "7d",
+        "30d",
+        "90d"
+      ],
+      "default": "30d"
+    },
+    "devices.current": {
+      "title": "Текущее устройство",
+      "description": "Информационное поле «Текущее устройство». Заполняется системой и не редактируется пользователем.",
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ],
+      "readOnly": true
+    },
+    "devices.list": {
+      "title": "Все устройства",
+      "description": "Управляемый список «Все устройства». Каждый элемент имеет собственный идентификатор и тип device.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "devices.add": {
+      "title": "Добавить устройство",
+      "description": "Действие «Добавить устройство». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "devices.require_approval": {
+      "title": "Требовать подтверждение нового устройства",
+      "description": "Переключатель «Требовать подтверждение нового устройства». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "devices.approval_methods": {
+      "title": "Способы подтверждения",
+      "description": "Выбор одного или нескольких значений для параметра «Способы подтверждения». Хранится как массив уникальных значений.",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 0,
+      "maxItems": 4,
+      "items": {
+        "type": "string",
+        "enum": [
+          "trusted_device",
+          "qr",
+          "pin",
+          "recovery_key"
+        ]
+      },
+      "default": [
+        "trusted_device",
+        "qr"
+      ]
+    },
+    "devices.history_sync_default": {
+      "title": "История для нового устройства",
+      "description": "Выбор одного значения для параметра «История для нового устройства» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "none",
+        "from_pairing",
+        "30d",
+        "all"
+      ],
+      "default": "from_pairing"
+    },
+    "devices.hidden_access_default": {
+      "title": "Доступ новых устройств к скрытым чатам",
+      "description": "Переключатель «Доступ новых устройств к скрытым чатам». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "devices.remote_wipe": {
+      "title": "Разрешить удаленное стирание",
+      "description": "Переключатель «Разрешить удаленное стирание». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "node.mode": {
+      "title": "Режим подключения",
+      "description": "Выбор одного значения для параметра «Режим подключения» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "auto",
+        "community",
+        "personal",
+        "local_only"
+      ],
+      "default": "auto"
+    },
+    "node.current": {
+      "title": "Текущая нода",
+      "description": "Информационное поле «Текущая нода». Заполняется системой и не редактируется пользователем.",
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ],
+      "readOnly": true
+    },
+    "node.custom_enabled": {
+      "title": "Использовать свою ноду",
+      "description": "Переключатель «Использовать свою ноду». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "node.custom_address": {
+      "title": "Адрес своей ноды",
+      "description": "URL собственной ноды пользователя.",
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 2048,
+      "format": "uri"
+    },
+    "node.certificate_fingerprint": {
+      "title": "Fingerprint сертификата",
+      "description": "Отпечаток TLS-сертификата ноды для проверки подлинности соединения.",
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ],
+      "readOnly": true
+    },
+    "node.allow_fallback": {
+      "title": "Разрешить fallback на общую сеть",
+      "description": "Переключатель «Разрешить fallback на общую сеть». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "node.allow_relays": {
+      "title": "Разрешить relay-ноды",
+      "description": "Переключатель «Разрешить relay-ноды». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "node.allow_service_nodes": {
+      "title": "Разрешить сервисные ноды",
+      "description": "Переключатель «Разрешить сервисные ноды». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "node.proxy_enabled": {
+      "title": "Использовать прокси",
+      "description": "Переключатель «Использовать прокси». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "node.proxy_type": {
+      "title": "Тип прокси",
+      "description": "Выбор одного значения для параметра «Тип прокси» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "socks5",
+        "http"
+      ],
+      "default": "socks5"
+    },
+    "node.proxy_address": {
+      "title": "Адрес прокси",
+      "description": "Текстовое значение параметра «Адрес прокси» в разделе «Нода и сеть».",
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 2048
+    },
+    "node.mobile_data": {
+      "title": "Разрешить мобильную сеть",
+      "description": "Переключатель «Разрешить мобильную сеть». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "node.roaming": {
+      "title": "Разрешить роуминг",
+      "description": "Переключатель «Разрешить роуминг». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "sync.enabled": {
+      "title": "Включить синхронизацию",
+      "description": "Переключатель «Включить синхронизацию». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "sync.types": {
+      "title": "Что синхронизировать",
+      "description": "Выбор одного или нескольких значений для параметра «Что синхронизировать». Хранится как массив уникальных значений.",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 0,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "messages",
+          "contacts",
+          "settings",
+          "media",
+          "drafts",
+          "folders",
+          "favorites",
+          "hidden_chats"
+        ]
+      },
+      "default": [
+        "messages",
+        "contacts",
+        "settings",
+        "drafts"
+      ]
+    },
+    "sync.network": {
+      "title": "Сеть для синхронизации",
+      "description": "Выбор одного значения для параметра «Сеть для синхронизации» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "any",
+        "wifi_only",
+        "manual"
+      ],
+      "default": "any"
+    },
+    "sync.history_depth": {
+      "title": "Глубина истории",
+      "description": "Выбор одного значения для параметра «Глубина истории» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "from_now",
+        "7d",
+        "30d",
+        "90d",
+        "all"
+      ],
+      "default": "30d"
+    },
+    "storage.summary": {
+      "title": "Обзор размещения данных",
+      "description": "Информационное поле «Обзор размещения данных». Заполняется системой и не редактируется пользователем.",
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ],
+      "readOnly": true
+    },
+    "storage.message_location": {
+      "title": "Где хранятся сообщения",
+      "description": "Определяет физическое место хранения зашифрованных сообщений.",
+      "type": "string",
+      "enum": [
+        "device_only",
+        "personal_node",
+        "selected_node",
+        "replicated_nodes"
+      ],
+      "default": "device_only"
+    },
+    "storage.message_nodes": {
+      "title": "Ноды хранения сообщений",
+      "description": "Управляемый список «Ноды хранения сообщений». Каждый элемент имеет собственный идентификатор и тип node.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "storage.replication_factor": {
+      "title": "Количество копий сообщений",
+      "description": "Выбор одного значения для параметра «Количество копий сообщений» из фиксированного списка допустимых вариантов.",
+      "type": "integer",
+      "enum": [
+        2,
+        3,
+        5
+      ],
+      "default": 2
+    },
+    "storage.media_location": {
+      "title": "Где хранятся медиа",
+      "description": "Определяет физическое место хранения зашифрованных медиафайлов.",
+      "type": "string",
+      "enum": [
+        "sender_device",
+        "personal_node_s3",
+        "selected_s3",
+        "recipient_cache"
+      ],
+      "default": "personal_node_s3"
+    },
+    "storage.s3_endpoint": {
+      "title": "S3 endpoint",
+      "description": "Текстовое значение параметра «S3 endpoint» в разделе «Хранение и владение данными».",
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 2048,
+      "format": "uri"
+    },
+    "storage.s3_bucket": {
+      "title": "S3 bucket",
+      "description": "Текстовое значение параметра «S3 bucket» в разделе «Хранение и владение данными».",
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 2048
+    },
+    "storage.s3_access_key": {
+      "title": "S3 access key",
+      "description": "Секретное значение «S3 access key». Не отображается открыто, не логируется и хранится только в защищённом виде.",
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 256
+    },
+    "storage.s3_secret_key": {
+      "title": "S3 secret key",
+      "description": "Секретное значение «S3 secret key». Не отображается открыто, не логируется и хранится только в защищённом виде.",
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 256
+    },
+    "storage.media_ttl_enabled": {
+      "title": "Удалять медиа по TTL",
+      "description": "Переключатель «Удалять медиа по TTL». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "storage.media_ttl": {
+      "title": "TTL медиа",
+      "description": "Выбор одного значения для параметра «TTL медиа» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "1d",
+        "7d",
+        "30d",
+        "90d",
+        "1y"
+      ],
+      "default": "30d"
+    },
+    "storage.key_location": {
+      "title": "Где хранятся ключи",
+      "description": "Определяет, где клиент хранит локальные криптографические ключи.",
+      "type": "string",
+      "enum": [
+        "device_secure_store",
+        "device_encrypted",
+        "hardware_keystore"
+      ],
+      "default": "device_secure_store"
+    },
+    "storage.backup_location": {
+      "title": "Где хранятся резервные копии",
+      "description": "Выбор одного или нескольких значений для параметра «Где хранятся резервные копии». Хранится как массив уникальных значений.",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 0,
+      "maxItems": 4,
+      "items": {
+        "type": "string",
+        "enum": [
+          "none",
+          "local_file",
+          "personal_node",
+          "selected_s3"
+        ]
+      },
+      "default": [
+        "none"
+      ]
+    },
+    "storage.access_devices": {
+      "title": "Устройства с доступом к данным",
+      "description": "Управляемый список «Устройства с доступом к данным». Каждый элемент имеет собственный идентификатор и тип device.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "storage.access_nodes": {
+      "title": "Ноды, хранящие зашифрованные данные",
+      "description": "Управляемый список «Ноды, хранящие зашифрованные данные». Каждый элемент имеет собственный идентификатор и тип node.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10000,
+      "items": {
+        "type": "object"
+      }
+    },
+    "storage.last_sync": {
+      "title": "Последняя синхронизация",
+      "description": "Информационное поле «Последняя синхронизация». Заполняется системой и не редактируется пользователем.",
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ],
+      "readOnly": true
+    },
+    "storage.last_backup": {
+      "title": "Последняя резервная копия",
+      "description": "Информационное поле «Последняя резервная копия». Заполняется системой и не редактируется пользователем.",
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ],
+      "readOnly": true
+    },
+    "storage.integrity_check": {
+      "title": "Проверить целостность данных",
+      "description": "Действие «Проверить целостность данных». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "storage.route_audit": {
+      "title": "Проверить маршрут доставки",
+      "description": "Действие «Проверить маршрут доставки». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "storage.delete_local": {
+      "title": "Удалить локальные копии",
+      "description": "Действие «Удалить локальные копии». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "storage.delete_remote": {
+      "title": "Запросить удаление удаленных копий",
+      "description": "Действие «Запросить удаление удаленных копий». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "backup.enabled": {
+      "title": "Включить резервное копирование",
+      "description": "Переключатель «Включить резервное копирование». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "backup.schedule": {
+      "title": "Периодичность",
+      "description": "Выбор одного значения для параметра «Периодичность» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "manual",
+        "daily",
+        "weekly",
+        "monthly"
+      ],
+      "default": "weekly"
+    },
+    "backup.contents": {
+      "title": "Что включать",
+      "description": "Выбор одного или нескольких значений для параметра «Что включать». Хранится как массив уникальных значений.",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 0,
+      "maxItems": 7,
+      "items": {
+        "type": "string",
+        "enum": [
+          "profile",
+          "settings",
+          "contacts",
+          "messages",
+          "media",
+          "hidden_chats",
+          "keys"
+        ]
+      },
+      "default": [
+        "profile",
+        "settings",
+        "contacts",
+        "messages"
+      ]
+    },
+    "backup.encryption": {
+      "title": "Шифровать резервную копию",
+      "description": "Переключатель «Шифровать резервную копию». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "backup.password": {
+      "title": "Пароль резервной копии",
+      "description": "Отдельный пароль шифрования резервной копии.",
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 128
+    },
+    "backup.create_now": {
+      "title": "Создать копию сейчас",
+      "description": "Действие «Создать копию сейчас». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "backup.restore": {
+      "title": "Восстановить из копии",
+      "description": "Действие «Восстановить из копии». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "calls.p2p": {
+      "title": "Разрешить P2P",
+      "description": "Переключатель «Разрешить P2P». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "calls.force_relay": {
+      "title": "Всегда использовать relay",
+      "description": "Переключатель «Всегда использовать relay». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "calls.video": {
+      "title": "Разрешить видео",
+      "description": "Переключатель «Разрешить видео». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "calls.quality": {
+      "title": "Качество видео",
+      "description": "Выбор одного значения для параметра «Качество видео» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "low",
+        "balanced",
+        "high"
+      ],
+      "default": "balanced"
+    },
+    "calls.noise_suppression": {
+      "title": "Подавление шума",
+      "description": "Переключатель «Подавление шума». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "calls.echo_cancellation": {
+      "title": "Эхоподавление",
+      "description": "Переключатель «Эхоподавление». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "calls.data_saver": {
+      "title": "Экономия трафика",
+      "description": "Переключатель «Экономия трафика». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "appearance.theme": {
+      "title": "Тема",
+      "description": "Выбор одного значения для параметра «Тема» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "system",
+        "light",
+        "dark"
+      ],
+      "default": "system"
+    },
+    "appearance.text_size": {
+      "title": "Размер текста",
+      "description": "Выбор одного значения для параметра «Размер текста» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "small",
+        "normal",
+        "large",
+        "extra_large"
+      ],
+      "default": "normal"
+    },
+    "appearance.compact": {
+      "title": "Компактный режим",
+      "description": "Переключатель «Компактный режим». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "appearance.animations": {
+      "title": "Анимации",
+      "description": "Переключатель «Анимации». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": true
+    },
+    "appearance.reduce_motion": {
+      "title": "Уменьшить движение",
+      "description": "Переключатель «Уменьшить движение». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "appearance.chat_bubbles": {
+      "title": "Стиль сообщений",
+      "description": "Выбор одного значения для параметра «Стиль сообщений» из фиксированного списка допустимых вариантов.",
+      "type": "string",
+      "enum": [
+        "bubbles",
+        "flat",
+        "compact"
+      ],
+      "default": "bubbles"
+    },
+    "data.export_profile": {
+      "title": "Экспортировать профиль",
+      "description": "Действие «Экспортировать профиль». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "data.export_history": {
+      "title": "Экспортировать историю",
+      "description": "Действие «Экспортировать историю». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "data.export_contacts": {
+      "title": "Экспортировать контакты",
+      "description": "Действие «Экспортировать контакты». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "data.clear_cache": {
+      "title": "Очистить кэш",
+      "description": "Действие «Очистить кэш». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "data.clear_local": {
+      "title": "Удалить локальные данные",
+      "description": "Действие «Удалить локальные данные». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "data.delete_profile": {
+      "title": "Удалить профиль",
+      "description": "Действие «Удалить профиль». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "data.revoke_all_devices": {
+      "title": "Отозвать все устройства",
+      "description": "Действие «Отозвать все устройства». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "developer.enabled": {
+      "title": "Режим разработчика",
+      "description": "Переключатель «Режим разработчика». Значение true включает функцию, false отключает.",
+      "type": "boolean",
+      "default": false
+    },
+    "developer.logs": {
+      "title": "Логи",
+      "description": "Действие «Логи». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "developer.network_debug": {
+      "title": "Сетевые запросы",
+      "description": "Действие «Сетевые запросы». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "developer.test_notifications": {
+      "title": "Тест уведомлений",
+      "description": "Действие «Тест уведомлений». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "developer.test_crypto": {
+      "title": "Тест шифрования",
+      "description": "Действие «Тест шифрования». Не хранит постоянное значение, а запускает отдельный сценарий.",
+      "type": "null"
+    },
+    "developer.protocol_version": {
+      "title": "Версия протокола",
+      "description": "Информационное поле «Версия протокола». Заполняется системой и не редактируется пользователем.",
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "array",
+        "null"
+      ],
+      "readOnly": true
+    }
+  },
+  "required": [
+    "profile.display_name"
+  ]
+}

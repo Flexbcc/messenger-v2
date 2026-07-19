@@ -1,0 +1,60 @@
+# Secrets & local runtime
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.local
+**/data/
+**/gitea.env
+**/laptop.env
+**/node.profile
+**/workers.list
+config/deploy/laptop.env
+config/deploy/gitea.env
+
+# Python
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+*.pyc
+.Python
+
+# Flutter / Dart
+**/.dart_tool/
+**/build/
+**/Pods/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/ephemeral/
+**/*.xcuserstate
+**/DerivedData/
+
+# Node
+**/node_modules/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Archives / dumps
+*.zip
+*.tar.gz
+*.sqlite
+*.db
+!**/fixtures/**/*.sqlite
+
+# QA bot runtime reports (keep structure)
+scripts/qa_bots/reports/*.jsonl
+scripts/qa_bots/reports/session.txt
+scripts/qa_bots/reports/last_run.md
+scripts/qa_bots/reports/bugs.md
+# keep coverage matrix committed if present; ignore volatile smokes
+scripts/qa_bots/reports/node_smoke.md
+scripts/qa_bots/reports/storage_smoke.md
+scripts/qa_bots/reports/simulation_10_users.md
+
+# Docker / local volumes noise
+**/*.log

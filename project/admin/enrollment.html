@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<script>
+window.__ADMIN_BASE=(location.pathname==="/ops"||location.pathname.startsWith("/ops/"))?"/ops":"";
+document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operator Admin — Доверие</title>
+<link rel="stylesheet" href="static/theme.css">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body class="page-form page-enrollment">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Доверие нод</h1>
+          <p class="subtitle">Кто может участвовать в инфраструктуре сети</p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup">Настройка</a>
+        <a href="storage">Хранилище</a>
+        <a href="enrollment">Доверие</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить" aria-label="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему" aria-label="Сменить тему">◐</button>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <div class="trust-hero card">
+        <div class="trust-hero-icon" aria-hidden="true">🛡</div>
+        <div>
+          <h2>Нода ≠ пользователь</h2>
+          <p>Здесь решается, <strong>может ли чужая нода быть частью инфраструктуры</strong> (relay, storage, маршруты). Это не бан пользователей в мессенджере.</p>
+        </div>
+      </div>
+
+      <div class="trust-effects card">
+        <div class="trust-effect">
+          <strong>Принять</strong>
+          <p>Нода в каталоге Discovery как доверенная. Другие ноды могут слать через неё трафик, если владелец включил участие.</p>
+        </div>
+        <div class="trust-effect">
+          <strong>Отключить (suspend)</strong>
+          <p>Нода выпадает из инфраструктуры — relay/storage недоступны. <em>Пользователи на своих Home Node продолжают чат</em>, но маршрут «через эту ноду» перестаёт работать.</p>
+        </div>
+        <div class="trust-effect">
+          <strong>Отклонить (pending)</strong>
+          <p>Только в режиме <code>strict</code>/<code>hybrid</code>. Новая нода видна оператору, но не попадает в публичный каталог, пока вы не примете.</p>
+        </div>
+      </div>
+
+      <div class="info-banner card" id="modeBanner">
+        <strong id="modeBannerTitle">Режим сети</strong>
+        <p id="enrollmentModeHint">Загрузка…</p>
+      </div>
+
+      <div class="info-banner card warn-banner hidden" id="secretWarning">
+        <strong>Нужен пароль администратора Discovery</strong>
+        <p>Добавьте <code>DISCOVERY_ADMIN_SECRET=…</code> в <code>.env</code>, перезапустите <code>discovery-node</code>, введите секрет ниже.</p>
+      </div>
+
+      <section class="card panel-section hidden" id="pendingSection">
+        <div class="section-head">
+          <h3>Ожидают решения</h3>
+          <span class="badge" id="pendingCount">0</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Нода</th><th>Роль</th><th>Кластер</th><th></th></tr>
+            </thead>
+            <tbody id="pendingBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card panel-section">
+        <div class="section-head">
+          <h3>Все ноды в Discovery</h3>
+        </div>
+
+        <div class="enrollment-toolbar">
+          <label class="field-compact">Discovery
+            <input id="discoveryUrl" type="url" placeholder="http://discovery-node:8003">
+          </label>
+          <label class="field-compact">Оператор (кто решил)
+            <input id="operatorId" type="text" placeholder="operator" autocomplete="username">
+          </label>
+          <label class="field-compact">Пароль admin
+            <input id="adminSecret" type="password" placeholder="DISCOVERY_ADMIN_SECRET" autocomplete="off">
+          </label>
+          <button type="button" id="checkAccessBtn" class="btn-secondary">Проверить доступ</button>
+        </div>
+        <div class="field-check-result hidden" data-check-for="access" aria-live="polite"></div>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Доверие</th>
+                <th>node_id</th>
+                <th>Роль</th>
+                <th>Онлайн</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody id="nodesBody">
+              <tr><td colspan="5" class="empty">Загрузка…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p id="status" class="status-msg" style="margin-top:14px"></p>
+      </section>
+
+      <section class="card panel-section">
+        <div class="section-head"><h3>История решений</h3></div>
+        <p class="section-hint">Кто и когда approve / suspend / compromise.</p>
+        <div class="table-wrap">
+          <table class="data-table compact">
+            <thead>
+              <tr><th>Когда</th><th>Кто</th><th>Действие</th><th>node_id</th><th>Детали</th></tr>
+            </thead>
+            <tbody id="auditBody">
+              <tr><td colspan="5" class="empty">Введите пароль admin и обновите</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="static/shared.js"></script>
+  <script src="static/enrollment.js"></script>
+</body>
+</html>

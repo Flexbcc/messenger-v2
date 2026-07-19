@@ -1,0 +1,128 @@
+# Главная Home Node оператора (личная нода).
+# Сборка из client-node; подключается к Discovery проекта.
+#
+# Панель владельца:     http://localhost:9205/panel
+# Operator Console:     http://127.0.0.1:9205/ops
+# Project dev Admin:    http://127.0.0.1:9201
+#
+# Отличия:
+#   project/     — dev-стек (discovery, gateway, home :8001, admin :9201)
+#   main-node/   — ВАША главная нода (:9205, cluster operator-main)
+#   client-node/ — тестовая клиентская (:18011, cluster client-test)
+services:
+  home-node:
+    build:
+      context: ../client-node
+      dockerfile: services/home-node/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${HOME_PORT:-9205}:8001"
+    environment:
+      HOME_NODE_ID: ${HOME_NODE_ID:-home-operator-main}
+      HOME_NODE_PUBLIC_URL: ${HOME_NODE_PUBLIC_URL:-http://localhost:9205}
+      DISCOVERY_NODE_URL: ${DISCOVERY_NODE_URL:?set discovery URL}
+      STORAGE_NODE_URL: ${STORAGE_NODE_URL:-http://storage-node:8002}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me-in-production}
+      CLUSTER_ID: ${CLUSTER_ID:-operator-main}
+      NODE_RESOURCE_POLICY: ${NODE_RESOURCE_POLICY:-federated}
+      OWNER_RESOURCE_PERCENT: ${OWNER_RESOURCE_PERCENT:-40}
+      NODE_PARTICIPATE_RELAY: ${NODE_PARTICIPATE_RELAY:-true}
+      NODE_PARTICIPATE_STORAGE: ${NODE_PARTICIPATE_STORAGE:-true}
+      NODE_PARTICIPATE_WITNESS: ${NODE_PARTICIPATE_WITNESS:-false}
+      NODE_PARTICIPATE_MEDIA_CACHE: ${NODE_PARTICIPATE_MEDIA_CACHE:-false}
+      NODE_PARTICIPATE_NAT_ASSIST: ${NODE_PARTICIPATE_NAT_ASSIST:-false}
+      ENROLLMENT_MODE: ${ENROLLMENT_MODE:-legacy}
+      NODE_TOKEN_PATH: /data/node_token
+      ENROLLMENT_SECRET_PATH: /data/enrollment_secret
+      NODE_BUILD_HASH: ${NODE_BUILD_HASH:-dev-local}
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
+      HOME_DB_PATH: /data/home.db
+      OPS_ADMIN_URL: http://admin:9206
+    volumes:
+      - ./data/home:/data
+
+  storage-node:
+    build:
+      context: ../client-node
+      dockerfile: services/storage-node/Dockerfile
+    restart: unless-stopped
+    networks:
+      - default
+      - project
+    expose:
+      - "8002"
+    environment:
+      STORAGE_NODE_ID: ${STORAGE_NODE_ID:-storage-operator-main}
+      STORAGE_NODE_PUBLIC_URL: ${STORAGE_NODE_PUBLIC_URL:-http://storage-node:8002}
+      DISCOVERY_NODE_URL: http://discovery-node:8003
+      CLUSTER_ID: ${CLUSTER_ID:-operator-main}
+      ENROLLMENT_MODE: ${ENROLLMENT_MODE:-legacy}
+      NODE_TOKEN_PATH: /data/node_token
+      ENROLLMENT_SECRET_PATH: /data/enrollment_secret
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      STORAGE_DB_PATH: /data/storage.db
+    volumes:
+      - ./data/storage:/data
+
+  relay-node:
+    build:
+      context: ../client-node
+      dockerfile: services/relay-node/Dockerfile
+    restart: unless-stopped
+    networks:
+      - default
+      - project
+    expose:
+      - "8005"
+    environment:
+      RELAY_NODE_ID: ${RELAY_NODE_ID:-relay-operator-main}
+      RELAY_NODE_PUBLIC_URL: ${RELAY_NODE_PUBLIC_URL:-http://relay-node:8005}
+      DISCOVERY_NODE_URL: http://discovery-node:8003
+      CLUSTER_ID: ${CLUSTER_ID:-operator-main}
+      ENROLLMENT_MODE: ${ENROLLMENT_MODE:-legacy}
+      NODE_TOKEN_PATH: /data/node_token
+      ENROLLMENT_SECRET_PATH: /data/enrollment_secret
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+    volumes:
+      - ./data/relay:/data
+
+  # Полная операторская консоль — метрики всех нод, доверие, настройки main-node.
+  admin:
+    build:
+      context: ../project/admin-server
+    restart: unless-stopped
+    expose:
+      - "9206"
+    networks:
+      - default
+      - project
+    environment:
+      ADMIN_PORT: ${ADMIN_PORT:-9206}
+      ADMIN_VARIANT: main
+      PROJECT_ROOT: /stack
+      ADMIN_STATIC: /admin
+      ENV_FILE: /stack/.env
+      COMPOSE_FILE: /stack/docker-compose.yml
+      HOME_NODE_URL: http://home-node:8001
+      DISCOVERY_NODE_URL: http://discovery-node:8003
+      STORAGE_NODE_URL: http://storage-node:8002
+      RELAY_NODE_URL: http://relay-node:8005
+      PROBE_HOME_OPERATOR: http://home-node:8001
+      PROBE_HOME_DEFAULT: http://project-home-node-1:8001
+      PROBE_HOME_CLIENT: http://client-node-home-node-1:8001
+      ADMIN_PANEL_SECRET: ${ADMIN_PANEL_SECRET:-}
+    volumes:
+      - .:/stack
+      - ../project/admin:/admin
+      - /var/run/docker.sock:/var/run/docker.sock
+
+networks:
+  default:
+    name: main-node_default
+  project:
+    external: true
+    name: project_default

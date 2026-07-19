@@ -1,0 +1,711 @@
+{
+  "meta": {
+    "product": "OUO Messenger — Node",
+    "schema_version": "1.0.0",
+    "locale": "ru-RU",
+    "audience": "оператор клиентской/проектной ноды",
+    "source_of_truth_for": [
+      "client-node",
+      "услуги self-hosted ноды"
+    ],
+    "value_conventions": {
+      "boolean": "true/false",
+      "single_select": "одно значение из options",
+      "multi_select": "массив значений из options",
+      "text": "строка",
+      "number": "число",
+      "secret": "секрет, не отображать и не логировать",
+      "read_only": "заполняется системой",
+      "action": "операция",
+      "list": "управляемый список объектов"
+    },
+    "scopes": {
+      "node": "конфигурация ноды (постоянная)",
+      "runtime": "состояние во время работы (read_only)"
+    },
+    "storages": {
+      "node_env": "переменная окружения (.env / docker-compose)",
+      "node_config": "конфиг-файл ноды",
+      "local_encrypted": "секрет в защищённом хранилище",
+      "node_state": "вычисляется/наблюдается во время работы",
+      "none": "action, не хранится"
+    },
+    "status_field": "status: implemented = поддержано кодом; planned = заготовка, кодом ещё не читается/не реализовано (проверено аудитом)."
+  },
+  "sections": [
+    {
+      "id": "network",
+      "title": "Сеть и подключение",
+      "icon": "network",
+      "settings": [
+        {
+          "id": "network.discovery_url",
+          "title": "Адрес discovery сети",
+          "type": "text",
+          "required": true,
+          "description": "URL discovery общей сети — регистрация и heartbeat (исходящие). Нода не парсит ответы discovery на предмет настроек/обновлений.",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "DISCOVERY_NODE_URL",
+          "status": "implemented"
+        },
+        {
+          "id": "network.public_url",
+          "title": "Публичный URL ноды",
+          "type": "text",
+          "required": true,
+          "description": "Как ноду видно снаружи (для регистрации в discovery).",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "HOME_NODE_PUBLIC_URL",
+          "status": "implemented"
+        },
+        {
+          "id": "network.home_node_id",
+          "title": "ID home-ноды",
+          "type": "text",
+          "default": "home-client",
+          "description": "Идентификатор home-ноды.",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "HOME_NODE_ID",
+          "status": "implemented"
+        },
+        {
+          "id": "network.cluster_id",
+          "title": "Кластер",
+          "type": "text",
+          "default": "default",
+          "description": "Идентификатор кластера.",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "CLUSTER_ID",
+          "status": "implemented"
+        },
+        {
+          "id": "network.jwt_secret",
+          "title": "Секрет подписи сессий",
+          "type": "secret",
+          "description": "Ключ подписи клиентских JWT-сессий.",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "password",
+            "danger": true,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "local_encrypted",
+          "env": "JWT_SECRET",
+          "status": "implemented"
+        },
+        {
+          "id": "network.home_port",
+          "title": "Порт home-ноды",
+          "type": "number",
+          "default": 8001,
+          "description": "Порт публикации home-ноды.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "ui": {
+            "control": "number_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "HOME_PORT",
+          "status": "implemented",
+          "impl_note": "Используется только в docker-compose (port-mapping), кодом ноды не читается."
+        },
+        {
+          "id": "network.registered_status",
+          "title": "Статус регистрации",
+          "type": "read_only",
+          "description": "online / offline / pending — по heartbeat в discovery.",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "info_row",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "runtime",
+          "storage": "node_state",
+          "status": "planned",
+          "impl_note": "Статус online/offline/pending вычисляется на discovery/admin по heartbeat; локально на ноде не экспонируется (/health не возвращает registered_status)."
+        },
+        {
+          "id": "network.storage_node_id",
+          "title": "ID storage-ноды",
+          "type": "text",
+          "default": "storage-client",
+          "description": "Идентификатор storage-ноды (офлайн-буфер).",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "STORAGE_NODE_ID",
+          "status": "implemented"
+        },
+        {
+          "id": "network.relay_node_id",
+          "title": "ID relay-ноды",
+          "type": "text",
+          "default": "relay-client",
+          "description": "Идентификатор relay-ноды (микрохаб).",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "RELAY_NODE_ID",
+          "status": "implemented"
+        },
+        {
+          "id": "network.resource_policy",
+          "title": "Политика ресурсов",
+          "type": "single_select",
+          "options": [
+            "local",
+            "cluster",
+            "federated"
+          ],
+          "default": "federated",
+          "description": "Как home-node выбирает relay/storage при федерации.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "local",
+              "cluster",
+              "federated"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "NODE_RESOURCE_POLICY",
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "id": "assistance",
+      "title": "Помощь сети",
+      "icon": "hands",
+      "settings": [
+        {
+          "id": "assistance.enabled",
+          "title": "Помогать сети",
+          "type": "boolean",
+          "default": false,
+          "description": "Добровольная помощь другим пользователям. По умолчанию выключено (Personal only).",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "danger": false,
+            "requires_confirmation": true
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Модель network-assistance; в коде ноды не реализовано."
+        },
+        {
+          "id": "assistance.roles",
+          "title": "Разрешённые роли",
+          "type": "multi_select",
+          "options": [
+            "limited_assistance",
+            "public_relay",
+            "temporary_storage",
+            "discovery_helper",
+            "witness"
+          ],
+          "default": [],
+          "description": "Какие функции помощи включены. Видно только при assistance.enabled.",
+          "data": {
+            "json_type": "array",
+            "items_enum": [
+              "limited_assistance",
+              "public_relay",
+              "temporary_storage",
+              "discovery_helper",
+              "witness"
+            ]
+          },
+          "ui": {
+            "control": "multi-select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Модель network-assistance; в коде ноды не реализовано."
+        }
+      ]
+    },
+    {
+      "id": "capacity",
+      "title": "Ресурсы и допуск (capacity)",
+      "icon": "gauge",
+      "settings": [
+        {
+          "id": "capacity.community_max_cpu_pct",
+          "title": "Макс. CPU под community",
+          "type": "number",
+          "default": 60,
+          "description": "Потолок CPU для community-нагрузки. Личная нагрузка всегда приоритетнее.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "ui": {
+            "control": "number_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Модель capacity; в коде не реализовано."
+        },
+        {
+          "id": "capacity.community_max_ram_pct",
+          "title": "Макс. RAM под community",
+          "type": "number",
+          "default": 50,
+          "description": "Потолок RAM для community-нагрузки.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "ui": {
+            "control": "number_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Модель capacity; в коде не реализовано."
+        },
+        {
+          "id": "capacity.community_max_disk_gb",
+          "title": "Макс. диск под community (ГБ)",
+          "type": "number",
+          "default": 0,
+          "description": "Лимит диска для community. 0 = не выделять.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 0
+          },
+          "ui": {
+            "control": "number_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Модель capacity; в коде не реализовано."
+        },
+        {
+          "id": "capacity.community_max_bandwidth_mbps",
+          "title": "Макс. полоса (Мбит/с)",
+          "type": "number",
+          "default": 0,
+          "description": "Лимит полосы для community. 0 = без выделенного лимита.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 0
+          },
+          "ui": {
+            "control": "number_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Модель capacity; в коде не реализовано."
+        },
+        {
+          "id": "capacity.preempt_threshold_pct",
+          "title": "Порог вытеснения community",
+          "type": "number",
+          "default": 70,
+          "description": "При личной нагрузке выше порога community вытесняется.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "ui": {
+            "control": "number_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Модель capacity; в коде не реализовано."
+        },
+        {
+          "id": "capacity.reserve_pct",
+          "title": "Резерв ресурсов",
+          "type": "number",
+          "default": 10,
+          "description": "Неприкосновенный резерв.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "ui": {
+            "control": "number_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Модель capacity; в коде не реализовано."
+        }
+      ]
+    },
+    {
+      "id": "storage",
+      "title": "Хранилище ноды",
+      "icon": "database",
+      "settings": [
+        {
+          "id": "storage.media_backend",
+          "title": "Бэкенд медиа",
+          "type": "single_select",
+          "options": [
+            "local",
+            "s3",
+            "personal_pc"
+          ],
+          "default": "local",
+          "description": "Куда нода складывает блобы. personal_pc = домашний ПК (storage-app).",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "local",
+              "s3",
+              "personal_pc"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Выбор бэкенда пока не читается кодом ноды."
+        },
+        {
+          "id": "storage.buffer_limit_gb",
+          "title": "Лимит буфера офлайн-сообщений (ГБ)",
+          "type": "number",
+          "default": 0,
+          "description": "Ограничение storage-node. 0 = без лимита.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 0
+          },
+          "ui": {
+            "control": "number_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Лимит буфера в коде не реализован."
+        },
+        {
+          "id": "storage.storage_config_path",
+          "title": "Путь storage.json",
+          "type": "text",
+          "description": "Профиль хранилища (local/s3/personal_cloud).",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "STORAGE_CONFIG",
+          "status": "planned",
+          "impl_note": "В slim-ноде не читается: единственный потребитель STORAGE_CONFIG — исключённый media-node."
+        }
+      ]
+    },
+    {
+      "id": "updates",
+      "title": "Обновления",
+      "icon": "download",
+      "settings": [
+        {
+          "id": "updates.channel",
+          "title": "Канал обновлений",
+          "type": "single_select",
+          "options": [
+            "stable",
+            "testing"
+          ],
+          "default": "stable",
+          "description": "Стабильный или тестовый канал.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "stable",
+              "testing"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Канал обновлений в коде ноды не реализован (обновления — внешними скриптами)."
+        },
+        {
+          "id": "updates.auto_update",
+          "title": "Автообновление",
+          "type": "boolean",
+          "default": true,
+          "description": "Ставить проверенные обновления автоматически.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Автообновление в коде не реализовано."
+        },
+        {
+          "id": "updates.verify_signature",
+          "title": "Проверять подпись/hash",
+          "type": "boolean",
+          "default": true,
+          "description": "Проверка подписи и hash манифеста, защита от downgrade.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "danger": true,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_config",
+          "status": "planned",
+          "impl_note": "Проверка выполняется скриптом sign/verify, не рантаймом ноды."
+        },
+        {
+          "id": "updates.build_hash",
+          "title": "Текущий build hash",
+          "type": "read_only",
+          "description": "Хэш текущей сборки ноды.",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "info_row",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "runtime",
+          "storage": "node_state",
+          "env": "NODE_BUILD_HASH",
+          "status": "implemented",
+          "impl_note": "Читается из env, отправляется в attestation при регистрации; /health локально build_hash не возвращает. В docker-compose задан только для home-node — для storage/relay добавьте env вручную."
+        }
+      ]
+    },
+    {
+      "id": "enrollment",
+      "title": "Enrollment и безопасность",
+      "icon": "shield",
+      "settings": [
+        {
+          "id": "enrollment.mode",
+          "title": "Режим enrollment",
+          "type": "single_select",
+          "options": [
+            "legacy",
+            "strict",
+            "hybrid"
+          ],
+          "default": "legacy",
+          "description": "Как нода привязывается к сети. legacy — без poll; strict/hybrid — poll enrollment/status на discovery.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "legacy",
+              "strict",
+              "hybrid"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "ENROLLMENT_MODE",
+          "status": "implemented"
+        },
+        {
+          "id": "enrollment.signing_key_path",
+          "title": "Путь ключа подписи ноды",
+          "type": "text",
+          "description": "Ed25519-ключ ноды (пары, федерация, personal_pc).",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "NODE_SIGNING_KEY_PATH",
+          "status": "implemented"
+        },
+        {
+          "id": "enrollment.internal_security_mode",
+          "title": "Режим внутренней безопасности",
+          "type": "single_select",
+          "options": [
+            "legacy",
+            "signed"
+          ],
+          "default": "legacy",
+          "description": "Строгость межнодовой защиты. signed — проверка подписи internal-запросов (код: INTERNAL_SECURITY_MODE == \"signed\").",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "legacy",
+              "signed"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "INTERNAL_SECURITY_MODE",
+          "status": "implemented",
+          "impl_note": "Не задан в docker-compose по умолчанию (legacy). Значение strict из старых доков не поддерживается — используйте signed."
+        },
+        {
+          "id": "enrollment.federation_envelope_mode",
+          "title": "Режим federation envelope",
+          "type": "single_select",
+          "options": [
+            "legacy",
+            "signed"
+          ],
+          "default": "legacy",
+          "description": "Формат защищённого межнодового обмена. signed — подписанные federation envelope.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "legacy",
+              "signed"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "node",
+          "storage": "node_env",
+          "env": "FEDERATION_ENVELOPE_MODE",
+          "status": "implemented",
+          "impl_note": "Не задан в docker-compose по умолчанию (legacy). Значение strict из старых доков не поддерживается — используйте signed."
+        }
+      ]
+    }
+  ]
+}

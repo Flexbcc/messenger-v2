@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<script>
+window.__ADMIN_BASE=(location.pathname==="/ops"||location.pathname.startsWith("/ops/"))?"/ops":"";
+document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operator Admin — Хранилище</title>
+<link rel="stylesheet" href="static/theme.css">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body class="page-form page-storage">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Хранилище</h1>
+          <p class="subtitle">Медиа, облако и резервные копии</p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup">Настройка</a>
+        <a href="storage">Хранилище</a>
+        <a href="enrollment">Доверие</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить" aria-label="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему" aria-label="Сменить тему">◐</button>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <div class="storage-hero card">
+        <div class="storage-hero-icon" aria-hidden="true">🗄</div>
+        <div>
+          <h2>Три слоя хранения</h2>
+          <p>Медиа на диске или S3 · персональные облака пользователей · резервные копии. Сохранение и применение — разные шаги.</p>
+        </div>
+      </div>
+
+      <div class="storage-flow card">
+        <div class="flow-step"><span>1</span><strong>Сохранить</strong><p>Запись в <code>storage.json</code></p></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><span>2</span><strong>Применить</strong><p>Media-node перечитывает без рестарта</p></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><span>3</span><strong>Бэкап</strong><p>Копия медиа и home.db по расписанию</p></div>
+      </div>
+
+      <form id="storageForm" class="storage-form">
+        <article class="card storage-card">
+          <header class="storage-card-head">
+            <span class="storage-card-icon">🎬</span>
+            <div>
+              <h2>Медиа</h2>
+              <p>Фото, файлы, голосовые</p>
+            </div>
+          </header>
+          <div class="storage-card-body">
+            <label>Бэкенд
+              <select name="media_primary_backend" id="mediaPrimaryBackend">
+                <option value="local">Локальный диск</option>
+                <option value="s3">S3 / MinIO</option>
+              </select>
+            </label>
+            <label>Путь на диске
+              <input name="media_local_path" type="text" placeholder="/data/media_blobs">
+            </label>
+            <div id="mediaS3Block" class="subpanel hidden">
+              <label>S3 endpoint <input name="media_s3_endpoint" type="url"></label>
+              <label>Bucket <input name="media_s3_bucket" type="text"></label>
+              <label>Access key <input name="media_s3_access_key" type="text" autocomplete="off"></label>
+              <label>Secret key <input name="media_s3_secret_key" type="password" autocomplete="off"></label>
+              <label>Region <input name="media_s3_region" type="text" value="us-east-1"></label>
+              <label>Prefix <input name="media_s3_prefix" type="text" placeholder="media/"></label>
+            </div>
+            <label>TTL кеша сети (часы)
+              <input name="network_cache_ttl_hours" type="number" min="1" max="720" value="48">
+            </label>
+          </div>
+        </article>
+
+        <article class="card storage-card">
+          <header class="storage-card-head">
+            <span class="storage-card-icon">☁️</span>
+            <div>
+              <h2>Персональное облако</h2>
+              <p>S3 пользователя вместо диска оператора</p>
+            </div>
+          </header>
+          <div class="storage-card-body">
+            <label class="checkbox-row">
+              <input name="personal_cloud_enabled" type="checkbox">
+              Разрешить персональные хранилища
+            </label>
+            <label>По умолчанию для пользователей
+              <select name="default_for_node_users">
+                <option value="operator">operator — диск оператора</option>
+                <option value="personal">personal — свой S3</option>
+              </select>
+            </label>
+          </div>
+        </article>
+
+        <article class="card storage-card">
+          <header class="storage-card-head">
+            <span class="storage-card-icon">💾</span>
+            <div>
+              <h2>Резервное копирование</h2>
+              <p>Медиа + база home-node</p>
+            </div>
+          </header>
+          <div class="storage-card-body">
+            <label class="checkbox-row"><input name="backup_enabled" type="checkbox"> Включить бэкап</label>
+            <label>Бэкенд
+              <select name="backup_backend" id="backupBackend">
+                <option value="local">Локальный каталог</option>
+                <option value="s3">S3 / MinIO</option>
+              </select>
+            </label>
+            <label>Каталог (local) <input name="backup_local_path" type="text" placeholder="/data/backups"></label>
+            <label>Интервал (часы) <input name="backup_schedule_hours" type="number" min="1" value="24"></label>
+            <div id="backupS3Block" class="subpanel hidden">
+              <label>S3 endpoint <input name="backup_s3_endpoint" type="url"></label>
+              <label>Bucket <input name="backup_s3_bucket" type="text"></label>
+              <label>Access key <input name="backup_s3_access_key" type="text" autocomplete="off"></label>
+              <label>Secret key <input name="backup_s3_secret_key" type="password" autocomplete="off"></label>
+              <label>Prefix <input name="backup_s3_prefix" type="text" placeholder="backups/"></label>
+            </div>
+          </div>
+        </article>
+
+        <div class="card storage-actions">
+          <button type="button" id="checkMediaBtn" class="btn-secondary">Проверить media-node</button>
+          <div class="field-check-result hidden" data-check-for="media" aria-live="polite"></div>
+          <button type="submit" class="btn-primary">Сохранить</button>
+          <button type="button" id="reloadMediaBtn" class="btn-secondary">Применить</button>
+          <button type="button" id="backupNowBtn" class="btn-secondary">Бэкап сейчас</button>
+          <span id="status" class="status-msg"></span>
+        </div>
+      </form>
+    </main>
+  </div>
+  <script src="static/shared.js"></script>
+  <script src="static/storage.js"></script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Настройка ноды — Admin</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <nav class="site-nav">
+      <a href="/">Мониторинг</a>
+      <a href="/setup">Настройка ноды</a>
+      <a href="/storage">Хранилище</a>
+      <a href="/enrollment">Enrollment</a>
+    </nav>
+    <h1>Настройка ноды</h1>
+    <p class="subtitle">
+      GUI поверх тех же файлов, что и терминал: <code>.env</code> и
+      <code>config/storage.json</code>. Можно править и вручную — GUI не блокирует консоль.
+    </p>
+  </header>
+  <main>
+    <form id="setupForm" class="panel">
+      <section>
+        <h2>Сеть и кластер</h2>
+        <label>LAN IP этой машины
+          <input name="lan_ip" type="text" placeholder="192.168.1.10">
+        </label>
+        <label>Discovery Node URL
+          <input name="discovery_node_url" type="url" required>
+        </label>
+        <label>CLUSTER_ID (оператор / остров)
+          <input name="cluster_id" type="text" required>
+        </label>
+        <label>Политика ресурсов (home-node)
+          <select name="node_resource_policy">
+            <option value="federated">federated — общий пул relay/storage</option>
+            <option value="cluster">cluster — только свой CLUSTER_ID</option>
+            <option value="local">local — только env, без relay fallback</option>
+          </select>
+        </label>
+      </section>
+
+      <section>
+        <h2>URL нод (для клиентов и федерации)</h2>
+        <label>Home Node
+          <input name="home_node_public_url" type="url" required>
+        </label>
+        <label>Storage Node
+          <input name="storage_node_url" type="url" required>
+        </label>
+        <label>Media Node
+          <input name="media_node_public_url" type="url" required>
+        </label>
+        <label>Relay Node
+          <input name="relay_node_public_url" type="url" required>
+        </label>
+        <label>JWT Secret (home-node)
+          <input name="jwt_secret" type="password" placeholder="оставьте •••• чтобы не менять" autocomplete="new-password">
+        </label>
+      </section>
+
+      <p class="hint warn-hint">
+        Секреты не отображаются полностью. Для изменения API/Setup задайте
+        <code>ADMIN_PANEL_SECRET</code> в <code>.env</code> и передавайте заголовок
+        <code>X-Admin-Panel-Secret</code> (или ограничьте порт 9201 firewall/VPN).
+      </p>
+
+      <div class="form-actions">
+        <button type="submit">Сохранить в .env</button>
+        <span id="status" class="status-msg"></span>
+      </div>
+      <p class="hint">
+        После сохранения перезапустите стек:
+        <code>docker compose up -d --build</code>
+      </p>
+    </form>
+  </main>
+  <script src="/static/shared.js"></script>
+  <script src="/static/setup.js"></script>
+</body>
+</html>

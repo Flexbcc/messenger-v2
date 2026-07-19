@@ -1,0 +1,21 @@
+// Пример: личное хранилище на ПК пользователя (storage-app, backend "personal_pc").
+// Альтернатива S3/облаку — блобы уходят на домашний ПК по ключевому протоколу.
+// См. ../../../storage-app/docs/SPEC.md (§8 Интеграция) и PAIRING.md.
+//
+// Добавьте в storage.json -> personal_cloud.users после сопряжения ноды с ПК:
+//
+// "users": {
+//   "USER_UUID_FROM_HOME_DB": {
+//     "backend": "personal_pc",
+//     "personal_pc": {
+//       "peer_pubkey": "ed25519:BASE64_PK_STORAGE",  // ключ storage-app (из QR/кода)
+//       "relay_url":   "https://relay.example-network.org",  // fallback при NAT
+//       "lan_hint":    "storage-app.local:7345",             // прямой путь в LAN (mDNS)
+//       "quota_bytes": 0                                     // 0 = без лимита со стороны ноды
+//     }
+//   }
+// }
+//
+// Требует нового backend-модуля personal_pc.py в
+//   ../services/media-node/app/backends/  (реализует base.py, регистрируется в factory.py).
+// На bootstrap-этапе модуль ещё не написан — профиль здесь как контракт/заготовка.

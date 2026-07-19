@@ -1,0 +1,543 @@
+{
+  "meta": {
+    "product": "OUO Messenger — Admin Backend",
+    "schema_version": "1.0.0",
+    "locale": "ru-RU",
+    "audience": "оператор инфраструктуры сети (discovery/admin)",
+    "source_of_truth_for": [
+      "backend",
+      "discovery-node",
+      "admin/admin-server"
+    ],
+    "value_conventions": {
+      "boolean": "true/false",
+      "single_select": "одно значение из options",
+      "multi_select": "массив значений из options",
+      "text": "строка",
+      "number": "число",
+      "secret": "секрет, не отображать и не логировать",
+      "read_only": "заполняется системой",
+      "action": "операция",
+      "list": "управляемый список объектов"
+    },
+    "scopes": {
+      "network": "политика уровня сети",
+      "admin": "настройки админ-панели/мониторинга",
+      "runtime": "наблюдаемое состояние (read_only)"
+    },
+    "storages": {
+      "admin_env": "переменная окружения (.env / docker-compose)",
+      "admin_config": "конфиг админ-бэкенда",
+      "local_encrypted": "секрет",
+      "network_state": "вычисляется из discovery/heartbeat",
+      "none": "action"
+    },
+    "status_field": "status: implemented = поддержано кодом; planned = заготовка, кодом ещё не читается/не реализовано (проверено аудитом)."
+  },
+  "sections": [
+    {
+      "id": "discovery",
+      "title": "Discovery и реестр нод",
+      "icon": "compass",
+      "settings": [
+        {
+          "id": "discovery.heartbeat_timeout_s",
+          "title": "Таймаут heartbeat (сек)",
+          "type": "number",
+          "default": 90,
+          "description": "После скольких секунд без heartbeat нода считается offline.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 5
+          },
+          "ui": {
+            "control": "number_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_env",
+          "env": "DISCOVERY_OFFLINE_THRESHOLD_SECONDS",
+          "status": "implemented",
+          "impl_note": "Default 120 in discovery-node/app/config.py. Node heartbeat interval = 60s."
+        },
+        {
+          "id": "discovery.registration_mode",
+          "title": "Режим регистрации",
+          "type": "single_select",
+          "options": [
+            "open",
+            "approval"
+          ],
+          "default": "approval",
+          "description": "Свободная регистрация нод или через одобрение.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "open",
+              "approval"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_config",
+          "status": "planned",
+          "impl_note": "Режим open/approval как настройка не выделен; enrollment есть, но не через это поле."
+        },
+        {
+          "id": "discovery.db_path",
+          "title": "Путь БД discovery",
+          "type": "text",
+          "description": "Файл реестра нод.",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_env",
+          "env": "DISCOVERY_DB_PATH",
+          "status": "implemented"
+        },
+        {
+          "id": "discovery.nodes_online",
+          "title": "Нод online",
+          "type": "read_only",
+          "description": "Число нод со свежим heartbeat.",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "info_row",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "runtime",
+          "storage": "network_state",
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "id": "monitor",
+      "title": "Мониторинг доступности нод",
+      "icon": "activity",
+      "settings": [
+        {
+          "id": "monitor.poll_interval_s",
+          "title": "Интервал опроса (сек)",
+          "type": "number",
+          "default": 15,
+          "description": "Как часто Node Monitor опрашивает discovery.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 1
+          },
+          "ui": {
+            "control": "number_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "admin",
+          "storage": "admin_config",
+          "status": "planned",
+          "impl_note": "В коде Node Monitor не конфигурируется."
+        },
+        {
+          "id": "monitor.offline_threshold_s",
+          "title": "Порог offline (сек)",
+          "type": "number",
+          "default": 90,
+          "description": "Порог отображения ноды как offline.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 5
+          },
+          "ui": {
+            "control": "number_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "admin",
+          "storage": "admin_config",
+          "status": "planned",
+          "impl_note": "Порог offline берётся из DISCOVERY_OFFLINE_THRESHOLD_SECONDS (discovery), отдельного monitor env нет."
+        },
+        {
+          "id": "monitor.active_healthcheck",
+          "title": "Активная health-проверка",
+          "type": "boolean",
+          "default": false,
+          "description": "Пинговать реальный endpoint ноды, не только heartbeat (roadmap).",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "admin",
+          "storage": "admin_env",
+          "env": "DISCOVERY_HEALTHCHECK_ENABLED",
+          "status": "implemented",
+          "impl_note": "discovery-node/app/health.py loop + admin POST /admin/monitor/health-check + browser ping in Node Monitor UI."
+        },
+        {
+          "id": "monitor.visible_fields",
+          "title": "Показываемые поля",
+          "type": "multi_select",
+          "options": [
+            "status",
+            "version",
+            "last_heartbeat",
+            "type",
+            "cluster",
+            "public_url"
+          ],
+          "default": [
+            "status",
+            "version",
+            "last_heartbeat",
+            "type",
+            "cluster"
+          ],
+          "description": "Колонки таблицы Node Monitor.",
+          "data": {
+            "json_type": "array",
+            "items_enum": [
+              "status",
+              "version",
+              "last_heartbeat",
+              "type",
+              "cluster",
+              "public_url"
+            ]
+          },
+          "ui": {
+            "control": "multi-select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "admin",
+          "storage": "admin_config",
+          "status": "planned",
+          "impl_note": "Набор колонок не конфигурируется."
+        }
+      ]
+    },
+    {
+      "id": "admission",
+      "title": "Приём нод (enrollment)",
+      "icon": "user-check",
+      "settings": [
+        {
+          "id": "admission.enrollment_mode",
+          "title": "Режим enrollment",
+          "type": "single_select",
+          "options": [
+            "legacy",
+            "strict",
+            "hybrid"
+          ],
+          "default": "legacy",
+          "description": "Строгость привязки новых нод.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "legacy",
+              "strict",
+              "hybrid"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_env",
+          "env": "ENROLLMENT_MODE",
+          "status": "implemented"
+        },
+        {
+          "id": "admission.auto_approve",
+          "title": "Автоодобрение нод",
+          "type": "boolean",
+          "default": false,
+          "description": "Одобрять новые ноды автоматически.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "danger": true,
+            "requires_confirmation": true
+          },
+          "scope": "network",
+          "storage": "admin_config",
+          "status": "planned",
+          "impl_note": "Автоодобрение как настройка не реализовано."
+        },
+        {
+          "id": "admission.approve_pending",
+          "title": "Одобрить ожидающие",
+          "type": "action",
+          "description": "Одобрить ноды в очереди (scripts/approve-pending-nodes.sh).",
+          "data": {},
+          "ui": {
+            "control": "button",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "admin",
+          "storage": "none",
+          "status": "implemented"
+        }
+      ]
+    },
+    {
+      "id": "updates_publish",
+      "title": "Издание обновлений",
+      "icon": "upload",
+      "settings": [
+        {
+          "id": "updates_publish.channels",
+          "title": "Каналы обновлений",
+          "type": "multi_select",
+          "options": [
+            "stable",
+            "testing"
+          ],
+          "default": [
+            "stable",
+            "testing"
+          ],
+          "description": "Публикуемые каналы.",
+          "data": {
+            "json_type": "array",
+            "items_enum": [
+              "stable",
+              "testing"
+            ]
+          },
+          "ui": {
+            "control": "multi-select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_config",
+          "status": "planned",
+          "impl_note": "Публикуемые каналы как настройка не реализованы."
+        },
+        {
+          "id": "updates_publish.release_signing_key_path",
+          "title": "Ключ подписи релизов",
+          "type": "text",
+          "description": "Приватный ключ подписи релизов (sign-node-release.py).",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_env",
+          "env": "RELEASE_SIGNING_SECRET",
+          "status": "implemented",
+          "impl_note": "Реальные env: RELEASE_SIGNING_SECRET (HMAC) и RELEASE_SIGNING_PUBLIC_KEYS (Ed25519), см. discovery-node/app/attestation.py."
+        },
+        {
+          "id": "updates_publish.downgrade_protection",
+          "title": "Защита от downgrade",
+          "type": "boolean",
+          "default": true,
+          "description": "Запрет установки версий ниже текущей.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "danger": true,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_config",
+          "status": "planned",
+          "impl_note": "Защита от downgrade как настройка не реализована."
+        },
+        {
+          "id": "updates_publish.min_supported_version",
+          "title": "Мин. поддерживаемая версия",
+          "type": "text",
+          "description": "Ноды ниже принуждаются к апгрейду.",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_config",
+          "status": "planned",
+          "impl_note": "Мин. версия/принуждение к апгрейду не реализовано."
+        }
+      ]
+    },
+    {
+      "id": "vulnerability",
+      "title": "Реакция на уязвимости",
+      "icon": "alert",
+      "settings": [
+        {
+          "id": "vulnerability.blocked_versions",
+          "title": "Заблокированные версии",
+          "type": "list",
+          "description": "Версии, помеченные уязвимыми.",
+          "data": {},
+          "ui": {
+            "control": "list_editor",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_config",
+          "status": "implemented",
+          "impl_note": "Discovery admin API: GET/POST/DELETE /admin/vulnerability/blocked-versions. UI нет."
+        },
+        {
+          "id": "vulnerability.force_upgrade",
+          "title": "Принудительный апгрейд",
+          "type": "boolean",
+          "default": true,
+          "description": "Уязвимые ноды обязаны обновиться.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "danger": true,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_config",
+          "status": "planned",
+          "impl_note": "PUT /admin/vulnerability/force-upgrade сохраняет флаг; enforcement на heartbeat/register не реализован."
+        },
+        {
+          "id": "vulnerability.quarantine_mode",
+          "title": "Карантин уязвимых нод",
+          "type": "single_select",
+          "options": [
+            "off",
+            "warn",
+            "isolate"
+          ],
+          "default": "warn",
+          "description": "Что делать с уязвимой нодой: ничего / предупреждать / изолировать.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "off",
+              "warn",
+              "isolate"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "danger": true,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_config",
+          "status": "implemented",
+          "impl_note": "PUT /admin/vulnerability/quarantine-mode; isolate исключает ноду из публичного реестра. UI нет."
+        }
+      ]
+    },
+    {
+      "id": "infra",
+      "title": "Инфраструктура",
+      "icon": "server",
+      "settings": [
+        {
+          "id": "infra.cluster_id",
+          "title": "Кластер",
+          "type": "text",
+          "default": "default",
+          "description": "Идентификатор кластера сети.",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "text_input",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_env",
+          "env": "CLUSTER_ID",
+          "status": "implemented"
+        },
+        {
+          "id": "infra.internal_security_mode",
+          "title": "Режим внутренней безопасности",
+          "type": "single_select",
+          "options": [
+            "legacy",
+            "signed"
+          ],
+          "default": "legacy",
+          "description": "Строгость межсервисной защиты. signed — проверка подписи internal-запросов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "legacy",
+              "signed"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "network",
+          "storage": "admin_env",
+          "env": "INTERNAL_SECURITY_MODE",
+          "status": "implemented",
+          "impl_note": "Код проверяет INTERNAL_SECURITY_MODE == \"signed\". Значение strict из старых доков не поддерживается."
+        },
+        {
+          "id": "infra.tls_cert_fingerprint",
+          "title": "Fingerprint TLS",
+          "type": "read_only",
+          "description": "Отпечаток TLS-сертификата инфраструктуры.",
+          "data": {
+            "json_type": "string"
+          },
+          "ui": {
+            "control": "info_row",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "runtime",
+          "storage": "network_state",
+          "env": "NODE_TLS_CERT_FINGERPRINT",
+          "status": "implemented"
+        }
+      ]
+    }
+  ]
+}

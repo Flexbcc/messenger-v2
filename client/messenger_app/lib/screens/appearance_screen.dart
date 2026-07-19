@@ -42,6 +42,22 @@ class AppearanceScreen extends ConsumerWidget {
                 ),
             ],
           ),
+          const SizedBox(height: AppSpacing.lg),
+          AppSettingsGroup(
+            title: 'Размер текста',
+            children: [
+              for (var i = 0; i < ThemeSettings.textScaleOptions.length; i++)
+                AppTile(
+                  leading: Icon(Icons.format_size, color: colors.textSecondary),
+                  title: ThemeSettings.textScaleOptions[i].$1,
+                  trailing: (themeSettings.textScale - ThemeSettings.textScaleOptions[i].$2).abs() < 0.01
+                      ? Icon(Icons.check_circle, color: colors.primary, size: 20)
+                      : null,
+                  showDivider: i < ThemeSettings.textScaleOptions.length - 1,
+                  onTap: () => ref.read(themeSettingsProvider).setTextScale(ThemeSettings.textScaleOptions[i].$2),
+                ),
+            ],
+          ),
         ],
       ),
     );

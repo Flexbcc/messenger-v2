@@ -20,6 +20,7 @@ import 'pin_keypad.dart';
 import 'pin_setup_screen.dart';
 import 'private_mode_state.dart';
 import 'private_home_screen.dart';
+import 'private_mode_navigation.dart';
 import '../../state/app_controller.dart';
 
 /// PIN entry screen for the Private Mode module.
@@ -33,7 +34,6 @@ class UnlockScreen extends ConsumerStatefulWidget {
 class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerProviderStateMixin {
   String _input = '';
   String? _error;
-  int _wrongAttempts = 0;
   bool _lockedOut = false;
   Duration? _lockoutRemaining;
   Timer? _lockoutTimer;
@@ -100,20 +100,6 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
     if (!mounted) return;
 
     if (result == UnlockResult.invalid) {
-      if (await prefs.wipeOnWrongAttempts()) {
-        _wrongAttempts++;
-        if (_wrongAttempts >= 5) {
-          await pm.reset();
-          await HiddenVaultSession.instance.wipe();
-          await DuressPolicySession.instance.wipe();
-          _wrongAttempts = 0;
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Данные Private Mode удалены')),
-            );
-          }
-        }
-      }
       final hr = await DuressPolicyEngine.instance.handle(
         DuressTrigger.pinUnlockFail,
         controller: controller,
@@ -182,7 +168,11 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
     SecurityLogService.instance.append(
       SecurityEvent(title: 'Secret Room открыт', subtitle: 'Успешный PIN', at: DateTime.now(), icon: 'room'),
     );
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const PrivateHomeScreen()));
+    final dest = PrivateModeNavigation.consumePending();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const PrivateHomeScreen()),
+    );
+    PrivateModeNavigation.openAfterUnlock(context, dest);
   }
 
   void _openFakeMode() {
@@ -239,9 +229,15 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
                 const SizedBox(height: AppSpacing.mediumGap),
                 AppButton(
                   label: 'Создать PIN',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const PinSetupScreen()),
-                  ),
+                  onPressed: () async {
+                    final done = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(builder: (_) => const PinSetupScreen()),
+                    );
+                    if (!mounted) return;
+                    if (done == true) {
+                      _openSecretRoom();
+                    }
+                  },
                 ),
               ] else if (_lockedOut) ...[
                 Text(

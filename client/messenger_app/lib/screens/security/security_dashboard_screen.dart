@@ -12,7 +12,7 @@ import '../../services/security_snapshot_service.dart';
 import '../../state/app_controller.dart';
 import '../../utils/format.dart';
 import '../devices_screen.dart';
-import '../private_mode/private_mode_entry.dart';
+import '../private_mode/private_mode_navigation.dart';
 import 'connection_status_screen.dart';
 import 'emergency_lock_screen.dart';
 import 'login_approval_screen.dart';
@@ -197,7 +197,7 @@ class _SecurityDashboardScreenState extends ConsumerState<SecurityDashboardScree
                           title: 'Настроить PIN',
                           subtitle: 'Дополнительные функции защиты откроются после настройки',
                           trailing: AppTile.chevron(context),
-                          onTap: () => Navigator.of(context).push(privateModeEntryRoute()),
+                          onTap: () => PrivateModeNavigation.openConfidentiality(context),
                           showDivider: false,
                         ),
                       ],
@@ -307,11 +307,25 @@ class _SecurityDashboardScreenState extends ConsumerState<SecurityDashboardScree
                         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ConnectionStatusScreen())),
                       ),
                       AppTile(
-                        leading: Icon(Icons.lock_outline, color: colors.textSecondary),
+                        leading: Icon(Icons.shield_outlined, color: colors.secondary),
                         title: 'Конфиденциальность',
-                        subtitle: snap.pinEnabled ? 'Скрытые разделы и дополнительная защита' : 'Блокировка и PIN',
+                        subtitle: 'PIN, фейк, секретная комната',
                         trailing: AppTile.chevron(context),
-                        onTap: () => Navigator.of(context).push(privateModeEntryRoute()),
+                        onTap: () => PrivateModeNavigation.openConfidentiality(context),
+                      ),
+                      AppTile(
+                        leading: Icon(Icons.policy_outlined, color: colors.textSecondary),
+                        title: 'Политика безопасности',
+                        subtitle: 'Рецепты: действие + условие + очередь',
+                        trailing: AppTile.chevron(context),
+                        onTap: () => PrivateModeNavigation.openPolicy(context),
+                      ),
+                      AppTile(
+                        leading: Icon(Icons.people_outline, color: colors.textSecondary),
+                        title: 'Доверенные контакты',
+                        subtitle: 'Сигналы тревоги',
+                        trailing: AppTile.chevron(context),
+                        onTap: () => PrivateModeNavigation.openTrusted(context),
                       ),
                       AppTile(
                         leading: Icon(Icons.phonelink_lock_outlined, color: colors.textSecondary),

@@ -20,10 +20,15 @@ class DuressPolicySession {
 
   Future<bool> unlock(String pin) async {
     var loaded = await DuressPolicyStore.instance.load(pin);
-    loaded ??= DuressPolicyData.withPreset('P2');
+    loaded ??= DuressPolicyData.withDefaults();
     await _migrateLegacy(loaded);
+    loaded.migratePresetsToCustom();
+    if (loaded.rules.isEmpty) {
+      loaded.rules = List.from(DuressPresets.defaultSeedRules);
+    }
     final mirror = await DuressRuntimeStore.instance.loadMirror();
     _mergeRuntime(loaded, mirror);
+    loaded.migratePresetsToCustom();
     _data = loaded;
     _pin = pin;
     _unlocked = true;
@@ -43,13 +48,22 @@ class DuressPolicySession {
     lock();
   }
 
+  /// Appends a legacy template pack (does not replace existing recipes).
+  Future<void> appendTemplatePack(String packId) async {
+    if (_data == null || _pin == null) return;
+    _data!.presetId = DuressPresets.customId;
+    _data!.rules = [..._data!.rules, ...DuressPresets.templatePack(packId)];
+    await _persist();
+  }
+
+  @Deprecated('Use appendTemplatePack or setRules — presets are no longer modes')
   Future<void> setPreset(String presetId) async {
     if (_data == null || _pin == null) return;
     if (presetId == DuressPresets.customId) {
       _data!.presetId = DuressPresets.customId;
     } else {
-      _data!.presetId = presetId;
-      _data!.rules = List.from(DuressPresets.rulesFor(presetId));
+      _data!.presetId = DuressPresets.customId;
+      _data!.rules = [..._data!.rules, ...DuressPresets.templatePack(presetId)];
     }
     await _persist();
   }

@@ -151,6 +151,23 @@ class ApiClient {
     return _decodeOrThrow(resp) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getProfileSettings() async {
+    final resp = await _get(_homeUri('/users/me/profile-settings'));
+    return _decodeOrThrow(resp) as Map<String, dynamic>;
+  }
+
+  Future<void> updateProfileSettings(Map<String, dynamic> blob) async {
+    final encoded = jsonEncode(blob);
+    await _trackSent(encoded.length);
+    final resp = await http.put(
+      _homeUri('/users/me/profile-settings'),
+      headers: _headers,
+      body: encoded,
+    );
+    await _trackReceived(resp);
+    _decodeOrThrow(resp);
+  }
+
   Future<Map<String, dynamic>> updateDisplayName(String displayName) async {
     final resp = await _patchJson(_homeUri('/users/me'), {'display_name': displayName});
     return _decodeOrThrow(resp) as Map<String, dynamic>;

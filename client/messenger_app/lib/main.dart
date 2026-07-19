@@ -77,6 +77,25 @@ class _MessengerAppState extends ConsumerState<MessengerApp> with WidgetsBinding
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeSettings.mode,
+      builder: (context, child) {
+        final scaled = MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(themeSettings.textScale),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+        return AppLockOverlay(
+          child: InAppNotificationHost(
+            child: Stack(
+              children: [
+                scaled,
+                if (controller.currentCall != null && controller.callUiMinimized) const CallMinimizedBar(),
+                if (controller.currentCall != null && !controller.callUiMinimized) const CallScreen(),
+              ],
+            ),
+          ),
+        );
+      },
       home: controller.booting
           ? const _SplashScreen()
           : (!controller.isLoggedIn
@@ -84,17 +103,6 @@ class _MessengerAppState extends ConsumerState<MessengerApp> with WidgetsBinding
               : (controller.loginApprovalPending
                   ? const LoginApprovalWaitingScreen()
                   : const HomeShell())),
-      builder: (context, child) => AppLockOverlay(
-        child: InAppNotificationHost(
-          child: Stack(
-            children: [
-              if (child != null) child,
-              if (controller.currentCall != null && controller.callUiMinimized) const CallMinimizedBar(),
-              if (controller.currentCall != null && !controller.callUiMinimized) const CallScreen(),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

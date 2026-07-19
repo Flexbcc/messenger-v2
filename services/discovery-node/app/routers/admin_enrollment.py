@@ -1,13 +1,16 @@
 """Discovery Control Plane admin API (ADR-0009, step 3)."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 
 from app.config import QUARANTINE_MODES
 from app.db import get_conn
 from app.deps import require_admin
 from app import policy
 from app.health import run_health_check_once
+from app.audit import log_admin_action, list_audit_log
 from app.schemas import (
     AdminActionResponse,
+    AdminAuditListResponse,
+    AdminAuditEntry,
     BlockedVersion,
     BlockedVersionListResponse,
     BlockVersionRequest,
@@ -26,6 +29,17 @@ from app.mesh_notify import schedule_mesh_peer_notify
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
 
+def _actor(x_operator_id: str | None = Header(None, alias="X-Operator-Id")) -> str:
+    return (x_operator_id or "").strip() or "operator"
+
+
+def _cluster_for(conn, node_id: str) -> str | None:
+    row = conn.execute(
+        "SELECT cluster_id FROM node_capabilities WHERE node_id = ?", (node_id,)
+    ).fetchone()
+    return row["cluster_id"] if row else None
+
+
 @router.get("/registry/nodes", response_model=NodeCapabilityListResponse)
 def list_all_nodes():
     """All nodes including pending/suspended — operator view."""
@@ -36,8 +50,18 @@ def list_all_nodes():
     )
 
 
+@router.get("/audit/history", response_model=AdminAuditListResponse)
+def audit_history(limit: int = 100):
+    with get_conn() as conn:
+        entries = list_audit_log(conn, limit=limit)
+    return AdminAuditListResponse(
+        entries=[AdminAuditEntry(**e) for e in entries],
+        count=len(entries),
+    )
+
+
 @router.post("/registry/nodes/{node_id}/approve", response_model=AdminActionResponse)
-def approve_node(node_id: str):
+def approve_node(node_id: str, actor: str = Depends(_actor)):
     now = now_iso()
 
     with get_conn() as conn:
@@ -55,13 +79,14 @@ def approve_node(node_id: str):
                 token_issued_at = NULL,
                 token_claimed_at = NULL,
                 approved_at = ?,
-                approved_by = 'admin',
+                approved_by = ?,
                 suspended_at = NULL,
                 suspension_reason = NULL
             WHERE node_id = ?
             """,
-            (now, node_id),
+            (now, actor, node_id),
         )
+        log_admin_action(conn, actor=actor, action="approve", node_id=node_id, cluster_id=row["cluster_id"])
         conn.commit()
         row = conn.execute("SELECT * FROM node_capabilities WHERE node_id = ?", (node_id,)).fetchone()
 
@@ -76,10 +101,14 @@ def approve_node(node_id: str):
 
 
 @router.post("/registry/nodes/{node_id}/suspend", response_model=AdminActionResponse)
-def suspend_node(node_id: str, payload: SuspendNodeRequest = SuspendNodeRequest()):
+def suspend_node(
+    node_id: str,
+    payload: SuspendNodeRequest = SuspendNodeRequest(),
+    actor: str = Depends(_actor),
+):
     now = now_iso()
     with get_conn() as conn:
-        row = conn.execute("SELECT node_id FROM node_capabilities WHERE node_id = ?", (node_id,)).fetchone()
+        row = conn.execute("SELECT node_id, cluster_id FROM node_capabilities WHERE node_id = ?", (node_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Unknown node_id")
         conn.execute(
@@ -92,6 +121,14 @@ def suspend_node(node_id: str, payload: SuspendNodeRequest = SuspendNodeRequest(
             """,
             (now, payload.reason, node_id),
         )
+        log_admin_action(
+            conn,
+            actor=actor,
+            action="suspend",
+            node_id=node_id,
+            cluster_id=row["cluster_id"],
+            detail=payload.reason,
+        )
         conn.commit()
     return AdminActionResponse(
         node_id=node_id,
@@ -101,7 +138,7 @@ def suspend_node(node_id: str, payload: SuspendNodeRequest = SuspendNodeRequest(
 
 
 @router.post("/registry/nodes/{node_id}/reinstate", response_model=AdminActionResponse)
-def reinstate_node(node_id: str):
+def reinstate_node(node_id: str, actor: str = Depends(_actor)):
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM node_capabilities WHERE node_id = ?", (node_id,)).fetchone()
         if not row:
@@ -118,6 +155,7 @@ def reinstate_node(node_id: str):
             """,
             (node_id,),
         )
+        log_admin_action(conn, actor=actor, action="reinstate", node_id=node_id, cluster_id=row["cluster_id"])
         conn.commit()
     return AdminActionResponse(
         node_id=node_id,
@@ -127,9 +165,9 @@ def reinstate_node(node_id: str):
 
 
 @router.post("/registry/nodes/{node_id}/compromise", response_model=AdminActionResponse)
-def compromise_node(node_id: str):
+def compromise_node(node_id: str, actor: str = Depends(_actor)):
     with get_conn() as conn:
-        row = conn.execute("SELECT node_id FROM node_capabilities WHERE node_id = ?", (node_id,)).fetchone()
+        row = conn.execute("SELECT node_id, cluster_id FROM node_capabilities WHERE node_id = ?", (node_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Unknown node_id")
         conn.execute(
@@ -138,11 +176,14 @@ def compromise_node(node_id: str):
                 trust_status = 'compromised',
                 node_token_hash = NULL,
                 token_issued_at = NULL,
-                token_claimed_at = NULL
+                token_claimed_at = NULL,
+                suspended_at = NULL,
+                suspension_reason = NULL
             WHERE node_id = ?
             """,
             (node_id,),
         )
+        log_admin_action(conn, actor=actor, action="compromise", node_id=node_id, cluster_id=row["cluster_id"])
         conn.commit()
     return AdminActionResponse(
         node_id=node_id,

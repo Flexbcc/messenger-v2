@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<script>
+window.__ADMIN_BASE=(location.pathname==="/ops"||location.pathname.startsWith("/ops/"))?"/ops":"";
+document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operator Admin — Узлы сети</title>
+<link rel="stylesheet" href="static/theme.css">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body class="page-form page-nodes">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Узлы сети</h1>
+          <p class="subtitle"><span id="opsSubtitle">Оператор · нагрузка и доверие</span></p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup">Настройка</a>
+        <a href="storage" data-nav-storage>Хранилище</a>
+        <a href="enrollment">Доверие</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему">◐</button>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <div class="info-banner card warn-banner hidden" id="alertsBanner"></div>
+      <div class="info-banner card">
+        <strong>Центр принятия решений</strong>
+        <p>Вы видите техническую нагрузку нод (CPU, RAM, диск) для анализа. <strong>Подпись / доверие</strong> — через «Доверие»: пока нода не принята, она не участвует в инфраструктуре. Suspend — временно выключить из сети; Compromise — отозвать доступ.</p>
+      </div>
+
+      <section class="card panel-section">
+        <div class="section-head">
+          <h3>Нагрузка по нодам</h3>
+          <span class="muted">Home — полные метрики · остальные — /health</span>
+        </div>
+        <div class="nodes-filter-row">
+          <label class="field-compact">Кластер
+            <select id="clusterFilter">
+              <option value="">Все</option>
+            </select>
+          </label>
+          <label class="field-compact">Роль
+            <select id="roleFilter">
+              <option value="">Все</option>
+              <option value="home">Home</option>
+              <option value="media">Media</option>
+              <option value="relay">Relay</option>
+              <option value="storage">Storage</option>
+            </select>
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table compact" id="metricsTable">
+            <thead>
+              <tr>
+                <th>Кластер</th>
+                <th>node_id</th>
+                <th>Роль</th>
+                <th>Доверие</th>
+                <th>Статус</th>
+                <th>CPU</th>
+                <th>RAM</th>
+                <th>Диск</th>
+                <th>WS</th>
+                <th>ping</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="metricsBody">
+              <tr><td colspan="11" class="empty">Загрузка…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card panel-section">
+        <div class="section-head">
+          <h3>Быстрые действия</h3>
+          <a href="enrollment" class="link-setup">Полный список доверия →</a>
+        </div>
+        <p class="section-hint">Для approve/suspend нужен пароль Discovery — на странице «Доверие».</p>
+        <div class="enrollment-toolbar">
+          <label class="field-compact">Discovery admin secret
+            <input id="adminSecret" type="password" placeholder="DISCOVERY_ADMIN_SECRET" autocomplete="off">
+          </label>
+        </div>
+        <p id="status" class="status-msg"></p>
+      </section>
+    </main>
+  </div>
+  <script src="static/shared.js"></script>
+  <script src="static/clusters.js"></script>
+  <script src="static/nodes.js"></script>
+</body>
+</html>

@@ -82,6 +82,9 @@ final appControllerProvider = ChangeNotifierProvider<AppController>((ref) => App
 class AppController extends ChangeNotifier {
   final _sessionStore = SessionStore();
   final _api = ApiClient();
+
+  /// Home/Discovery REST client (shared session token).
+  ApiClient get api => _api;
   final _realtime = RealtimeService();
   StreamSubscription<Map<String, dynamic>>? _realtimeSub;
   static const _callOfferMaxAge = Duration(seconds: 90);
@@ -141,6 +144,8 @@ class AppController extends ChangeNotifier {
   /// Active secret-chat sessions per conversation (device-local).
   final Set<String> _secretSessionActive = {};
   final Map<String, Timer> _secretSessionTimers = {};
+  /// Plaintext for sealed secret messages (hidden until secret session in chat).
+  final Map<String, String> _secretPlaintextVault = {};
   int? secretDisappearingSeconds;
 
   /// Local call log (newest first).
@@ -181,6 +186,7 @@ class AppController extends ChangeNotifier {
   /// Locally hidden / pinned messages (device-only).
   final Set<String> _locallyHiddenMessageIds = {};
   final Set<String> _pinnedMessageIds = {};
+  final Map<String, Timer> _reminderTimers = {};
 
   /// The one call (incoming or outgoing) currently ringing/in progress —
   /// see spec/0303_CALLS.md, ADR-0008. Null when there is none.
@@ -246,6 +252,7 @@ class AppController extends ChangeNotifier {
           }
           _startTimeTasksTimer();
           unawaited(processTimeBasedTasks());
+          unawaited(_restoreReminderTimers());
         } on ApiException catch (e) {
           DebugLog.instance.warn('auth', 'stale session ${e.statusCode}, clearing local login');
           await _sessionStore.clear();
@@ -276,6 +283,23 @@ class AppController extends ChangeNotifier {
   }
 
   bool isMessagePinned(String messageId) => _pinnedMessageIds.contains(messageId);
+
+  /// Pinned messages for [conversationId], newest first.
+  List<ChatMessage> pinnedMessagesFor(String conversationId) {
+    final msgs = messagesByConversation[conversationId] ?? [];
+    final byId = {for (final m in msgs) m.id: m};
+    final out = <ChatMessage>[];
+    for (final id in _pinnedMessageIds) {
+      final m = byId[id];
+      if (m != null && m.conversationId == conversationId && !_locallyHiddenMessageIds.contains(id)) {
+        out.add(m);
+      }
+    }
+    out.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return out;
+  }
+
+  int pinnedCountFor(String conversationId) => pinnedMessagesFor(conversationId).length;
 
   Future<void> hideMessageLocally(String messageId) async {
     final userId = session?.userId;
@@ -911,7 +935,39 @@ class AppController extends ChangeNotifier {
       remindAt: remindAt,
     );
     await MessageReminderStore.instance.save(reminder);
+    _scheduleReminderTimer(reminder);
     notifyListeners();
+  }
+
+  void _scheduleReminderTimer(MessageReminder reminder) {
+    _reminderTimers.remove(reminder.id)?.cancel();
+    final delay = reminder.remindAt.difference(DateTime.now());
+    if (delay.isNegative) {
+      unawaited(_fireReminder(reminder));
+      return;
+    }
+    _reminderTimers[reminder.id] = Timer(delay, () {
+      unawaited(_fireReminder(reminder));
+    });
+  }
+
+  Future<void> _fireReminder(MessageReminder reminder) async {
+    _reminderTimers.remove(reminder.id);
+    final stillStored = (await MessageReminderStore.instance.loadAll()).any((r) => r.id == reminder.id);
+    if (!stillStored) return;
+    await _applyReminder(reminder);
+    await MessageReminderStore.instance.remove(reminder.id);
+    notifyListeners();
+  }
+
+  Future<void> _restoreReminderTimers() async {
+    for (final timer in _reminderTimers.values) {
+      timer.cancel();
+    }
+    _reminderTimers.clear();
+    for (final reminder in await MessageReminderStore.instance.loadAll()) {
+      _scheduleReminderTimer(reminder);
+    }
   }
 
   Future<void> processTimeBasedTasks() async {
@@ -1040,6 +1096,7 @@ class AppController extends ChangeNotifier {
   void activateSecretSession(String conversationId) {
     if (AppPrivacySession.instance.isInDecoyMode) return;
     _secretSessionActive.add(conversationId);
+    _unsealSecretMessages(conversationId);
     _resetSecretSessionTimer(conversationId);
     notifyListeners();
   }
@@ -1047,7 +1104,50 @@ class AppController extends ChangeNotifier {
   void deactivateSecretSession(String conversationId) {
     if (!_secretSessionActive.remove(conversationId)) return;
     _secretSessionTimers.remove(conversationId)?.cancel();
+    _sealSecretMessagesInConversation(conversationId);
     notifyListeners();
+  }
+
+  void _sealSecretMessage(ChatMessage m) {
+    if (!m.isSecret || isSecretSessionActive(m.conversationId)) return;
+    final body = m.plaintext;
+    if (body == null || body.isEmpty) return;
+    _secretPlaintextVault[m.id] = body;
+    m.plaintext = null;
+  }
+
+  void _sealSecretMessagesInConversation(String conversationId) {
+    final list = messagesByConversation[conversationId];
+    if (list == null) return;
+    for (final m in list) {
+      _sealSecretMessage(m);
+    }
+    final userId = session?.userId;
+    if (userId != null) {
+      _messageCache.upsertMessages(userId, list).catchError((_) {});
+    }
+  }
+
+  void _unsealSecretMessages(String conversationId) {
+    final list = messagesByConversation[conversationId];
+    if (list == null) return;
+    var changed = false;
+    for (final m in list) {
+      if (!m.isSecret) continue;
+      final stored = _secretPlaintextVault.remove(m.id);
+      if (stored != null) {
+        m.plaintext = stored;
+        m.decryptFailed = false;
+        MessagePayload.applyTo(m);
+        changed = true;
+      }
+    }
+    if (changed) {
+      final userId = session?.userId;
+      if (userId != null) {
+        _messageCache.upsertMessages(userId, list).catchError((_) {});
+      }
+    }
   }
 
   void touchSecretSession(String conversationId) {
@@ -1102,10 +1202,17 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  String get sessionDisplayName {
+    final n = session?.displayName.trim();
+    if (n != null && n.isNotEmpty) return n;
+    return 'контакт';
+  }
+
   Future<void> sendDuressSignalToTrusted({
     required int code,
     DuressTrigger? trigger,
     List<String>? channelsOverride,
+    String? messageText,
   }) async {
     List<String> trusted;
     List<String> channels;
@@ -1122,13 +1229,22 @@ class AppController extends ChangeNotifier {
     if (!_duressChannelEnabled(channels, 'chat')) return;
     var sent = false;
     for (final peerId in trusted) {
-      final conv = directConversationWith(peerId);
-      if (conv == null) continue;
-      await _sendDuressMessage(conv, code: code);
+      Conversation? conv = directConversationWith(peerId);
+      if (conv == null) {
+        try {
+          conv = await _findOrCreateDirectConversation(peerId);
+        } catch (e) {
+          DebugLog.instance.error('duress', 'no chat with trusted $peerId: $e');
+          continue;
+        }
+      }
+      await _sendDuressMessage(conv, code: code, messageText: messageText);
       sent = true;
     }
     if (sent) {
       await DuressAuditService.instance.recordOutbound(code: code, channel: 'chat', trigger: trigger);
+    } else {
+      DebugLog.instance.warn('duress', 'chat notify skipped — no reachable trusted conversations');
     }
   }
 
@@ -1205,8 +1321,15 @@ class AppController extends ChangeNotifier {
 
   Future<void> ingestSecuritySignal({required String fromUserId, required int event}) async {
     if (session == null) return;
-    final conv = directConversationWith(fromUserId);
-    if (conv == null) return;
+    Conversation? conv = directConversationWith(fromUserId);
+    if (conv == null) {
+      try {
+        conv = await _findOrCreateDirectConversation(fromUserId);
+      } catch (e) {
+        DebugLog.instance.error('duress', 'ingest: cannot open chat with $fromUserId: $e');
+        return;
+      }
+    }
 
     final wireBody = MessagePayload.encodeDuress(code: event);
     final msg = ChatMessage(
@@ -1230,9 +1353,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _sendDuressMessage(Conversation conversation, {required int code}) async {
+  Future<void> _sendDuressMessage(
+    Conversation conversation, {
+    required int code,
+    String? messageText,
+  }) async {
     if (session == null) return;
-    final wireBody = MessagePayload.encodeDuress(code: code);
+    final wireBody = MessagePayload.encodeDuress(code: code, text: messageText);
     try {
       final ciphertext = await _encryptForConversation(conversation, Uint8List.fromList(utf8.encode(wireBody)));
       final resp = await _api.sendMessage(
@@ -1251,6 +1378,46 @@ class AppController extends ChangeNotifier {
     } catch (e) {
       DebugLog.instance.error('duress', 'system alert failed: $e');
     }
+  }
+
+  /// Local-only chat wipe for duress recipes.
+  Future<void> applyDuressChatDelete({
+    required DuressChatScope scope,
+    required List<String> conversationIds,
+    required DuressChatDeleteMode mode,
+  }) async {
+    final userId = session?.userId;
+    if (userId == null) return;
+
+    final targets = <String>{};
+    switch (scope) {
+      case DuressChatScope.specific:
+        targets.addAll(conversationIds);
+      case DuressChatScope.allSecret:
+        targets.addAll(_secretHiddenConversationIds);
+      case DuressChatScope.allHidden:
+        targets.addAll(_hiddenConversationIds);
+        targets.addAll(_secretHiddenConversationIds);
+      case DuressChatScope.allDirect:
+        for (final c in conversations) {
+          if (!c.isGroup) targets.add(c.id);
+        }
+    }
+    if (targets.isEmpty) return;
+
+    for (final id in targets) {
+      messagesByConversation.remove(id);
+      await _messageCache.clearConversation(userId, id);
+      if (mode == DuressChatDeleteMode.removeLocal) {
+        conversations.removeWhere((c) => c.id == id);
+        _hiddenConversationIds.add(id);
+        if (activeConversationId == id) activeConversationId = null;
+      }
+    }
+    if (mode == DuressChatDeleteMode.removeLocal) {
+      await _localSettings.setStringList('hidden_conversations', _hiddenConversationIds.toList());
+    }
+    notifyListeners();
   }
 
   Future<void> loadChatPreferences(String conversationId) async {
@@ -1337,12 +1504,37 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  bool _isNonChatEnvelope(ChatMessage m) {
+    if (m.contentType == 'read_receipt' ||
+        m.contentType == 'login_approval_grant' ||
+        m.contentType == 'sender_key_distribution') {
+      return true;
+    }
+    return CallSignalingService.isCallSignal(m.contentType);
+  }
+
+  Future<void> _processHistoryControlMessage(ChatMessage m) async {
+    if (m.contentType == 'read_receipt') {
+      await _handleReadReceipt(m);
+    } else if (m.contentType == 'login_approval_grant') {
+      await _handleLoginApprovalSignal(m);
+    } else if (m.contentType == 'sender_key_distribution') {
+      await _processIncomingDistribution(m);
+    } else if (CallSignalingService.isCallSignal(m.contentType)) {
+      await _handleIncomingCallSignal(m);
+    }
+  }
+
   List<ChatMessage> visibleMessagesFor(String conversationId) {
     final all = messagesByConversation[conversationId] ?? [];
     final secretOn = isSecretSessionActive(conversationId);
-    var visible = all.where((m) => !_locallyHiddenMessageIds.contains(m.id));
+    var visible = all.where((m) => !_locallyHiddenMessageIds.contains(m.id) && !_isNonChatEnvelope(m));
     if (!secretOn) {
-      visible = visible.where((m) => !m.isSecret);
+      visible = visible.where((m) {
+        if (m.isSecret) return false;
+        if (_secretPlaintextVault.containsKey(m.id)) return false;
+        return true;
+      });
     }
     final normalSeconds = disappearingSeconds[conversationId];
     if (normalSeconds != null) {
@@ -1569,6 +1761,7 @@ class AppController extends ChangeNotifier {
       if (diskCached.isNotEmpty && prior.isEmpty) {
         for (final m in diskCached) {
           MessagePayload.applyTo(m);
+          _sealSecretMessage(m);
         }
         messagesByConversation[conversationId] = diskCached;
         prior.addAll(diskCached);
@@ -1588,11 +1781,8 @@ class AppController extends ChangeNotifier {
     };
 
     for (final m in all) {
-      if (m.contentType == 'sender_key_distribution') {
-        await _processIncomingDistribution(m);
-        continue;
-      }
-      if (CallSignalingService.isCallSignal(m.contentType)) {
+      if (_isNonChatEnvelope(m)) {
+        await _processHistoryControlMessage(m);
         continue;
       }
 
@@ -1616,7 +1806,9 @@ class AppController extends ChangeNotifier {
 
     final merged = mergedById.values.toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     messagesByConversation[conversationId] = merged;
-    if (userId != null) {
+    if (!isSecretSessionActive(conversationId)) {
+      _sealSecretMessagesInConversation(conversationId);
+    } else if (userId != null) {
       try {
         await _messageCache.upsertMessages(userId, merged);
       } catch (e) {
@@ -1661,6 +1853,9 @@ class AppController extends ChangeNotifier {
   Future<void> _persistMessage(ChatMessage message) async {
     final userId = session?.userId;
     if (userId == null) return;
+    if (message.isSecret && !isSecretSessionActive(message.conversationId)) {
+      _sealSecretMessage(message);
+    }
     try {
       await _messageCache.upsertMessage(userId, message);
     } catch (e) {
@@ -1684,13 +1879,16 @@ class AppController extends ChangeNotifier {
   }
 
   Map<String, ChatMessage> _plaintextIndexFor(String conversationId, List<ChatMessage> diskCached) {
+    final secretOn = isSecretSessionActive(conversationId);
     final index = <String, ChatMessage>{};
     for (final m in diskCached) {
+      if (!secretOn && m.isSecret) continue;
       if (m.plaintext != null && m.plaintext!.isNotEmpty && !m.decryptFailed) {
         index[m.id] = m;
       }
     }
     for (final m in messagesByConversation[conversationId] ?? []) {
+      if (!secretOn && m.isSecret) continue;
       if (m.plaintext != null && m.plaintext!.isNotEmpty && !m.decryptFailed) {
         index[m.id] = m;
       }
@@ -1704,6 +1902,7 @@ class AppController extends ChangeNotifier {
     target.replyToMessageId = source.replyToMessageId;
     target.replyPreview = source.replyPreview;
     target.decryptFailed = false;
+    target.isSecret = target.isSecret || source.isSecret;
     MessagePayload.applyTo(target);
   }
 
@@ -1732,6 +1931,12 @@ class AppController extends ChangeNotifier {
 
     // Outgoing messages cannot be Signal-decrypted on this device — plaintext from cache only.
     if (m.senderUserId == session?.userId) {
+      final indexed = plaintextIndex?[m.id];
+      if (indexed != null) {
+        m.isSecret = m.isSecret || indexed.isSecret;
+        _applyPlaintextFrom(m, indexed);
+        _sealSecretMessage(m);
+      }
       return;
     }
 
@@ -1746,6 +1951,7 @@ class AppController extends ChangeNotifier {
         m.plaintext = utf8.decode(plaintextBytes);
         m.decryptFailed = false;
         MessagePayload.applyTo(m);
+        _sealSecretMessage(m);
       } catch (e) {
         if (_isDuplicateDecryptError(e)) {
           final fromIndex = plaintextIndex?[m.id];
@@ -2736,10 +2942,15 @@ class AppController extends ChangeNotifier {
     chatMuted.clear();
     disappearingSeconds.clear();
     _secretSessionActive.clear();
+    _secretPlaintextVault.clear();
     for (final t in _secretSessionTimers.values) {
       t.cancel();
     }
     _secretSessionTimers.clear();
+    for (final t in _reminderTimers.values) {
+      t.cancel();
+    }
+    _reminderTimers.clear();
     secretDisappearingSeconds = null;
     activeConversationId = null;
     phone = null;

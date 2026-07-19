@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,10 +8,10 @@ import '../../core/ui/app_tile.dart';
 import '../../models/duress_policy.dart';
 import '../../services/duress_policy_session.dart';
 import '../../state/app_controller.dart';
+import 'duress_rules_editor_screen.dart' show DuressRecipeBuilderScreen;
 import 'trusted_contacts_screen.dart';
-import 'duress_rules_editor_screen.dart';
 
-/// Preset picker for duress policy — Private Mode only.
+/// Protection recipes builder — no rigid presets.
 class DuressPolicyScreen extends ConsumerStatefulWidget {
   const DuressPolicyScreen({super.key});
 
@@ -22,8 +20,9 @@ class DuressPolicyScreen extends ConsumerStatefulWidget {
 }
 
 class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
-  String _presetId = 'P2';
+  List<DuressRule> _rules = [];
   List<String> _channels = List.from(DuressTrustedChannels.both);
+  List<String> _trusted = [];
   bool _loading = true;
 
   @override
@@ -36,13 +35,67 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
     final data = DuressPolicySession.instance.data;
     if (!mounted) return;
     setState(() {
-      _presetId = data?.presetId ?? 'P2';
+      _rules = List.from(data?.rules ?? []);
       _channels = List.from(data?.trustedChannels ?? DuressTrustedChannels.both);
+      _trusted = List.from(data?.trustedUserIds ?? []);
       _loading = false;
     });
   }
 
-  Future<void> _pickPreset() async {
+  Future<void> _persistRules(List<DuressRule> rules) async {
+    await DuressPolicySession.instance.setRules(rules);
+    await _load();
+  }
+
+  Future<void> _openBuilder({DuressRule? existing, int? index}) async {
+    final result = await Navigator.of(context).push<DuressRule>(
+      MaterialPageRoute(
+        builder: (_) => DuressRecipeBuilderScreen(initial: existing),
+      ),
+    );
+    if (result == null) return;
+    final next = List<DuressRule>.from(_rules);
+    if (index != null) {
+      next[index] = result;
+    } else {
+      next.add(result);
+    }
+    await _persistRules(next);
+  }
+
+  Future<void> _addFromCatalog() async {
+    final type = await showModalBottomSheet<DuressActionType>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.screenPadding),
+              child: Text('Что защитить?', style: context.textStyles.title),
+            ),
+            for (final t in DuressActionTypeJson.catalog)
+              ListTile(
+                title: Text(t.labelRu),
+                subtitle: Text(t.catalogHintRu),
+                onTap: () => Navigator.pop(ctx, t),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (type == null || !mounted) return;
+    final seed = DuressRecipeBuilderScreen.seedForAction(type);
+    final result = await Navigator.of(context).push<DuressRule>(
+      MaterialPageRoute(builder: (_) => DuressRecipeBuilderScreen(initial: seed)),
+    );
+    if (result == null) return;
+    await _persistRules([..._rules, result]);
+  }
+
+  Future<void> _addTemplatePack() async {
     final picked = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -50,43 +103,23 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final id in DuressPresets.ids)
+            for (final id in DuressPresets.legacyIds)
               ListTile(
                 title: Text(DuressPresets.label(id)),
                 subtitle: Text(DuressPresets.description(id)),
-                trailing: _presetId == id ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.pop(ctx, id),
               ),
           ],
         ),
       ),
     );
-    if (picked == null || picked == _presetId) return;
-    await DuressPolicySession.instance.setPreset(picked);
-    setState(() => _presetId = picked);
+    if (picked == null) return;
+    await DuressPolicySession.instance.appendTemplatePack(picked);
+    await _load();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Пресет: ${DuressPresets.label(picked)}')),
+      SnackBar(content: Text('Добавлен набор: ${DuressPresets.label(picked)}')),
     );
-    if (picked == DuressPresets.customId) {
-      if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const DuressRulesEditorScreen()),
-      );
-      if (mounted) await _load();
-    }
-  }
-
-  Future<void> _openRulesEditor() async {
-    if (_presetId != DuressPresets.customId) {
-      await DuressPolicySession.instance.setPreset(DuressPresets.customId);
-      if (!mounted) return;
-      setState(() => _presetId = DuressPresets.customId);
-    }
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DuressRulesEditorScreen()),
-    );
-    if (mounted) await _load();
   }
 
   Future<void> _pickChannels() async {
@@ -116,10 +149,6 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
     if (picked == null || _channelsMatch(picked, _channels)) return;
     await DuressPolicySession.instance.setTrustedChannels(picked);
     setState(() => _channels = List.from(picked));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Канал: ${DuressTrustedChannels.label(picked)}')),
-    );
   }
 
   bool _channelsMatch(List<String> a, List<String> b) {
@@ -132,9 +161,14 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
   Future<void> _testSignal() async {
     final result = await ref.read(appControllerProvider).testDuressDelivery();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result)),
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result)));
+  }
+
+  bool get _needsTrustedBanner {
+    final hasNotify = _rules.any(
+      (r) => r.actions.any((a) => a.type == DuressActionType.notifyTrustedChat),
     );
+    return hasNotify && _trusted.isEmpty;
   }
 
   @override
@@ -148,51 +182,111 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
 
     if (!DuressPolicySession.instance.isUnlocked) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Политика безопасности')),
+        appBar: AppBar(title: const Text('Защита')),
         body: const Center(child: Text('Сначала разблокируйте защищённый раздел')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Политика безопасности')),
+      appBar: AppBar(title: const Text('Защита')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addFromCatalog,
+        icon: const Icon(Icons.add),
+        label: const Text('Действие'),
+      ),
       body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+        padding: const EdgeInsets.only(bottom: 96),
         children: [
           Padding(
             padding: const EdgeInsets.all(AppSpacing.screenPadding),
             child: AppCard(
               child: Text(
-                'Правила срабатывают при вводе PIN и дополнительного PIN. '
-                'Настройки хранятся на устройстве в зашифрованном виде.',
+                'Собирайте защиту сами: выберите действие, укажите условие '
+                '(когда и после скольких раз) и порядок шагов.',
                 style: text.caption,
               ),
             ),
           ),
+          if (_needsTrustedBanner)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+              child: AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Есть рецепты оповещения, но список доверенных пуст — '
+                      'сигналы пока никуда не уйдут.',
+                      style: text.caption.copyWith(color: colors.danger),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const TrustedContactsScreen()),
+                        );
+                        await _load();
+                      },
+                      child: const Text('Добавить доверенных'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: AppSpacing.md),
+          if (_rules.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.screenPadding),
+              child: Text(
+                'Рецептов нет. Нажмите «Действие» — например, оповестить доверенных при 5× доп. PIN.',
+                style: text.caption,
+              ),
+            )
+          else
+            AppSettingsGroup(
+              title: 'Рецепты (${_rules.length})',
+              children: [
+                for (var i = 0; i < _rules.length; i++)
+                  Dismissible(
+                    key: ValueKey('recipe-$i-${_rules[i].trigger.wire}-${_rules[i].threshold}-${_rules[i].actions.length}'),
+                    direction: DismissDirection.endToStart,
+                    onDismissed: (_) async {
+                      final next = List<DuressRule>.from(_rules)..removeAt(i);
+                      await _persistRules(next);
+                    },
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: AppSpacing.lg),
+                      color: colors.danger,
+                      child: const Icon(Icons.delete_outline, color: Colors.white),
+                    ),
+                    child: AppTile(
+                      leading: Icon(Icons.shield_outlined, color: colors.textSecondary),
+                      title: _rules[i].trigger.labelRu,
+                      subtitle: _rules[i].summaryRu,
+                      trailing: AppTile.chevron(context),
+                      onTap: () => _openBuilder(existing: _rules[i], index: i),
+                      showDivider: i < _rules.length - 1,
+                    ),
+                  ),
+              ],
+            ),
+          const SizedBox(height: AppSpacing.lg),
           AppSettingsGroup(
-            title: 'Пресет',
+            title: 'Быстро добавить набор',
             children: [
               AppTile(
-                leading: Icon(Icons.policy_outlined, color: colors.textSecondary),
-                title: DuressPresets.label(_presetId),
-                subtitle: DuressPresets.description(_presetId),
+                leading: Icon(Icons.library_add_outlined, color: colors.textSecondary),
+                title: 'Шаблон рецептов',
+                subtitle: 'Дополнит список, не заменит',
                 trailing: AppTile.chevron(context),
-                onTap: _pickPreset,
-              ),
-              AppTile(
-                leading: Icon(Icons.tune_outlined, color: colors.textSecondary),
-                title: 'Свои правила',
-                subtitle: _presetId == DuressPresets.customId
-                    ? '${DuressPolicySession.instance.data?.rules.length ?? 0} правил'
-                    : 'Настроить пороги и действия вручную',
-                trailing: AppTile.chevron(context),
-                onTap: _openRulesEditor,
+                onTap: _addTemplatePack,
                 showDivider: false,
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
           AppSettingsGroup(
-            title: 'Доставка сигналов',
+            title: 'Доставка',
             children: [
               AppTile(
                 leading: Icon(Icons.hub_outlined, color: colors.textSecondary),
@@ -201,33 +295,25 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
                 trailing: AppTile.chevron(context),
                 onTap: _pickChannels,
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Доверенные лица',
-            children: [
               AppTile(
                 leading: Icon(Icons.verified_user_outlined, color: colors.textSecondary),
-                title: 'Список контактов',
-                subtitle: '${DuressPolicySession.instance.data?.trustedUserIds.length ?? 0} выбрано',
+                title: 'Доверенные контакты',
+                subtitle: '${_trusted.length} выбрано',
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const TrustedContactsScreen()),
-                ),
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TrustedContactsScreen()),
+                  );
+                  await _load();
+                },
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Проверка',
-            children: [
               AppTile(
                 leading: Icon(Icons.send_outlined, color: colors.textSecondary),
-                title: 'Тестовый сигнал',
-                subtitle: 'Код 90 — по выбранным каналам',
+                title: 'Тест доставки',
+                subtitle: 'Код 90 — проверить, что сигнал доходит',
                 trailing: AppTile.chevron(context),
                 onTap: _testSignal,
+                showDivider: false,
               ),
             ],
           ),

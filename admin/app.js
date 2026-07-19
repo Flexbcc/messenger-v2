@@ -1,11 +1,11 @@
 (function () {
-  const urlInput = document.getElementById("discoveryUrl");
   const refreshBtn = document.getElementById("refreshBtn");
-  const tbody = document.getElementById("nodesBody");
+  const nodesBody = document.getElementById("nodesBody");
+  const connectionsBody = document.getElementById("connectionsBody");
+  const connCount = document.getElementById("connCount");
 
-  const STORAGE_KEY = "node_monitor_discovery_url";
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) urlInput.value = saved;
+  const REFRESH_MS = 5000;
+  const PING_TIMEOUT_MS = 4000;
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({
@@ -13,55 +13,147 @@
     }[c]));
   }
 
-  const PING_TIMEOUT_MS = 4000;
-  const REFRESH_INTERVAL_MS = 5000;
-  const HISTORY_MAX_SAMPLES = 40; // ~3.3 min of history at a 5s poll interval
-
-  // In-memory only — resets on page reload. Good enough for "watch it live"
-  // without adding a persistence layer to what's still a read-only bootstrap
-  // monitoring tool (ADR-0006).
-  const history = new Map(); // node_id -> { ping: (number|null)[], load: (number|null)[] }
-
-  function recordHistory(nodeId, pingMs, loadValue) {
-    if (!history.has(nodeId)) history.set(nodeId, { ping: [], load: [] });
-    const h = history.get(nodeId);
-    h.ping.push(pingMs);
-    h.load.push(loadValue);
-    if (h.ping.length > HISTORY_MAX_SAMPLES) h.ping.shift();
-    if (h.load.length > HISTORY_MAX_SAMPLES) h.load.shift();
-  }
-
   function formatBytes(bytes) {
     if (!bytes) return "0 B";
-    const units = ["B", "KB", "MB", "GB"];
+    const units = ["B", "KB", "MB", "GB", "TB"];
     let i = 0;
     let v = bytes;
     while (v >= 1024 && i < units.length - 1) { v /= 1024; i += 1; }
     return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
   }
 
-  function formatLoad(role, load) {
-    if (!load) return "—";
-    switch (role) {
-      case "home":
-        return `${load.online_users} онлайн · ${load.active_ws_connections} WS`;
-      case "relay":
-        return `${load.forwarded_count} переслано`;
-      case "storage":
-        return `${load.buffered_count} в буфере`;
-      case "media":
-        return `${load.files_count} файлов · ${formatBytes(load.bytes_total)}`;
-      case "discovery":
-        return `${load.registered_nodes} нод · ${load.registered_users} польз.`;
-      case "gateway":
-        return `${load.proxied_requests ?? 0} прокси`;
-      default:
-        return "—";
+  function formatUptime(sec) {
+    if (sec == null) return "—";
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    if (h > 48) return `${Math.floor(h / 24)} д`;
+    if (h > 0) return `${h} ч ${m} м`;
+    return `${m} м`;
+  }
+
+  const STATUS_RU = {
+    normal: "Норма",
+    busy: "Нагрузка",
+    overloaded: "Перегруз",
+    critical: "Критично",
+    online: "Онлайн",
+    offline: "Оффлайн",
+  };
+
+  const STATUS_CLASS = {
+    normal: "status-normal",
+    busy: "status-busy",
+    overloaded: "status-overloaded",
+    critical: "status-critical",
+    online: "status-online",
+    offline: "status-offline",
+  };
+
+  function setHealthRing(score) {
+    const arc = document.getElementById("healthArc");
+    const label = document.getElementById("healthScore");
+    if (score == null) {
+      label.textContent = "—";
+      arc.style.strokeDashoffset = "327";
+      return;
+    }
+    label.textContent = String(score);
+    const circumference = 2 * Math.PI * 52;
+    const offset = circumference * (1 - score / 100);
+    arc.style.strokeDasharray = `${circumference}`;
+    arc.style.strokeDashoffset = String(offset);
+    arc.classList.toggle("health-low", score < 60);
+    arc.classList.toggle("health-mid", score >= 60 && score < 85);
+    arc.classList.toggle("health-high", score >= 85);
+  }
+
+  function renderLocalSnapshot(snap) {
+    if (!snap) return;
+    const status = snap.runtime_status || "normal";
+    const pill = document.getElementById("runtimeStatusPill");
+    pill.textContent = snap.runtime_status_label || STATUS_RU[status] || status;
+    pill.className = `status-pill ${STATUS_CLASS[status] || ""}`;
+
+    document.getElementById("localNodeTitle").textContent = snap.node_id || "Home Node";
+    const net = snap.network || {};
+    const metaBits = [
+      net.software_version ? `v${net.software_version}` : null,
+      net.resource_policy || null,
+      typeof window.__opsCluster === "string" ? window.__opsCluster : null,
+    ].filter(Boolean);
+    document.getElementById("localNodeMeta").textContent = metaBits.join(" · ") || "Загрузка…";
+    renderParticipationOverview(net);
+
+    setHealthRing(snap.health_score);
+    AdminAlerts.renderBanner(document.getElementById("alertsBanner"), AdminAlerts.check(snap.metrics));
+    const m = snap.metrics || {};
+    document.getElementById("mCpu").textContent =
+      m.cpu_percent_est != null ? `${m.cpu_percent_est}%` : "—";
+    document.getElementById("mRam").textContent =
+      m.ram_total_bytes
+        ? `${formatBytes(m.ram_used_bytes)} / ${formatBytes(m.ram_total_bytes)}${m.ram_percent != null ? ` (${m.ram_percent}%)` : ""}`
+        : "—";
+    document.getElementById("mDisk").textContent =
+      m.disk_total_bytes
+        ? `${formatBytes(m.disk_used_bytes)} / ${formatBytes(m.disk_total_bytes)}${m.disk_percent != null ? ` (${m.disk_percent}%)` : ""}`
+        : "—";
+    document.getElementById("mConn").textContent =
+      `${m.online_users ?? 0} польз. · ${m.active_ws_connections ?? 0} WS`;
+    document.getElementById("mSync").textContent = String(m.sync_queue ?? 0);
+    document.getElementById("mUptime").textContent = formatUptime(m.uptime_sec);
+
+    const conns = snap.connections || [];
+    connCount.textContent = String(conns.length);
+    const sumDev = document.getElementById("sumDevices");
+    if (sumDev) sumDev.textContent = String(conns.length);
+    if (!conns.length) {
+      connectionsBody.innerHTML =
+        '<tr><td colspan="4" class="empty">Нет активных сессий</td></tr>';
+    } else {
+      connectionsBody.innerHTML = conns.map((c) => `
+        <tr>
+          <td><code>${escapeHtml(c.user_id)}</code></td>
+          <td><code>${escapeHtml(c.device_id || "—")}</code></td>
+          <td>${escapeHtml(c.device_type || "—")}</td>
+          <td>${escapeHtml(String(c.ws_connections ?? 1))}</td>
+        </tr>
+      `).join("");
     }
   }
 
-  // A single representative number per role, so it can be plotted as a trend
-  // even though each role's `load` shape is different.
+  const PART_LABELS = {
+    relay: "Relay",
+    storage: "Storage",
+    witness: "Witness",
+    media_cache: "Media Cache",
+    nat_assist: "NAT Assist",
+  };
+
+  function renderParticipationOverview(net) {
+    const owner = net.owner_resource_percent ?? 40;
+    const network = net.network_resource_percent ?? (100 - owner);
+    const ownerBar = document.getElementById("priorityOwnerBar");
+    const netBar = document.getElementById("priorityNetworkBar");
+    if (ownerBar) ownerBar.style.width = `${owner}%`;
+    if (netBar) netBar.style.width = `${network}%`;
+
+    const summary = document.getElementById("participationSummary");
+    if (summary) {
+      summary.textContent = `Приоритет владельца ${owner}% · сеть ${network}%`;
+    }
+
+    const part = net.participation || {};
+    const tags = document.getElementById("participationTags");
+    if (!tags) return;
+    const enabled = Object.entries(PART_LABELS)
+      .filter(([key]) => part[key])
+      .map(([, label]) => `<li class="tag-on">${escapeHtml(label)}</li>`);
+    const disabled = Object.entries(PART_LABELS)
+      .filter(([key]) => !part[key])
+      .map(([, label]) => `<li class="tag-off">${escapeHtml(label)}</li>`);
+    tags.innerHTML = [...enabled, ...disabled].join("") || "<li class='tag-off'>—</li>";
+  }
+
   function primaryLoadValue(role, load) {
     if (!load) return null;
     switch (role) {
@@ -70,48 +162,24 @@
       case "storage": return load.buffered_count;
       case "media": return load.files_count;
       case "discovery": return load.registered_nodes;
-      case "gateway": return load.proxied_requests;
       default: return null;
     }
   }
 
-  function pingClass(ms) {
-    if (ms == null) return "ping-dead";
-    if (ms < 100) return "ping-good";
-    if (ms < 300) return "ping-ok";
-    return "ping-bad";
-  }
-
-  // Renders a minimal inline trend line. Gaps (null = unreachable/no data)
-  // break the line rather than interpolating through them, so a node going
-  // offline is visible as a hole, not a smoothed-over dip.
-  function sparkline(values, { width = 72, height = 20 } = {}) {
-    const known = values.filter((v) => v != null);
-    if (known.length < 2) return '<span class="spark-empty">—</span>';
-
-    const min = Math.min(...known);
-    const max = Math.max(...known);
-    const range = max - min || 1;
-    const stepX = width / (values.length - 1 || 1);
-
-    const segments = [];
-    let current = [];
-    values.forEach((v, i) => {
-      if (v == null) {
-        if (current.length > 1) segments.push(current);
-        current = [];
-        return;
-      }
-      const x = i * stepX;
-      const y = height - ((v - min) / range) * (height - 3) - 1.5;
-      current.push(`${x.toFixed(1)},${y.toFixed(1)}`);
-    });
-    if (current.length > 1) segments.push(current);
-
-    const polylines = segments
-      .map((pts) => `<polyline points="${pts.join(" ")}" />`)
-      .join("");
-    return `<svg class="spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${polylines}</svg>`;
+  function formatLoad(role, load) {
+    if (!load) return "—";
+    switch (role) {
+      case "home":
+        return `${load.online_users ?? 0} онл. · ${load.active_ws_connections ?? 0} WS`;
+      case "relay":
+        return `${load.forwarded_count ?? 0} fwd`;
+      case "storage":
+        return `${load.buffered_count ?? 0} buf`;
+      case "discovery":
+        return `${load.registered_nodes ?? 0} нод`;
+      default:
+        return "—";
+    }
   }
 
   async function pingNode(node) {
@@ -126,85 +194,144 @@
       const ms = performance.now() - t0;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      return { ms, reachable: true, load: data.load || null, role: data.node_role || null };
-    } catch (err) {
+      return {
+        ms,
+        reachable: true,
+        load: data.load || null,
+        role: data.node_role || null,
+        health_status: data.runtime_status || data.status,
+        runtime_status: data.runtime_status,
+      };
+    } catch (_) {
       return { ms: null, reachable: false, load: null, role: null };
     } finally {
       clearTimeout(timer);
     }
   }
 
+  function renderClusters(nodes, localClusterId) {
+    const groups = AdminClusters.groupNodes(nodes);
+    if (!groups.length) {
+      nodesBody.innerHTML =
+        '<tr><td colspan="7" class="empty">Нет площадок Home/Media/Relay/Storage</td></tr>';
+      updateSummary(groups, 0, 0);
+      return;
+    }
+
+    let active = 0;
+    let problems = 0;
+    nodesBody.innerHTML = groups.map((g) => {
+      const overall = AdminClusters.clusterOverall(g);
+      if (overall === "ok" || overall === "warn") active += 1;
+      if (overall === "bad") problems += 1;
+      const isLocal = g.cluster_id === (localClusterId || "default");
+      const title = AdminClusters.siteLabel(g.cluster_id, g);
+      const hint = AdminClusters.siteHint(g.cluster_id);
+      const home = g.roles.home;
+      const trust = home?.trust_status || "trusted";
+
+      const cells = AdminClusters.WORKER_ROLES.map((role) => {
+        const st = AdminClusters.roleStatus(g.roles[role]);
+        return `<td class="role-cell">${AdminClusters.roleIcon(role, st, g.roles[role])}</td>`;
+      }).join("");
+
+      return `
+      <tr class="${isLocal ? "row-local" : ""}">
+        <td>
+          <strong>${escapeHtml(title)}</strong>
+          ${isLocal ? '<span class="badge badge-local">эта панель</span>' : ""}
+          <div class="muted-xs">${escapeHtml(hint || g.cluster_id)}</div>
+        </td>
+        ${cells}
+        <td>${AdminUi.trustPill(trust, trust === "trusted" ? "OK" : trust)}</td>
+        <td><button type="button" class="btn-ghost btn-xs cluster-toggle" data-cluster="${escapeHtml(g.cluster_id)}">детали</button></td>
+      </tr>
+      <tr class="url-row" data-cluster-row="${escapeHtml(g.cluster_id)}"><td colspan="7"><div class="cluster-detail">${g.nodes.map((n) =>
+        `<div><code>${escapeHtml(n.node_id)}</code> · ${AdminUi.rolePill(AdminClusters.roleOf(n))} · <code>${escapeHtml(n.node_url)}</code></div>`
+      ).join("")}</div></td></tr>`;
+    }).join("");
+
+    nodesBody.querySelectorAll(".cluster-toggle").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.cluster;
+        const row = nodesBody.querySelector(`[data-cluster-row="${id}"]`);
+        row?.classList.toggle("show-url");
+        btn.closest("tr")?.classList.toggle("expanded");
+      });
+    });
+
+    updateSummary(groups, active, problems);
+  }
+
+  function updateSummary(groups, active, problems) {
+    const el = (id) => document.getElementById(id);
+    if (el("sumTotal")) el("sumTotal").textContent = String(groups.length);
+    if (el("sumOnline")) el("sumOnline").textContent = String(active);
+    if (el("sumOffline")) el("sumOffline").textContent = String(problems);
+  }
+
   async function refresh() {
+    let localSnap = null;
+    let nodes = [];
+
     try {
-      const res = await fetch("/api/monitor/registry/nodes");
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || `HTTP ${res.status}`);
+      const localRes = await fetch(AdminBase.url("/api/monitor/local/snapshot"));
+      if (localRes.ok) {
+        localSnap = await localRes.json();
+        renderLocalSnapshot(localSnap);
       }
+    } catch (_) { /* local home may be down */ }
+
+    try {
+      const res = await fetch(AdminBase.url("/api/monitor/registry/nodes"));
+      if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      const nodes = data.nodes || [];
+      nodes = data.nodes || [];
       const pings = await Promise.all(nodes.map(pingNode));
-      renderNodes(nodes.map((n, i) => ({ ...n, ping: pings[i] })));
+      nodes = nodes.map((n, i) => ({ ...n, ping: pings[i] }));
+      renderClusters(nodes, window.__opsCluster);
     } catch (err) {
-      const base = urlInput.value.trim() || "discovery";
-      tbody.innerHTML = `<tr><td colspan="12" class="empty">Не удалось получить данные (${escapeHtml(base)}): ${escapeHtml(err.message)}</td></tr>`;
+      nodesBody.innerHTML =
+        `<tr><td colspan="7" class="empty">Discovery: ${escapeHtml(err.message)}</td></tr>`;
     }
   }
 
   async function initDiscoveryLabel() {
     try {
-      const cfg = await fetch("/api/config").then((r) => r.json());
-      const url = cfg.discovery_public_url || cfg.node?.discovery_node_url;
-      if (url) urlInput.value = url;
-    } catch (_) {
-      /* ignore */
-    }
+      const cfg = await fetch(AdminBase.url("/api/config")).then((r) => r.json());
+      const cluster = cfg.node?.cluster_id || "default";
+      window.__opsCluster = cluster;
+      const homeUrl = cfg.node?.home_node_public_url || "";
+      const stackLabel = document.getElementById("localStackLabel");
+      const meta = cfg.meta || {};
+      if (stackLabel) {
+        const prefix = meta.title || "Project-стек";
+        stackLabel.textContent = `${prefix} · cluster ${cluster} · ${homeUrl || "home"}`;
+      }
+      document.querySelector(".brand h1")?.replaceChildren(document.createTextNode(
+        meta.admin_variant === "main" ? "Operator Console" : "Operator Admin",
+      ));
+      AdminClusters.renderDeploymentsList(document.getElementById("deployList"), cluster);
+      const n = cfg.node || {};
+      renderParticipationOverview({
+        owner_resource_percent: n.owner_resource_percent ?? 40,
+        network_resource_percent: 100 - (n.owner_resource_percent ?? 40),
+        participation: {
+          relay: n.participate_relay,
+          storage: n.participate_storage,
+          witness: n.participate_witness,
+          media_cache: n.participate_media_cache,
+          nat_assist: n.participate_nat_assist,
+        },
+      });
+    } catch (_) { /* ignore */ }
   }
 
-  function renderNodes(nodes) {
-    if (!nodes.length) {
-      tbody.innerHTML = '<tr><td colspan="12" class="empty">Пока нет зарегистрированных узлов</td></tr>';
-      return;
-    }
-    nodes.sort((a, b) => a.node_id.localeCompare(b.node_id));
-    tbody.innerHTML = nodes.map((n) => {
-      const role = (n.capabilities || [])[0];
-      const ping = n.ping || { ms: null, reachable: false, load: null };
-      const pingLabel = ping.reachable ? `${ping.ms.toFixed(0)} мс` : "недоступен";
-      const loadValue = primaryLoadValue(role, ping.load);
-
-      recordHistory(n.node_id, ping.ms, loadValue);
-      const h = history.get(n.node_id);
-
-      const trust = n.trust_status || "trusted";
-      const reach = n.reachability || n.status || "offline";
-
-      return `
-      <tr>
-        <td><span class="status-dot status-${reach}"></span>${escapeHtml(reach)}</td>
-        <td><code>${escapeHtml(n.node_id)}</code></td>
-        <td>${(n.capabilities || []).map(escapeHtml).join(", ")}</td>
-        <td><code>${escapeHtml(n.node_url)}</code></td>
-        <td>${escapeHtml(n.software_version)}</td>
-        <td class="metric-cell">
-          <div class="metric-line"><span class="ping-dot ${pingClass(ping.ms)}"></span>${escapeHtml(pingLabel)}</div>
-          ${sparkline(h.ping)}
-        </td>
-        <td class="metric-cell">
-          <div class="metric-line">${escapeHtml(formatLoad(role, ping.load))}</div>
-          ${sparkline(h.load)}
-        </td>
-        <td><code class="trust-${trust}">${escapeHtml(trust)}</code></td>
-        <td><code>${escapeHtml(n.build_hash || "—")}</code></td>
-        <td><code class="trust-${n.attestation_status || "skipped"}">${escapeHtml(n.attestation_status || "skipped")}</code></td>
-        <td><code>${escapeHtml(n.cluster_id || "default")}</code></td>
-        <td>${escapeHtml(new Date(n.last_heartbeat).toLocaleString())}</td>
-      </tr>
-    `;
-    }).join("");
-  }
-
-  refreshBtn.addEventListener("click", refresh);
+  AdminToolbar.init(refresh, { autoRefresh: true });
   initDiscoveryLabel().then(refresh);
-  setInterval(refresh, REFRESH_INTERVAL_MS);
+  AdminServices.refreshContainer(document.getElementById("servicesStatusRow"), {
+    statusRow: true,
+    only: ["home-node", "storage-node", "media-node", "relay-node"],
+  });
+  setInterval(refresh, REFRESH_MS);
 })();

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from app.schemas import FullAdminConfig, NodeEnvConfig, StorageConfigFile
+from app.secrets import is_secret_placeholder
 
 PROJECT_ROOT = Path(os.environ.get("PROJECT_ROOT", "/project"))
 ENV_PATH = Path(os.environ.get("ENV_FILE", PROJECT_ROOT / ".env"))
@@ -23,6 +24,12 @@ ENV_KEY_MAP = {
     "media_node_public_url": "MEDIA_NODE_PUBLIC_URL",
     "relay_node_public_url": "RELAY_NODE_PUBLIC_URL",
     "jwt_secret": "JWT_SECRET",
+    "owner_resource_percent": "OWNER_RESOURCE_PERCENT",
+    "participate_relay": "NODE_PARTICIPATE_RELAY",
+    "participate_storage": "NODE_PARTICIPATE_STORAGE",
+    "participate_witness": "NODE_PARTICIPATE_WITNESS",
+    "participate_media_cache": "NODE_PARTICIPATE_MEDIA_CACHE",
+    "participate_nat_assist": "NODE_PARTICIPATE_NAT_ASSIST",
 }
 
 
@@ -39,10 +46,25 @@ def _parse_env(text: str) -> Dict[str, str]:
     return out
 
 
+def _env_bool(data: Dict[str, str], key: str, default: bool) -> bool:
+    raw = data.get(key)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
 def _render_env(existing: Dict[str, str], node: NodeEnvConfig) -> str:
     merged = dict(existing)
     for field, env_key in ENV_KEY_MAP.items():
-        merged[env_key] = getattr(node, field)
+        val = getattr(node, field)
+        if val is None:
+            continue
+        if isinstance(val, bool):
+            merged[env_key] = "true" if val else "false"
+        else:
+            merged[env_key] = str(val)
+    if node.jwt_secret is not None and not is_secret_placeholder(node.jwt_secret):
+        merged["JWT_SECRET"] = node.jwt_secret
     if node.lan_ip and node.lan_ip not in ("127.0.0.1", "localhost"):
         ip = node.lan_ip
         merged.setdefault("DISCOVERY_NODE_URL", f"http://{ip}:8003")
@@ -53,6 +75,10 @@ def _render_env(existing: Dict[str, str], node: NodeEnvConfig) -> str:
 
     known = {
         "DISCOVERY_NODE_URL", "CLUSTER_ID", "NODE_RESOURCE_POLICY",
+        "OWNER_RESOURCE_PERCENT",
+        "NODE_PARTICIPATE_RELAY", "NODE_PARTICIPATE_STORAGE",
+        "NODE_PARTICIPATE_WITNESS", "NODE_PARTICIPATE_MEDIA_CACHE",
+        "NODE_PARTICIPATE_NAT_ASSIST",
         "HOME_NODE_ID", "HOME_NODE_PUBLIC_URL", "STORAGE_NODE_URL", "JWT_SECRET",
         "STORAGE_NODE_ID", "STORAGE_NODE_PUBLIC_URL",
         "MEDIA_NODE_ID", "MEDIA_NODE_PUBLIC_URL",
@@ -65,11 +91,19 @@ def _render_env(existing: Dict[str, str], node: NodeEnvConfig) -> str:
         f"DISCOVERY_NODE_URL={merged.get('DISCOVERY_NODE_URL', node.discovery_node_url)}",
         f"CLUSTER_ID={merged.get('CLUSTER_ID', node.cluster_id)}",
         f"NODE_RESOURCE_POLICY={merged.get('NODE_RESOURCE_POLICY', node.node_resource_policy)}",
+        f"OWNER_RESOURCE_PERCENT={merged.get('OWNER_RESOURCE_PERCENT', str(node.owner_resource_percent))}",
+        "",
+        "# Участие ноды в общей сети (true/false)",
+        f"NODE_PARTICIPATE_RELAY={merged.get('NODE_PARTICIPATE_RELAY', 'true' if node.participate_relay else 'false')}",
+        f"NODE_PARTICIPATE_STORAGE={merged.get('NODE_PARTICIPATE_STORAGE', 'true' if node.participate_storage else 'false')}",
+        f"NODE_PARTICIPATE_WITNESS={merged.get('NODE_PARTICIPATE_WITNESS', 'true' if node.participate_witness else 'false')}",
+        f"NODE_PARTICIPATE_MEDIA_CACHE={merged.get('NODE_PARTICIPATE_MEDIA_CACHE', 'true' if node.participate_media_cache else 'false')}",
+        f"NODE_PARTICIPATE_NAT_ASSIST={merged.get('NODE_PARTICIPATE_NAT_ASSIST', 'true' if node.participate_nat_assist else 'false')}",
         "",
         f"HOME_NODE_ID={merged.get('HOME_NODE_ID', 'home-local')}",
         f"HOME_NODE_PUBLIC_URL={merged.get('HOME_NODE_PUBLIC_URL', node.home_node_public_url)}",
         f"STORAGE_NODE_URL={merged.get('STORAGE_NODE_URL', node.storage_node_url)}",
-        f"JWT_SECRET={merged.get('JWT_SECRET', node.jwt_secret)}",
+        f"JWT_SECRET={merged.get('JWT_SECRET', 'dev-secret-change-me-in-production')}",
         "",
         f"STORAGE_NODE_ID={merged.get('STORAGE_NODE_ID', 'storage-local')}",
         f"STORAGE_NODE_PUBLIC_URL={merged.get('STORAGE_NODE_PUBLIC_URL', merged.get('STORAGE_NODE_URL', node.storage_node_url))}",
@@ -93,6 +127,7 @@ def _render_env(existing: Dict[str, str], node: NodeEnvConfig) -> str:
     return "\n".join(lines) + "\n"
 
 
+
 def parse_env_file() -> Dict[str, str]:
     if not ENV_PATH.exists():
         return {}
@@ -103,6 +138,11 @@ def read_env_config() -> NodeEnvConfig:
     if not ENV_PATH.exists():
         return NodeEnvConfig()
     data = parse_env_file()
+    try:
+        owner_pct = int(data.get("OWNER_RESOURCE_PERCENT", "40"))
+    except ValueError:
+        owner_pct = 40
+    owner_pct = max(0, min(100, owner_pct))
     return NodeEnvConfig(
         discovery_node_url=data.get("DISCOVERY_NODE_URL", "http://localhost:8003"),
         cluster_id=data.get("CLUSTER_ID", "default"),
@@ -112,6 +152,12 @@ def read_env_config() -> NodeEnvConfig:
         media_node_public_url=data.get("MEDIA_NODE_PUBLIC_URL", "http://localhost:8004"),
         relay_node_public_url=data.get("RELAY_NODE_PUBLIC_URL", "http://localhost:8005"),
         jwt_secret=data.get("JWT_SECRET", "dev-secret-change-me-in-production"),
+        owner_resource_percent=owner_pct,
+        participate_relay=_env_bool(data, "NODE_PARTICIPATE_RELAY", True),
+        participate_storage=_env_bool(data, "NODE_PARTICIPATE_STORAGE", True),
+        participate_witness=_env_bool(data, "NODE_PARTICIPATE_WITNESS", False),
+        participate_media_cache=_env_bool(data, "NODE_PARTICIPATE_MEDIA_CACHE", False),
+        participate_nat_assist=_env_bool(data, "NODE_PARTICIPATE_NAT_ASSIST", False),
     )
 
 

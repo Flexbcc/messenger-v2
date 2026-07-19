@@ -27,7 +27,9 @@ import '../utils/message_delivery_status.dart';
 import '../utils/message_grouping.dart';
 import '../core/ui/typing_indicator.dart';
 import '../core/platform/platform_capabilities.dart';
+import '../widgets/chat/chat_feedback.dart';
 import '../widgets/chat/chat_message_bubble.dart';
+import '../widgets/chat/pinned_messages_sheet.dart';
 import '../widgets/chat/time_action_sheets.dart';
 import '../widgets/avatar.dart';
 import 'chat_info_screen.dart';
@@ -217,9 +219,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 Navigator.pop(context);
                 final body = messageDisplayBody(message);
                 Clipboard.setData(ClipboardData(text: body));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Текст скопирован')),
-                );
+                ChatFeedback.copied(context);
               },
             ),
             ListTile(
@@ -296,24 +296,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       onReply: () => setState(() => _replyTo = message),
       onFavorite: () async {
         await controller.addFavoriteMessage(widget.conversation, message);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Добавлено в чат «Избранное»')),
-          );
-        }
+        if (mounted) ChatFeedback.addedToFavorites(context);
       },
-      onReminder: (when) => controller.addMessageReminder(
-        conversation: widget.conversation,
-        message: message,
-        remindAt: when,
-      ),
+      onReminder: (when) async {
+        await controller.addMessageReminder(
+          conversation: widget.conversation,
+          message: message,
+          remindAt: when,
+        );
+        if (mounted) ChatFeedback.reminderSet(context, when);
+      },
       onDelete: () async {
         await controller.hideMessageLocally(message.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Сообщение скрыто на этом устройстве')),
-          );
-        }
+        if (mounted) ChatFeedback.hidden(context);
       },
       onForward: () async {
         final target = await showForwardTargetPicker(
@@ -325,11 +320,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         if (target == null || !mounted) return;
         try {
           await controller.forwardMessage(message, target);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Переслано в «${controller.conversationTitle(target)}»')),
-            );
-          }
+          if (mounted) ChatFeedback.forwarded(context);
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -339,7 +330,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         }
       },
       onTogglePin: () async {
+        final wasPinned = controller.isMessagePinned(message.id);
         await controller.toggleMessagePinned(message.id);
+        if (mounted) ChatFeedback.pinned(context, pinned: !wasPinned);
       },
       onEdit: isMine && message.contentType == 'text'
           ? () {
@@ -367,19 +360,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         return;
       }
       final activated = await controller.tryActivateSecretSession(widget.conversation.id, candidate);
-      if (activated) {
+        if (activated) {
         _textController.clear();
         await DuressPolicyEngine.instance.handle(
           DuressTrigger.secretRoomActivateOk,
           controller: controller,
           incrementCounter: false,
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Секретный режим включён')),
-          );
-          setState(() {});
-        }
+        if (mounted) setState(() {});
         return;
       }
       await DuressPolicyEngine.instance.handle(
@@ -474,6 +462,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  void _openPinnedMessages() {
+    showPinnedMessagesSheet(
+      context: context,
+      conversation: widget.conversation,
+      onOpenMessage: _scrollToMessageId,
+    );
+  }
+
   void _showChatGesturesHelp() {
     showModalBottomSheet<void>(
       context: context,
@@ -490,7 +486,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               const Text('• Долгое нажатие или правый клик — полное меню'),
               const Text('• Свайп влево/вправо — ответить'),
               const SizedBox(height: AppSpacing.sm),
-              const Text('В меню: избранное, переслать, закрепить, напомнить, удалить у меня.'),
+              const Text('• Пароль секретного режима + два пробела — включить секретный чат'),
+              const Text('• Закреплённые — иконка 📌 в шапке или «Информация о чате»'),
+              const SizedBox(height: AppSpacing.sm),
+              const Text('Напоминание: в указанное время чат получит непрочитанное и уведомление в приложении.'),
               const SizedBox(height: AppSpacing.md),
             ],
           ),
@@ -503,6 +502,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final controller = ref.watch(appControllerProvider);
     final title = controller.conversationTitle(widget.conversation);
+    final pinnedCount = controller.pinnedCountFor(widget.conversation.id);
     final secretActive = controller.isSecretSessionActive(widget.conversation.id);
     final messages = controller.visibleMessagesFor(widget.conversation.id);
     final layouts = buildMessageLayouts(messages);
@@ -573,10 +573,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               tooltip: 'Выйти из секретного режима',
               onPressed: () {
                 controller.deactivateSecretSession(widget.conversation.id);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Секретный режим выключен')),
-                );
               },
+            ),
+          if (pinnedCount > 0 && !_isFavoritesChat)
+            IconButton(
+              icon: Badge(
+                label: Text('$pinnedCount'),
+                child: const Icon(Icons.push_pin_outlined),
+              ),
+              tooltip: 'Закреплённые сообщения',
+              onPressed: _openPinnedMessages,
             ),
           if (!_isFavoritesChat) ...[
             IconButton(

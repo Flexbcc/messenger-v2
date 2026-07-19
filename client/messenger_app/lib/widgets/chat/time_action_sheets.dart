@@ -6,6 +6,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../models/conversation.dart';
 import '../../models/message.dart';
 import '../../utils/message_format.dart';
+import 'chat_feedback.dart';
 
 /// Shared presets for scheduling and reminders.
 class TimeActionPresets {
@@ -184,9 +185,7 @@ Future<void> showMessageActionsSheet({
                 onTap: () {
                   Navigator.pop(context);
                   Clipboard.setData(ClipboardData(text: body));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Текст скопирован')),
-                  );
+                  ChatFeedback.copied(context);
                 },
               ),
             ListTile(

@@ -9,7 +9,10 @@ import 'pin_keypad.dart';
 
 /// Innocent-looking setup for the optional second PIN (decoy / duress PIN).
 class DecoyPinSetupScreen extends ConsumerStatefulWidget {
-  const DecoyPinSetupScreen({super.key});
+  const DecoyPinSetupScreen({super.key, this.showSkip = false});
+
+  /// After main PIN onboarding — allow skip to unlock next steps.
+  final bool showSkip;
 
   @override
   ConsumerState<DecoyPinSetupScreen> createState() => _DecoyPinSetupScreenState();
@@ -73,6 +76,13 @@ class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen> with 
 
     await PinSecurity.saveFakePin(_input);
     await PrivacyPreferencesStore().setFakePinEnabled(true);
+    await PrivacyPreferencesStore().setDecoyPinStepComplete(true);
+    if (!mounted) return;
+    Navigator.of(context).pop(true);
+  }
+
+  Future<void> _skip() async {
+    await PrivacyPreferencesStore().setDecoyPinStepComplete(true);
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }
@@ -94,7 +104,9 @@ class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen> with 
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Отдельный код для быстрого входа. Должен отличаться от основного PIN.',
+                'Отдельный код: открывает безопасный интерфейс без секретов. '
+                'Можно настроить оповещение доверенных (по умолчанию после 5 вводов). '
+                'Должен отличаться от основного PIN.',
                 style: text.caption,
                 textAlign: TextAlign.center,
               ),
@@ -109,6 +121,13 @@ class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen> with 
               ],
               const Spacer(),
               PinKeypad(onDigit: _onDigit, onBackspace: _onBackspace),
+              if (widget.showSkip && !_confirmStep) ...[
+                const SizedBox(height: AppSpacing.md),
+                TextButton(
+                  onPressed: _skip,
+                  child: const Text('Пропустить — настроить позже'),
+                ),
+              ],
             ],
           ),
         ),

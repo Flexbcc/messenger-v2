@@ -91,35 +91,63 @@
     }
   }
 
+  async function checkMedia() {
+    AdminUi.setFieldCheck("media", { loading: true, message: "Проверка…" });
+    try {
+      const cfg = await AdminApi.getConfig();
+      const url = cfg.node?.media_node_public_url || "";
+      const result = await AdminApi.checkMedia(url);
+      AdminUi.setFieldCheck("media", {
+        ok: result.ok,
+        message: result.ok
+          ? `✓ Media-node доступен · ${AdminUi.formatCheckDetail(result)}`
+          : `✗ ${result.error || "недоступен"}`,
+      });
+    } catch (e) {
+      AdminUi.setFieldCheck("media", { ok: false, message: `✗ ${e.message}` });
+    }
+  }
+
   form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     try {
       const res = await AdminApi.saveStorage(collectStorage());
-      AdminApi.showStatus(status, "Сохранено: " + res.path);
+      AdminApi.showStatus(status, "Сохранено на диск: " + res.path + " · для применения нажмите «Применить без перезапуска»");
     } catch (e) {
       AdminApi.showStatus(status, e.message, false);
     }
   });
 
+  document.getElementById("checkMediaBtn").addEventListener("click", checkMedia);
+
   document.getElementById("reloadMediaBtn").addEventListener("click", async () => {
     try {
       await AdminApi.saveStorage(collectStorage());
       const res = await AdminApi.reloadMedia();
-      AdminApi.showStatus(status, res.message || "Конфиг применён на media-node");
+      AdminApi.showStatus(status, res.message || "Конфиг перечитан media-node (без перезапуска)");
     } catch (e) {
       AdminApi.showStatus(status, e.message, false);
     }
   });
 
   document.getElementById("backupNowBtn").addEventListener("click", async () => {
+    if (!form.backup_enabled.checked) {
+      AdminApi.showStatus(status, "Включите бэкап в настройках выше", false);
+      return;
+    }
     try {
       await AdminApi.saveStorage(collectStorage());
       const res = await AdminApi.runBackup();
-      AdminApi.showStatus(status, `Бэкап: ${res.files ?? 0} файлов → ${res.destination}`);
+      if (res.status === "skipped") {
+        AdminApi.showStatus(status, "Бэкап пропущен: " + (res.reason || "отключён"), false);
+        return;
+      }
+      AdminApi.showStatus(status, `Бэкап готов: ${res.files ?? 0} файлов → ${res.destination || "—"}`);
     } catch (e) {
       AdminApi.showStatus(status, e.message, false);
     }
   });
 
+  AdminToolbar.init(load);
   load();
 })();

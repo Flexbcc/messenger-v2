@@ -222,6 +222,30 @@ class MessageCacheStore {
         !prev.decryptFailed &&
         (next.plaintext == null || next.plaintext!.isEmpty || next.decryptFailed);
     if (!keepPrevPlaintext) return next;
+    // Sealed secret messages pass null plaintext on purpose — never resurrect from cache.
+    if ((prev.isSecret || next.isSecret) && (next.plaintext == null || next.plaintext!.isEmpty)) {
+      return ChatMessage(
+        id: next.id,
+        conversationId: next.conversationId,
+        senderUserId: next.senderUserId,
+        senderDeviceId: next.senderDeviceId,
+        ciphertext: next.ciphertext.isNotEmpty ? next.ciphertext : prev.ciphertext,
+        contentType: next.contentType,
+        cryptoVersion: next.cryptoVersion,
+        createdAt: next.createdAt,
+        plaintext: null,
+        decryptFailed: next.decryptFailed,
+        replyToMessageId: next.replyToMessageId ?? prev.replyToMessageId,
+        replyPreview: next.replyPreview ?? prev.replyPreview,
+        favoriteSourceConversationId: next.favoriteSourceConversationId,
+        favoriteSourceMessageId: next.favoriteSourceMessageId,
+        favoriteSourceTitle: next.favoriteSourceTitle,
+        favoriteSenderLabel: next.favoriteSenderLabel,
+        isSecret: next.isSecret || prev.isSecret,
+        systemKind: next.systemKind ?? prev.systemKind,
+        duressCode: next.duressCode ?? prev.duressCode,
+      );
+    }
     return ChatMessage(
       id: next.id,
       conversationId: next.conversationId,

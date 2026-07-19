@@ -109,21 +109,33 @@ def init_db():
             """
         )
 
-        # Grandfather existing rows from pre-enrollment schema.
-        conn.execute(
-            """
-            UPDATE node_capabilities
-            SET trust_status = 'trusted',
-                registered_at = COALESCE(registered_at, last_heartbeat)
-            WHERE trust_status = 'unknown' OR trust_status IS NULL OR trust_status = ''
-            """
-        )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_node_trust_status ON node_capabilities(trust_status)"
         )
         # Seed policy defaults from env (idempotent — INSERT OR IGNORE).
         from app.policy import _seed_settings
         _seed_settings(conn)
+        from app.config import ENROLLMENT_MODE
+        from app.audit import ensure_audit_table
+        ensure_audit_table(conn)
+        # Grandfather only in legacy — strict/hybrid keep pending until operator approve.
+        if ENROLLMENT_MODE == "legacy":
+            conn.execute(
+                """
+                UPDATE node_capabilities
+                SET trust_status = 'trusted',
+                    registered_at = COALESCE(registered_at, last_heartbeat)
+                WHERE trust_status = 'unknown' OR trust_status IS NULL OR trust_status = ''
+                """
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE node_capabilities
+                SET registered_at = COALESCE(registered_at, last_heartbeat)
+                WHERE registered_at IS NULL OR registered_at = ''
+                """
+            )
         conn.commit()
 
 

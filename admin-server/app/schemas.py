@@ -51,9 +51,18 @@ class NodeEnvConfig(BaseModel):
     storage_node_url: str = "http://localhost:8002"
     media_node_public_url: str = "http://localhost:8004"
     relay_node_public_url: str = "http://localhost:8005"
-    jwt_secret: str = "dev-secret-change-me-in-production"
+    jwt_secret: Optional[str] = None
     lan_ip: str = "127.0.0.1"
     deploy_role: Literal["discovery", "home", "storage", "media", "relay", "turn", "all"] = "all"
+    # Owner-first capacity split (rest goes to network help).
+    owner_resource_percent: int = Field(default=40, ge=0, le=100)
+    # Network participation opt-ins.
+    participate_relay: bool = True
+    participate_storage: bool = True
+    participate_witness: bool = False
+    participate_media_cache: bool = False
+    participate_nat_assist: bool = False
+
 
 
 class FullAdminConfig(BaseModel):

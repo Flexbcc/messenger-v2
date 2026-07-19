@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/duress_policy.dart';
+import '../screens/private_mode/fake_mode_screen.dart';
 import '../screens/private_mode/pin_keypad.dart';
+import '../security/pin_security.dart';
 import '../services/app_lock_service.dart';
+import '../services/app_privacy_session.dart';
 import '../services/duress_policy_engine.dart';
 import '../state/app_controller.dart';
 import '../theme/colors.dart';
@@ -90,12 +93,29 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> with SingleTick
   Future<void> _evaluate() async {
     if (_lockedOut) return;
 
-    final ok = await _lock.verifyPin(_input);
+    final controller = ref.read(appControllerProvider);
+    final result = await _lock.evaluatePin(_input);
     if (!mounted) return;
-    if (!ok) {
+
+    if (result == PinUnlockResult.fakePin) {
+      AppPrivacySession.instance.enterDecoyMode();
+      controller.deactivateSecretSessionForAll();
+      await DuressPolicyEngine.instance.handle(
+        DuressTrigger.decoyPinStreak,
+        controller: controller,
+      );
+      if (!mounted) return;
+      setState(() => _input = '');
+      _lock.unlock();
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FakeModeScreen()));
+      return;
+    }
+
+    if (result != PinUnlockResult.realPin) {
       final hr = await DuressPolicyEngine.instance.handle(
         DuressTrigger.appLockFail,
-        controller: ref.read(appControllerProvider),
+        controller: controller,
       );
       await _refreshLockout();
       if (!mounted) return;
@@ -108,6 +128,12 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> with SingleTick
       _shakeController.forward(from: 0);
       return;
     }
+
+    await DuressPolicyEngine.instance.handle(
+      DuressTrigger.pinUnlockOkReal,
+      controller: controller,
+      incrementCounter: false,
+    );
     _lock.unlock();
     setState(() {
       _input = '';

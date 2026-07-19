@@ -11,8 +11,10 @@ import '../core/ui/app_switch_tile.dart';
 import '../core/ui/app_tile.dart';
 import '../models/conversation.dart';
 import '../state/app_controller.dart';
+import '../widgets/chat/pinned_messages_sheet.dart';
 import 'chat_media_screen.dart';
 import 'chat_search_screen.dart';
+import 'chat_screen.dart';
 
 class ChatInfoScreen extends ConsumerStatefulWidget {
   const ChatInfoScreen({super.key, required this.conversation});
@@ -168,6 +170,28 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                 trailing: AppTile.chevron(context),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => ChatSearchScreen(conversation: widget.conversation)),
+                ),
+              ),
+              AppTile(
+                leading: Icon(Icons.push_pin_outlined, color: colors.textSecondary),
+                title: 'Закреплённые',
+                trailingText: controller.pinnedCountFor(widget.conversation.id) > 0
+                    ? '${controller.pinnedCountFor(widget.conversation.id)}'
+                    : null,
+                trailing: AppTile.chevron(context),
+                onTap: () => showPinnedMessagesSheet(
+                  context: context,
+                  conversation: widget.conversation,
+                  onOpenMessage: (messageId) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ChatScreen(
+                          conversation: widget.conversation,
+                          scrollToMessageId: messageId,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
               AppSwitchTile(

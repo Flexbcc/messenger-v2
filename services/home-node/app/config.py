@@ -1,6 +1,21 @@
 import os
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_int(name: str, default: int, *, min_v: int = 0, max_v: int = 100) -> int:
+    try:
+        value = int(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return max(min_v, min(max_v, value))
+
+
 class Settings:
     node_id: str = os.environ.get("HOME_NODE_ID", "home-local")
     public_url: str = os.environ.get("HOME_NODE_PUBLIC_URL", "http://localhost:8001")
@@ -21,6 +36,17 @@ class Settings:
     #   federated  — any online node in Discovery (public federated network)
     #   local      — fixed STORAGE_NODE_URL env only; no relay fallback via Discovery
     resource_policy: str = os.environ.get("NODE_RESOURCE_POLICY", "federated")
+
+    # How much of free capacity helps the federation vs owner-first traffic.
+    # Applied later by schedulers; monitored and editable via Admin now.
+    owner_resource_percent: int = _env_int("OWNER_RESOURCE_PERCENT", 40)
+
+    # Opt-in participation flags — what this node is willing to do for the network.
+    participate_relay: bool = _env_bool("NODE_PARTICIPATE_RELAY", True)
+    participate_storage: bool = _env_bool("NODE_PARTICIPATE_STORAGE", True)
+    participate_witness: bool = _env_bool("NODE_PARTICIPATE_WITNESS", False)
+    participate_media_cache: bool = _env_bool("NODE_PARTICIPATE_MEDIA_CACHE", False)
+    participate_nat_assist: bool = _env_bool("NODE_PARTICIPATE_NAT_ASSIST", False)
 
     enrollment_mode: str = os.environ.get("ENROLLMENT_MODE", "legacy").lower()
     node_token_path: str = os.environ.get("NODE_TOKEN_PATH", "/data/node_token")

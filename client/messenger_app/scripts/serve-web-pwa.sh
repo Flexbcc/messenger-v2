@@ -18,4 +18,10 @@ echo "  http://<LAN-IP>:$PORT  (for phone on same Wi‑Fi)"
 echo
 echo "Press Ctrl+C to stop."
 cd "$OUT"
+
+if lsof -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "WARN: port $PORT already in use — stop the other server or run: PORT=7358 $0" >&2
+  exit 1
+fi
+
 python3 -m http.server "$PORT" --bind "$HOST"

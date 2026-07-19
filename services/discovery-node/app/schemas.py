@@ -94,6 +94,21 @@ class AdminActionResponse(BaseModel):
     message: str
 
 
+class AdminAuditEntry(BaseModel):
+    id: int
+    created_at: str
+    actor: str
+    action: str
+    node_id: str
+    cluster_id: Optional[str] = None
+    detail: Optional[str] = None
+
+
+class AdminAuditListResponse(BaseModel):
+    entries: list[AdminAuditEntry]
+    count: int
+
+
 class SuspendNodeRequest(BaseModel):
     reason: Optional[str] = None
 

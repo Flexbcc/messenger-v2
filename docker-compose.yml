@@ -33,6 +33,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me-in-production}
       CLUSTER_ID: ${CLUSTER_ID:-default}
       NODE_RESOURCE_POLICY: ${NODE_RESOURCE_POLICY:-federated}
+      OWNER_RESOURCE_PERCENT: ${OWNER_RESOURCE_PERCENT:-40}
+      NODE_PARTICIPATE_RELAY: ${NODE_PARTICIPATE_RELAY:-true}
+      NODE_PARTICIPATE_STORAGE: ${NODE_PARTICIPATE_STORAGE:-true}
+      NODE_PARTICIPATE_WITNESS: ${NODE_PARTICIPATE_WITNESS:-false}
+      NODE_PARTICIPATE_MEDIA_CACHE: ${NODE_PARTICIPATE_MEDIA_CACHE:-false}
+      NODE_PARTICIPATE_NAT_ASSIST: ${NODE_PARTICIPATE_NAT_ASSIST:-false}
       ENROLLMENT_MODE: ${ENROLLMENT_MODE:-legacy}
       NODE_TOKEN_PATH: /data/node_token
       ENROLLMENT_SECRET_PATH: /data/enrollment_secret
@@ -212,7 +218,13 @@ services:
       ADMIN_STATIC: /project/admin
       ENV_FILE: /project/.env
       STORAGE_CONFIG: /project/config/storage.json
+      COMPOSE_FILE: /project/docker-compose.yml
       MEDIA_NODE_URL: http://media-node:8004
+      HOME_NODE_URL: http://project-home-node-1:8001
+      STORAGE_NODE_URL: http://storage-node:8002
+      RELAY_NODE_URL: http://relay-node:8005
+      DISCOVERY_NODE_URL: http://discovery-node:8003
       ADMIN_PANEL_SECRET: ${ADMIN_PANEL_SECRET:-}
     volumes:
       - .:/project
+      - /var/run/docker.sock:/var/run/docker.sock

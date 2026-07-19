@@ -1,10 +1,11 @@
 import '../models/duress_policy.dart';
 import '../state/app_controller.dart';
+import 'app_lock_service.dart';
 import 'duress_policy_session.dart';
 import 'duress_runtime_store.dart';
 import 'hidden_vault_session.dart';
 
-/// Evaluates duress triggers against preset rules — spec/0404 phase 1.
+/// Evaluates duress triggers against user recipes — spec/0404.
 class DuressPolicyEngine {
   DuressPolicyEngine._();
   static final instance = DuressPolicyEngine._();
@@ -50,13 +51,22 @@ class DuressPolicyEngine {
 
     var openDecoy = false;
     var purged = false;
+    var lockApp = false;
     DateTime? lockoutUntil;
 
     for (final rule in rules) {
-      if (streak < rule.threshold) continue;
+      if (streak < rule.threshold && _usesCounter(trigger)) continue;
+      if (!_usesCounter(trigger) && rule.threshold > 1) continue;
+
       for (final action in rule.actions) {
         switch (action.type) {
           case DuressActionType.lockPinUi:
+            final sec = action.durationSec ?? 300;
+            final until = now.add(Duration(seconds: sec));
+            if (lockoutUntil == null || until.isAfter(lockoutUntil)) {
+              lockoutUntil = until;
+              data.lockoutUntil = until;
+            }
           case DuressActionType.lockApp:
             final sec = action.durationSec ?? 300;
             final until = now.add(Duration(seconds: sec));
@@ -64,14 +74,18 @@ class DuressPolicyEngine {
               lockoutUntil = until;
               data.lockoutUntil = until;
             }
+            AppLockService.instance.lockNow(duration: Duration(seconds: sec));
+            lockApp = true;
           case DuressActionType.notifyTrustedChat:
-            if (controller != null &&
-                action.uiCode != null &&
-                _channelEnabled(data, 'chat', ruleChannels: rule.channels)) {
+            if (controller != null && _channelEnabled(data, 'chat', ruleChannels: rule.channels)) {
+              final code = action.uiCode ?? action.relayEvent ?? 30;
+              final name = controller.sessionDisplayName;
+              final text = action.resolveTemplate(name: name, threshold: rule.threshold);
               await controller.sendDuressSignalToTrusted(
-                code: action.uiCode!,
+                code: code,
                 trigger: trigger,
                 channelsOverride: rule.channels,
+                messageText: text,
               );
             }
           case DuressActionType.relayEvent:
@@ -89,8 +103,17 @@ class DuressPolicyEngine {
               await controller.purgeAllSecretMessages();
               purged = true;
             }
+          case DuressActionType.deleteChats:
+            if (controller != null) {
+              await controller.applyDuressChatDelete(
+                scope: action.chatScope ?? DuressChatScope.specific,
+                conversationIds: action.conversationIds ?? const [],
+                mode: action.chatDeleteMode ?? DuressChatDeleteMode.clearHistory,
+              );
+            }
           case DuressActionType.wipePrivateVault:
             await HiddenVaultSession.instance.wipe();
+            await DuressPolicySession.instance.wipe();
           case DuressActionType.deactivateSecretSessions:
             controller?.deactivateSecretSessionForAll();
           case DuressActionType.showDecoyOnly:
@@ -104,6 +127,7 @@ class DuressPolicyEngine {
     if (trigger == DuressTrigger.pinUnlockOkReal) {
       _resetCounter(data, DuressTrigger.decoyPinStreak);
       _resetCounter(data, DuressTrigger.pinUnlockFail);
+      _resetCounter(data, DuressTrigger.appLockFail);
       data.lockoutUntil = null;
     }
 
@@ -113,6 +137,7 @@ class DuressPolicyEngine {
       openDecoy: openDecoy,
       lockoutUntil: lockoutUntil,
       purgedSecrets: purged,
+      lockApp: lockApp,
     );
   }
 
@@ -135,10 +160,10 @@ class DuressPolicyEngine {
       };
 
   int _bumpCounter(DuressPolicyData data, DuressTrigger trigger, DateTime now) {
-    final windowSec = data.rules
-        .where((r) => r.trigger == trigger)
-        .map((r) => r.windowSec)
-        .fold(86400, (a, b) => a > b ? a : b);
+    final matching = data.rules.where((r) => r.trigger == trigger);
+    final windowSec = matching.isEmpty
+        ? 86400
+        : matching.map((r) => r.windowSec).fold(86400, (a, b) => a > b ? a : b);
 
     final counter = data.counterFor(trigger);
     if (now.difference(counter.windowStart).inSeconds > windowSec) {
@@ -150,10 +175,10 @@ class DuressPolicyEngine {
   }
 
   int _currentCount(DuressPolicyData data, DuressTrigger trigger, DateTime now) {
-    final windowSec = data.rules
-        .where((r) => r.trigger == trigger)
-        .map((r) => r.windowSec)
-        .fold(86400, (a, b) => a > b ? a : b);
+    final matching = data.rules.where((r) => r.trigger == trigger);
+    final windowSec = matching.isEmpty
+        ? 86400
+        : matching.map((r) => r.windowSec).fold(86400, (a, b) => a > b ? a : b);
     final counter = data.counterFor(trigger);
     if (now.difference(counter.windowStart).inSeconds > windowSec) return 0;
     return counter.count;

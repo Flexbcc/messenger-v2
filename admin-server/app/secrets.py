@@ -53,8 +53,8 @@ def redact_storage_config(storage: StorageConfigFile) -> StorageConfigFile:
 
 def merge_node_secrets(incoming: NodeEnvConfig, existing_env: Dict[str, str]) -> NodeEnvConfig:
     merged = incoming.model_copy()
-    if is_secret_placeholder(merged.jwt_secret):
-        merged.jwt_secret = existing_env.get("JWT_SECRET", merged.jwt_secret)
+    if incoming.jwt_secret is None or is_secret_placeholder(incoming.jwt_secret):
+        merged.jwt_secret = existing_env.get("JWT_SECRET", "dev-secret-change-me-in-production")
     return merged
 
 
@@ -73,8 +73,7 @@ def merge_storage_secrets(incoming: StorageConfigFile, existing: StorageConfigFi
 
 def read_full_config_for_api(env_map: Dict[str, str], full: FullAdminConfig) -> Dict[str, Any]:
     node = full.node.model_copy()
-    if node.jwt_secret:
-        node.jwt_secret = SECRET_PLACEHOLDER
+    node.jwt_secret = None
 
     return {
         "node": node,
@@ -82,5 +81,9 @@ def read_full_config_for_api(env_map: Dict[str, str], full: FullAdminConfig) -> 
         "discovery_public_url": discovery_public_url(env_map, full.node.discovery_node_url),
         "secrets": {
             "jwt_secret_set": bool(env_map.get("JWT_SECRET")),
+            "jwt_is_dev_default": env_map.get("JWT_SECRET", "") in (
+                "",
+                "dev-secret-change-me-in-production",
+            ),
         },
     }

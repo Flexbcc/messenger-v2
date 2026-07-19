@@ -1,0 +1,149 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+.app-shell { max-width: 1100px; margin: 0 auto; padding: 20px 20px 48px; }
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.brand { display: flex; gap: 12px; align-items: center; }
+.brand-mark {
+  width: 42px; height: 42px; border-radius: 12px;
+  background: var(--gradient); box-shadow: var(--shadow);
+}
+.brand h1 { margin: 0; font-size: 20px; }
+.muted, .section-hint { color: var(--text-muted); font-size: 13px; margin: 0; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.btn-primary, .btn-ghost {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+  background: var(--card-soft);
+}
+.btn-primary {
+  background: var(--gradient);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+}
+.dashboard { display: grid; gap: 16px; }
+.hero-card {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 20px; padding: 22px 24px;
+}
+.status-pill {
+  display: inline-block; padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; margin-bottom: 8px;
+  background: var(--card-soft);
+}
+.status-normal, .status-online { background: rgba(53,208,127,.15); color: var(--success); }
+.status-busy { background: rgba(255,176,32,.15); color: var(--warning); }
+.status-overloaded, .status-critical { background: rgba(255,77,94,.15); color: var(--danger); }
+.status-offline { color: var(--text-muted); }
+.health-ring { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
+.health-ring svg { transform: rotate(-90deg); }
+.health-bg { fill: none; stroke: var(--card-soft); stroke-width: 10; }
+.health-fg {
+  fill: none; stroke: var(--primary); stroke-width: 10; stroke-linecap: round;
+  transition: stroke-dashoffset .4s ease;
+}
+.health-fg.health-mid { stroke: var(--warning); }
+.health-fg.health-low { stroke: var(--danger); }
+.health-value {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; font-weight: 700; font-size: 28px;
+}
+.health-value small { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+.metrics-grid {
+  display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 12px;
+}
+.metric-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.metric-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; }
+.metric-value { font-size: 15px; font-weight: 600; }
+.two-col { display: grid; grid-template-columns: 1.3fr .9fr; gap: 16px; }
+.panel-section { padding: 18px 20px; }
+.section-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px;
+}
+.section-head h3 { margin: 0; font-size: 16px; }
+.section-head h4 { margin: 0; font-size: 14px; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  background: var(--card-soft); font-size: 12px; color: var(--text-secondary);
+}
+.participation-form { display: grid; gap: 10px; margin-top: 12px; }
+.toggle-row { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
+.toggle-row input { accent-color: var(--primary); }
+.priority-block { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.priority-block input[type="range"] { width: 100%; margin: 10px 0; accent-color: var(--primary); }
+.priority-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; }
+.priority-owner { background: var(--primary); }
+.priority-network { background: var(--secondary); }
+.form-actions { display: flex; align-items: center; gap: 10px; }
+.status-msg { font-size: 13px; color: var(--text-muted); }
+.status-msg.ok { color: var(--success); }
+.status-msg.err { color: var(--danger); }
+.table-wrap { overflow-x: auto; margin-top: 12px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th, .data-table td {
+  text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border);
+}
+.data-table th { color: var(--text-muted); font-size: 11px; text-transform: uppercase; }
+.data-table td.empty { text-align: center; color: var(--text-muted); padding: 24px; }
+code {
+  background: var(--code-bg); padding: 2px 6px; border-radius: 6px; font-size: .9em;
+}
+.network-map {
+  margin-top: 12px; border-radius: var(--radius-sm); background: var(--card-soft);
+  min-height: 240px; padding: 8px;
+}
+.network-map svg { width: 100%; height: auto; display: block; }
+.map-line { stroke: var(--primary); stroke-width: 1.5; opacity: .4; }
+.map-line-dim { opacity: .12; stroke: var(--text-muted); }
+.map-node { fill: var(--card); stroke: var(--primary); stroke-width: 2; }
+.map-home { fill: var(--primary); stroke: var(--secondary); }
+.map-online { stroke: var(--success); }
+.map-offline { stroke: var(--text-muted); opacity: .5; }
+.map-label { fill: var(--text); font-size: 12px; text-anchor: middle; font-weight: 600; }
+.map-label-sm { fill: var(--text); font-size: 11px; text-anchor: middle; }
+.peer-chips {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px;
+}
+.peer-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 999px;
+  background: var(--card-soft); border: 1px solid var(--border);
+  font-size: 13px;
+}
+.peer-chip .dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted);
+}
+.peer-chip.online .dot { background: var(--success); }
+.peer-chip.busy .dot { background: var(--warning); }
+.peer-chip.self { border-color: var(--primary); }
+@media (max-width: 960px) {
+  .metrics-grid { grid-template-columns: repeat(3, 1fr); }
+  .two-col { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .hero-card { flex-direction: column; align-items: flex-start; }
+}

@@ -34,19 +34,22 @@ def build_media_user_profile(
     # Explicit personal_pc pairing (storage-app) — convention keys until catalog adds them.
     peer_pubkey = values.get("storage.personal_pc_peer_pubkey") or values.get("storage.peer_pubkey")
     lan_hint = values.get("storage.personal_pc_lan_hint") or values.get("storage.lan_hint")
-    if peer_pubkey and lan_hint:
+    relay_url = values.get("storage.personal_pc_relay_url") or default_relay_url
+    storage_node_id = values.get("storage.personal_pc_storage_node_id")
+    has_relay = bool(relay_url and storage_node_id)
+    if peer_pubkey and (lan_hint or has_relay):
         quota_raw = values.get("storage.personal_pc_quota_bytes", 0)
         try:
             quota_bytes = int(quota_raw)
         except (TypeError, ValueError):
             quota_bytes = 0
-        relay_url = values.get("storage.personal_pc_relay_url") or default_relay_url
         return {
             "backend": "personal_pc",
             "personal_pc": {
                 "peer_pubkey": str(peer_pubkey),
                 "relay_url": str(relay_url or ""),
-                "lan_hint": str(lan_hint),
+                "lan_hint": str(lan_hint or ""),
+                "storage_node_id": str(storage_node_id or ""),
                 "quota_bytes": quota_bytes,
             },
         }

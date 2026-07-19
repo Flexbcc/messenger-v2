@@ -14,10 +14,12 @@ class DuressRuntimeStore {
   Future<DuressPolicyData> loadMirror() async {
     final prefs = await SharedPreferences.getInstance();
     final packed = prefs.getString(_prefsKey);
-    if (packed == null) return DuressPolicyData.withPreset('P2');
+    if (packed == null) return DuressPolicyData.withDefaults();
     final json = await _crypto.decryptJson(packed);
-    if (json == null) return DuressPolicyData.withPreset('P2');
-    return DuressPolicyData.fromJson(json);
+    if (json == null) return DuressPolicyData.withDefaults();
+    final data = DuressPolicyData.fromJson(json);
+    data.migratePresetsToCustom();
+    return data;
   }
 
   Future<void> saveMirror(DuressPolicyData data) async {

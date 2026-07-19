@@ -6,6 +6,9 @@ import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
 import '../../widgets/app_button.dart';
 import '../../services/duress_policy_session.dart';
+import '../../services/hidden_vault_session.dart';
+import '../../services/privacy_preferences_store.dart';
+import 'decoy_pin_setup_screen.dart';
 import 'pin_keypad.dart';
 import 'private_mode_state.dart';
 
@@ -103,7 +106,17 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
       await state.configurePins(realPin: _pendingRealPin!);
       await state.setBiometricEnabled(_biometricEnabled);
       await DuressPolicySession.instance.unlock(_pendingRealPin!);
-      if (mounted) Navigator.of(context).pop();
+      await HiddenVaultSession.instance.unlock(_pendingRealPin!);
+      if (!mounted) return;
+      final decoyDone = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const DecoyPinSetupScreen(showSkip: true)),
+      );
+      if (!mounted) return;
+      if (decoyDone != true) {
+        await PrivacyPreferencesStore().setDecoyPinStepComplete(true);
+      }
+      // true = setup finished; caller can leave UnlockScreen for the hub.
+      if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

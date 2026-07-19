@@ -9,11 +9,12 @@ class MessagePayload {
 
   static const _version = 1;
 
-  static String encodeDuress({required int code}) {
+  static String encodeDuress({required int code, String? text}) {
     return jsonEncode({
       'v': _version,
       'system': 'duress',
       'code': code,
+      if (text != null && text.isNotEmpty) 'text': text,
       'ts': DateTime.now().toIso8601String(),
     });
   }
@@ -76,7 +77,10 @@ class MessagePayload {
       if (map['v'] != _version) return;
       final body = map['body'];
       if (system == 'duress') {
-        message.plaintext = DuressSignalLabels.forCode(message.duressCode ?? 0);
+        final custom = map['text'];
+        message.plaintext = (custom is String && custom.trim().isNotEmpty)
+            ? custom.trim()
+            : DuressSignalLabels.forCode(message.duressCode ?? 0);
         return;
       }
       if (system == 'pin_duress_hint') {

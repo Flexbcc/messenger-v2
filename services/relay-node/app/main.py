@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.fed_security import FederationAuthDep, get_federation_security
 from app.node_registration import start_node_registration
+from app.ppc_agent import router as ppc_agent_router
 from shared.mesh.install import install_mesh
 from shared.security.envelope_verify import verify_incoming_federation
 from shared.security.health import security_health_snapshot
@@ -92,6 +93,9 @@ async def forward(payload: dict, _verified: str = FederationAuthDep):
 
     _forwarded_count += 1
     return {"status": "forwarded"}
+
+
+app.include_router(ppc_agent_router)
 
 
 install_mesh(

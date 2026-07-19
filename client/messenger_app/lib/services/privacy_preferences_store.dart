@@ -7,6 +7,11 @@ class PrivacyPreferencesStore {
   Future<bool> fakePinEnabled() async => _store.getBool('pm_fake_pin', false);
   Future<void> setFakePinEnabled(bool v) async => _store.setBool('pm_fake_pin', v);
 
+  /// User finished decoy-PIN step (configured or explicitly skipped).
+  Future<bool> decoyPinStepComplete() async =>
+      (await fakePinEnabled()) || await _store.getBool('pm_decoy_step_done', false);
+  Future<void> setDecoyPinStepComplete(bool v) async => _store.setBool('pm_decoy_step_done', v);
+
   Future<bool> secretRoomEnabled() async => _store.getBool('pm_secret_room', true);
   Future<void> setSecretRoomEnabled(bool v) async => _store.setBool('pm_secret_room', v);
 

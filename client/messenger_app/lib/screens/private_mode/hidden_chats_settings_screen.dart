@@ -6,6 +6,7 @@ import '../../core/ui/app_card.dart';
 import '../../core/ui/app_switch_tile.dart';
 import '../../core/ui/app_tile.dart';
 import '../../services/hidden_chats_store.dart';
+import '../../services/local_settings_store.dart';
 import '../../state/app_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -128,6 +129,14 @@ class _HiddenChatsSettingsScreenState extends ConsumerState<HiddenChatsSettingsS
                 value: _gestureEntry,
                 onChanged: (v) async {
                   await HiddenChatsStore.instance.setGestureEntryEnabled(v);
+                  if (v) {
+                    await HiddenChatsStore.instance.setOpenMethod('gesture');
+                    await LocalSettingsStore().setString('catalog.hidden.open_method', 'gesture');
+                  } else {
+                    await HiddenChatsStore.instance.setOpenMethod('pin');
+                    await LocalSettingsStore().setString('catalog.hidden.open_method', 'pin');
+                  }
+                  await ref.read(appControllerProvider).refreshHiddenChatsPolicies();
                   setState(() => _gestureEntry = v);
                 },
               ),

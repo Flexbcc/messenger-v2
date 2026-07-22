@@ -2,22 +2,38 @@ import 'package:flutter/material.dart';
 
 import '../extensions/context_extensions.dart';
 import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
 
-/// Themed modal bottom sheet.
+/// Choice / options picker for settings — centered dialog (not a bottom sheet).
 Future<T?> showAppBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   bool isScrollControlled = false,
 }) {
-  return showModalBottomSheet<T>(
+  // Legacy name kept for call sites; UI is a centered dialog per product UX.
+  return showAppChoiceDialog<T>(context: context, builder: builder);
+}
+
+/// Centered options dialog used by settings pickers.
+Future<T?> showAppChoiceDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+}) {
+  return showDialog<T>(
     context: context,
-    backgroundColor: context.colors.surface,
-    isScrollControlled: isScrollControlled,
-    transitionAnimationController: null,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-    ),
-    builder: builder,
+    builder: (ctx) {
+      return Dialog(
+        backgroundColor: context.colors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: builder(ctx),
+          ),
+        ),
+      );
+    },
   );
 }
 

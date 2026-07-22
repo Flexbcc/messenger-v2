@@ -4,9 +4,14 @@ Realtime push channel. Sending happens over REST (/conversations/{id}/messages)
 ~/secret_room/backend/app/websocket (ADR-0005). Token is passed as a query
 param because browser WebSocket clients cannot set custom headers.
 """
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+import json
 
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from sqlalchemy import select
+
+from app.db import async_session
 from app.federation import drain_buffer
+from app.models import ConversationParticipant
 from app.security import verify_token
 from app.ws import manager
 
@@ -29,9 +34,37 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
 
     try:
         while True:
-            # Client doesn't send anything meaningful over this channel in
-            # MVP; we just wait for disconnect. Receiving keeps the socket
-            # alive and lets us detect the client going away.
-            await websocket.receive_text()
+            raw = await websocket.receive_text()
+            try:
+                msg = json.loads(raw)
+            except Exception:
+                continue
+
+            msg_type = msg.get("type")
+
+            if msg_type == "typing":
+                conv_id = msg.get("conversation_id")
+                if conv_id:
+                    # Look up conversation participants from DB and fan out.
+                    async with async_session() as db:
+                        result = await db.execute(
+                            select(ConversationParticipant.user_id).where(
+                                ConversationParticipant.conversation_id == conv_id
+                            )
+                        )
+                        participant_ids = [row[0] for row in result.all()]
+                    payload = {
+                        "type": "typing",
+                        "from_user_id": user_id,
+                        "conversation_id": conv_id,
+                    }
+                    for pid in participant_ids:
+                        if pid != user_id:
+                            await manager.send_to_user(pid, payload)
+
+            # ping/pong keepalive (some proxies need periodic traffic)
+            elif msg_type == "ping":
+                await websocket.send_text(json.dumps({"type": "pong"}))
+
     except WebSocketDisconnect:
         manager.disconnect(user_id, websocket)

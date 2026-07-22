@@ -1,6 +1,7 @@
-from sqlalchemy import select
-from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select, delete
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
 
 from app.db import get_db
 from app.deps import get_current_device
@@ -82,3 +83,92 @@ async def get_conversation(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=403, detail="Not a participant")
     return await _to_response(db, conv)
+
+
+async def _require_participant(db: AsyncSession, conversation_id: str, user_id: str) -> Conversation:
+    """Load group conversation and verify caller is a participant."""
+    conv = await db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Not found")
+    if conv.type != "group":
+        raise HTTPException(status_code=400, detail="Only group conversations support member management")
+    result = await db.execute(
+        select(ConversationParticipant).where(
+            ConversationParticipant.conversation_id == conversation_id,
+            ConversationParticipant.user_id == user_id,
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Not a participant")
+    return conv
+
+
+@router.post("/{conversation_id}/members")
+async def add_members(
+    conversation_id: str,
+    user_ids: List[str] = Body(..., embed=True),
+    current=Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add one or more users to a group conversation."""
+    caller_user_id, _ = current
+    conv = await _require_participant(db, conversation_id, caller_user_id)
+
+    # Find which user_ids are valid users
+    result = await db.execute(select(User.id).where(User.id.in_(user_ids)))
+    valid_ids = {row[0] for row in result.all()}
+    invalid = set(user_ids) - valid_ids
+    if invalid:
+        raise HTTPException(status_code=404, detail=f"Users not found: {list(invalid)}")
+
+    # Find which are already in the conversation
+    existing_result = await db.execute(
+        select(ConversationParticipant.user_id).where(
+            ConversationParticipant.conversation_id == conversation_id,
+            ConversationParticipant.user_id.in_(user_ids),
+        )
+    )
+    already_in = {row[0] for row in existing_result.all()}
+    to_add = valid_ids - already_in
+
+    for uid in to_add:
+        db.add(ConversationParticipant(conversation_id=conversation_id, user_id=uid, role="member"))
+
+    await db.commit()
+    await db.refresh(conv)
+    return await _to_response(db, conv)
+
+
+@router.delete("/{conversation_id}/members/{user_id}")
+async def remove_member(
+    conversation_id: str,
+    user_id: str,
+    current=Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a user from a group conversation.
+
+    Participants can remove themselves (leave). Admins can remove others.
+    (For MVP, any participant can remove any other — admin roles not yet enforced.)
+    """
+    caller_user_id, _ = current
+    await _require_participant(db, conversation_id, caller_user_id)
+
+    # Cannot remove the last participant
+    count_result = await db.execute(
+        select(ConversationParticipant).where(
+            ConversationParticipant.conversation_id == conversation_id,
+        )
+    )
+    count = len(count_result.scalars().all())
+    if count <= 1:
+        raise HTTPException(status_code=400, detail="Cannot remove the last participant")
+
+    await db.execute(
+        delete(ConversationParticipant).where(
+            ConversationParticipant.conversation_id == conversation_id,
+            ConversationParticipant.user_id == user_id,
+        )
+    )
+    await db.commit()
+    return {"status": "ok", "removed_user_id": user_id}

@@ -30,7 +30,9 @@ class _ConversationListScreenState extends ConsumerState<ConversationListScreen>
   final _searchController = TextEditingController();
   String _query = '';
   String _secretCmd = '.скрытые';
-  bool _gestureEntry = true;
+  bool _gestureEntry = false;
+  bool _secretCommandEntry = false;
+  bool _hiddenEnabled = false;
 
   @override
   void initState() {
@@ -46,13 +48,18 @@ class _ConversationListScreenState extends ConsumerState<ConversationListScreen>
         }
         await ChatDraftStore.instance.get(c.id);
       }
+      await controller.refreshHiddenChatsPolicies();
       _secretCmd = await HiddenChatsStore.instance.secretSearchCommand();
-      _gestureEntry = await HiddenChatsStore.instance.gestureEntryEnabled();
+      _hiddenEnabled = controller.hiddenChatsEnabled;
+      final method = controller.hiddenChatsOpenMethod;
+      _gestureEntry = _hiddenEnabled && method == 'gesture';
+      _secretCommandEntry = _hiddenEnabled && method == 'secret_command';
       if (mounted) setState(() {});
     });
   }
 
   bool get _isSecretCommand {
+    if (!_secretCommandEntry) return false;
     return HiddenChatsStore.instance.matchesSecretCommand(_query, _secretCmd);
   }
 
@@ -83,9 +90,7 @@ class _ConversationListScreenState extends ConsumerState<ConversationListScreen>
 
     final filtered = _query.trim().isEmpty
         ? conversations
-        : conversations
-            .where((c) => controller.conversationTitle(c).toLowerCase().contains(_query.trim().toLowerCase()))
-            .toList();
+        : controller.conversationsMatchingSearch(_query);
 
     return Scaffold(
       appBar: AppBar(

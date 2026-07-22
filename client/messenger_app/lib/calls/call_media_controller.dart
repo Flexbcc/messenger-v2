@@ -22,9 +22,11 @@ class CallMediaController {
 
   bool _muted = false;
   bool _onHold = false;
+  bool _speakerOn = false;
 
   bool get isMuted => _muted;
   bool get onHold => _onHold;
+  bool get isSpeakerOn => _speakerOn;
 
   void _applyAudioState() {
     final enableLocal = !_muted && !_onHold;
@@ -49,6 +51,15 @@ class CallMediaController {
     _applyAudioState();
   }
 
+  /// Loudspeaker / speakerphone. Best-effort: platforms without routing
+  /// still flip the UI flag so controls and screenshots stay consistent.
+  Future<void> setSpeaker(bool on) async {
+    _speakerOn = on;
+    try {
+      await Helper.setSpeakerphoneOn(on);
+    } catch (_) {}
+  }
+
   final _connectionStateController = StreamController<MediaConnectionState>.broadcast();
   Stream<MediaConnectionState> get connectionState => _connectionStateController.stream;
 
@@ -66,15 +77,55 @@ class CallMediaController {
   static Future<CallMediaController> create({
     required List<Map<String, dynamic>> iceServers,
     required bool video,
+    bool forceRelay = false,
+    bool noiseSuppression = true,
+    bool echoCancellation = true,
+    String quality = 'balanced',
+    bool dataSaver = false,
   }) async {
-    final pc = await createPeerConnection({'iceServers': iceServers});
-    final localStream = await navigator.mediaDevices.getUserMedia({'audio': true, 'video': video});
+    final pcConfig = <String, dynamic>{
+      'iceServers': iceServers,
+      if (forceRelay) 'iceTransportPolicy': 'relay',
+    };
+    final pc = await createPeerConnection(pcConfig);
+    final mediaConstraints = <String, dynamic>{
+      'audio': {
+        'noiseSuppression': noiseSuppression,
+        'echoCancellation': echoCancellation,
+      },
+      'video': video ? _videoConstraints(quality: quality, dataSaver: dataSaver) : false,
+    };
+    final localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
     for (final track in localStream.getTracks()) {
       await pc.addTrack(track, localStream);
     }
     final controller = CallMediaController._(pc, localStream);
     controller._wire();
     return controller;
+  }
+
+  static Map<String, dynamic> _videoConstraints({
+    required String quality,
+    required bool dataSaver,
+  }) {
+    final effective = dataSaver ? 'low' : quality;
+    return switch (effective) {
+      'high' => {
+          'width': {'ideal': 1280},
+          'height': {'ideal': 720},
+          'frameRate': {'ideal': 30},
+        },
+      'low' => {
+          'width': {'ideal': 320},
+          'height': {'ideal': 240},
+          'frameRate': {'ideal': 15},
+        },
+      _ => {
+          'width': {'ideal': 640},
+          'height': {'ideal': 480},
+          'frameRate': {'ideal': 24},
+        },
+    };
   }
 
   void _wire() {

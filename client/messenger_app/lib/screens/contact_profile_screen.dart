@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +15,7 @@ import '../core/ui/app_card.dart';
 import '../core/ui/app_icon_button.dart';
 import '../core/ui/app_search_field.dart';
 import '../models/contact_trust.dart';
+import '../services/settings_runtime.dart';
 import '../state/app_controller.dart';
 import 'chat_screen.dart';
 import 'security/verify_contact_screen.dart';
@@ -30,11 +33,39 @@ class ContactProfileScreen extends ConsumerStatefulWidget {
 class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
   late final TextEditingController _nameController;
   bool _calling = false;
+  bool _videoCallsEnabled = true;
+  bool _trustLevelsEnabled = true;
+  List<String> _allowedTrustLevels = const [];
+  bool _showAvatar = true;
+  String? _shareHint;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.displayName);
+    Future.microtask(_loadCallPrefs);
+  }
+
+  Future<void> _loadCallPrefs() async {
+    final runtime = SettingsRuntime.instance;
+    final video = await runtime.callsVideo();
+    final trustOn = await runtime.contactsTrustLevelsEnabled();
+    final levels = await runtime.contactsAllowedTrustLevels();
+    // Preview how *our* visibility policies would hide fields when sharing.
+    final showPhone = await runtime.canShowPhone(widget.userId, isContact: true);
+    final showEmail = await runtime.canShowEmail(widget.userId, isContact: true);
+    final showAvatar = await runtime.canShowAvatar(widget.userId, isContact: true);
+    final qrOnly = await runtime.qrOnlyMode();
+    if (!mounted) return;
+    setState(() {
+      _videoCallsEnabled = video;
+      _trustLevelsEnabled = trustOn;
+      _allowedTrustLevels = levels;
+      _showAvatar = showAvatar;
+      _shareHint = qrOnly
+          ? 'QR-only: в шаринге только QR payload'
+          : 'Видимость (как для контакта): телефон ${showPhone ? 'да' : 'нет'}, email ${showEmail ? 'да' : 'нет'}, аватар ${showAvatar ? 'да' : 'нет'}';
+    });
   }
 
   @override
@@ -69,6 +100,14 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
 
   Future<void> _call(CallKind kind) async {
     if (_calling) return;
+    if (kind == CallKind.video && !_videoCallsEnabled) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Видеозвонки отключены в настройках')),
+        );
+      }
+      return;
+    }
     setState(() => _calling = true);
     try {
       await ref.read(appControllerProvider).callPeer(peerUserId: widget.userId, kind: kind);
@@ -77,6 +116,20 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
     } finally {
       if (mounted) setState(() => _calling = false);
     }
+  }
+
+  bool _trustLevelAllowed(TrustLevel level) {
+    if (_allowedTrustLevels.isEmpty) return true;
+    // Map app TrustLevel names onto catalog option tokens.
+    final token = switch (level) {
+      TrustLevel.unknown => 'unknown',
+      TrustLevel.normal => 'contact',
+      TrustLevel.trusted => 'trusted',
+      TrustLevel.highTrust => 'qr_verified',
+    };
+    return _allowedTrustLevels.contains(token) ||
+        _allowedTrustLevels.contains(level.name) ||
+        (level == TrustLevel.normal && _allowedTrustLevels.contains('unverified'));
   }
 
   IconData _trustIcon(TrustLevel level) => switch (level) {
@@ -108,9 +161,22 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.screenPadding),
         children: [
-          Center(child: AppAvatar(label: name, size: AppAvatarSize.large, showOnline: online)),
+          Center(
+            child: _showAvatar
+                ? AppAvatar(label: name, size: AppAvatarSize.large, showOnline: online)
+                : AppAvatar(label: '?', size: AppAvatarSize.large, showOnline: false),
+          ),
           const SizedBox(height: AppSpacing.md),
           Center(child: Text(name, style: text.largeTitle)),
+          if (_shareHint != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                child: Text(_shareHint!, style: text.caption, textAlign: TextAlign.center),
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           Center(
             child: AppSecurityBadge(
@@ -120,16 +186,17 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                StatusDot(status: online ? AppStatus.online : AppStatus.offline, diameter: 8),
-                const SizedBox(width: 6),
-                Text(status, style: text.caption),
-              ],
+          if (status.isNotEmpty)
+            Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  StatusDot(status: online ? AppStatus.online : AppStatus.offline, diameter: 8),
+                  const SizedBox(width: 6),
+                  Text(status, style: text.caption),
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: AppSpacing.xl),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -140,14 +207,16 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
                 label: 'Аудио',
                 onTap: _calling || controller.currentCall != null ? null : () => _call(CallKind.audio),
               ),
-              AppQuickAction(
-                icon: Icons.videocam_outlined,
-                label: 'Видео',
-                onTap: _calling || controller.currentCall != null ? null : () => _call(CallKind.video),
-              ),
+              if (_videoCallsEnabled)
+                AppQuickAction(
+                  icon: Icons.videocam_outlined,
+                  label: 'Видео',
+                  onTap: _calling || controller.currentCall != null ? null : () => _call(CallKind.video),
+                ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
+          if (_trustLevelsEnabled) ...[
           Text('Уровень доверия', style: text.sectionTitle),
           const SizedBox(height: AppSpacing.sm),
           AppCard(
@@ -155,21 +224,24 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
             child: Column(
               children: [
                 for (var i = 0; i < TrustLevel.values.length; i++) ...[
-                  if (i > 0) Divider(height: 1, color: colors.divider),
-                  ListTile(
-                    leading: Icon(_trustIcon(TrustLevel.values[i]), color: _trustColor(TrustLevel.values[i], colors)),
-                    title: Text(TrustLevel.values[i].label, style: text.subtitle),
-                    subtitle: Text(TrustLevel.values[i].description, style: text.caption),
-                    trailing: trust == TrustLevel.values[i]
-                        ? Icon(Icons.check_circle, color: colors.primary, size: 20)
-                        : null,
-                    onTap: () => _setTrust(TrustLevel.values[i]),
-                  ),
+                  if (_trustLevelAllowed(TrustLevel.values[i])) ...[
+                    if (i > 0) Divider(height: 1, color: colors.divider),
+                    ListTile(
+                      leading: Icon(_trustIcon(TrustLevel.values[i]), color: _trustColor(TrustLevel.values[i], colors)),
+                      title: Text(TrustLevel.values[i].label, style: text.subtitle),
+                      subtitle: Text(TrustLevel.values[i].description, style: text.caption),
+                      trailing: trust == TrustLevel.values[i]
+                          ? Icon(Icons.check_circle, color: colors.primary, size: 20)
+                          : null,
+                      onTap: () => _setTrust(TrustLevel.values[i]),
+                    ),
+                  ],
                 ],
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
+          ],
           AppButton(
             label: 'Проверить ключи',
             variant: AppButtonVariant.secondary,
@@ -200,9 +272,23 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
                 ),
                 IconButton(
                   icon: Icon(Icons.copy_outlined, size: 18, color: colors.textSecondary),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: widget.userId));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Скопировано')));
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final runtime = SettingsRuntime.instance;
+                    final controller = ref.read(appControllerProvider);
+                    final payload = await runtime.buildShareableProfilePayload(
+                      userId: widget.userId,
+                      displayName: name,
+                      isContact: true,
+                    );
+                    payload['shared_from'] = controller.session?.userId;
+                    await Clipboard.setData(
+                      ClipboardData(text: const JsonEncoder().convert(payload)),
+                    );
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Карточка контакта скопирована')),
+                    );
                   },
                 ),
               ],

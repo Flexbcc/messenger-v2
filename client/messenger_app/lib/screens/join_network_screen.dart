@@ -60,6 +60,14 @@ class _JoinNetworkScreenState extends State<JoinNetworkScreen> {
     final text = context.textStyles;
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Подключиться к сети'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: 'Закрыть',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

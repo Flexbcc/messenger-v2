@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<script>
+window.__ADMIN_BASE=(location.pathname==="/ops"||location.pathname.startsWith("/ops/"))?"/ops":"";
+document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operator Admin — Политика раскрытия уязвимостей</title>
+<link rel="stylesheet" href="static/theme.css">
+<link rel="stylesheet" href="static/style.css">
+<style>
+.vuln-grid{display:grid;gap:1.25rem;grid-template-columns:1fr 1fr}
+@media(max-width:700px){.vuln-grid{grid-template-columns:1fr}}
+.vuln-preview{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1.5rem;font-size:.9rem;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.vuln-preview h2{font-size:1.1rem;margin:.75rem 0 .4rem}
+.vuln-preview p{margin:.3rem 0}
+.vuln-preview ul{padding-left:1.2rem;margin:.3rem 0}
+.badge-scope{display:inline-block;background:var(--accent);color:#fff;border-radius:4px;padding:1px 8px;font-size:.78rem;margin:2px}
+.policy-actions{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+.link-copy{font-family:monospace;font-size:.82rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.3rem .6rem;cursor:pointer;user-select:all}
+.saved-pill{display:none;color:var(--success,#22c55e);font-size:.82rem;margin-left:.5rem}
+</style>
+</head>
+<body class="page-form">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Политика уязвимостей</h1>
+          <p class="subtitle">Project-стек · Vulnerability Disclosure</p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup">Настройка</a>
+        <a href="storage">Хранилище</a>
+        <a href="enrollment">Доверие</a>
+        <a href="vuln" class="active">Безопасность</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему">◐</button>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="hero-card card" style="padding:1.25rem 1.5rem">
+        <div>
+          <h2 style="margin:0 0 .3rem">Политика ответственного раскрытия</h2>
+          <p class="muted" style="margin:0">Настройте контактную информацию для исследователей безопасности.</p>
+        </div>
+        <div class="policy-actions" style="margin-left:auto">
+          <button class="btn-primary" id="saveBtn" type="button">Сохранить</button>
+          <span class="saved-pill" id="savedPill">✓ Сохранено</span>
+          <a href="#preview" class="btn-ghost">Предпросмотр</a>
+        </div>
+      </section>
+
+      <div class="vuln-grid">
+        <!-- Editor column -->
+        <form class="card form-card" id="vulnForm" style="gap:.85rem;display:flex;flex-direction:column">
+          <section>
+            <h3 class="section-label">Контакт для отчётов</h3>
+            <label class="field-label">E-mail для отчётов об уязвимостях
+              <input type="email" id="contactEmail" class="field" placeholder="security@example.com">
+            </label>
+            <label class="field-label" style="margin-top:.6rem">PGP-ключ (опционально, fingerprint или URL)
+              <input type="text" id="pgpKey" class="field" placeholder="https://example.com/pgp.asc или A1B2 C3D4 …">
+            </label>
+          </section>
+
+          <section>
+            <h3 class="section-label">Сроки ответа</h3>
+            <label class="field-label">Первичный ответ (рабочих дней)
+              <input type="number" id="responseTime" class="field" value="2" min="1" max="30">
+            </label>
+            <label class="field-label" style="margin-top:.6rem">Ожидаемое время исправления (дней)
+              <input type="number" id="fixTime" class="field" value="90" min="7" max="365">
+            </label>
+          </section>
+
+          <section>
+            <h3 class="section-label">Область действия (Scope)</h3>
+            <p class="muted" style="font-size:.83rem;margin:.2rem 0 .6rem">Перечислите компоненты, которые попадают в программу (по одному на строку).</p>
+            <textarea id="scopeIn" class="field" rows="4" placeholder="client-node (Flutter приложение)&#10;home-node API (*.messenger.example.com)&#10;gateway-node&#10;discovery-node"></textarea>
+            <label class="field-label" style="margin-top:.6rem">Вне области (Out-of-scope)
+              <textarea id="scopeOut" class="field" rows="3" placeholder="Сторонние сервисы&#10;DDoS-атаки&#10;Социальная инженерия"></textarea>
+            </label>
+          </section>
+
+          <section>
+            <h3 class="section-label">Программа вознаграждений</h3>
+            <label class="field-label">Тип программы
+              <select id="bountyType" class="field">
+                <option value="none">Нет программы (благодарность)</option>
+                <option value="hvf">Hall of Fame (список почёта)</option>
+                <option value="paid">Денежное вознаграждение</option>
+              </select>
+            </label>
+            <label class="field-label" style="margin-top:.6rem" id="bountyRangeRow">Диапазон (например, $50–$500)
+              <input type="text" id="bountyRange" class="field" placeholder="$50 – $500">
+            </label>
+            <label class="field-label" style="margin-top:.6rem">Ссылка на программу (опционально)
+              <input type="url" id="bountyUrl" class="field" placeholder="https://hackerone.com/…">
+            </label>
+          </section>
+
+          <section>
+            <h3 class="section-label">Дополнительно</h3>
+            <label class="field-label">Название организации / продукта
+              <input type="text" id="orgName" class="field" placeholder="Моя Компания">
+            </label>
+            <label class="field-label" style="margin-top:.6rem">Публичная ссылка на политику (security.txt URL)
+              <input type="url" id="policyUrl" class="field" placeholder="https://example.com/.well-known/security.txt">
+            </label>
+            <label class="field-label" style="margin-top:.6rem">Дополнительные условия / заметки
+              <textarea id="extraNotes" class="field" rows="3" placeholder="Например: координированное раскрытие обязательно; тестирование только на staging"></textarea>
+            </label>
+          </section>
+        </form>
+
+        <!-- Preview column -->
+        <div>
+          <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem">
+            <h3 style="margin:0 0 .6rem;font-size:.95rem">security.txt (RFC 9116)</h3>
+            <pre id="securityTxt" class="vuln-preview" style="font-size:.8rem;background:var(--bg)"></pre>
+            <button class="btn-ghost btn-xs" style="margin-top:.5rem" id="copySecurityTxt">Копировать</button>
+          </div>
+
+          <div id="preview" class="card" style="padding:1rem 1.25rem">
+            <h3 style="margin:0 0 .6rem;font-size:.95rem">Политика (публичная страница)</h3>
+            <div id="policyPreview" class="vuln-preview"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+<script>
+(function(){
+const STORE_KEY='vuln_policy_v1';
+
+// ── Theme toggle ──────────────────────────────────────────────────────────────
+const root=document.documentElement;
+const themeBtn=document.getElementById('themeToggle');
+const savedTheme=localStorage.getItem('admin_theme')||'dark';
+root.setAttribute('data-theme',savedTheme);
+themeBtn.addEventListener('click',()=>{
+  const next=root.getAttribute('data-theme')==='dark'?'light':'dark';
+  root.setAttribute('data-theme',next);
+  localStorage.setItem('admin_theme',next);
+});
+
+// ── Load/save ─────────────────────────────────────────────────────────────────
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem(STORE_KEY)||'{}');
+    field('contactEmail').value=d.contactEmail||'';
+    field('pgpKey').value=d.pgpKey||'';
+    field('responseTime').value=d.responseTime||2;
+    field('fixTime').value=d.fixTime||90;
+    field('scopeIn').value=d.scopeIn||'';
+    field('scopeOut').value=d.scopeOut||'';
+    field('bountyType').value=d.bountyType||'none';
+    field('bountyRange').value=d.bountyRange||'';
+    field('bountyUrl').value=d.bountyUrl||'';
+    field('orgName').value=d.orgName||'';
+    field('policyUrl').value=d.policyUrl||'';
+    field('extraNotes').value=d.extraNotes||'';
+  }catch(e){}
+  updateBountyRow();
+  render();
+}
+
+function save(){
+  const d={
+    contactEmail:val('contactEmail'),
+    pgpKey:val('pgpKey'),
+    responseTime:val('responseTime'),
+    fixTime:val('fixTime'),
+    scopeIn:val('scopeIn'),
+    scopeOut:val('scopeOut'),
+    bountyType:val('bountyType'),
+    bountyRange:val('bountyRange'),
+    bountyUrl:val('bountyUrl'),
+    orgName:val('orgName'),
+    policyUrl:val('policyUrl'),
+    extraNotes:val('extraNotes'),
+  };
+  localStorage.setItem(STORE_KEY,JSON.stringify(d));
+  const pill=document.getElementById('savedPill');
+  pill.style.display='inline';
+  setTimeout(()=>{pill.style.display='none';},2000);
+}
+
+function field(id){return document.getElementById(id);}
+function val(id){return (field(id).value||'').trim();}
+
+// ── Bounty row visibility ─────────────────────────────────────────────────────
+function updateBountyRow(){
+  document.getElementById('bountyRangeRow').style.display=
+    val('bountyType')==='paid'?'':'none';
+}
+field('bountyType').addEventListener('change',()=>{updateBountyRow();render();});
+
+// ── Live render ───────────────────────────────────────────────────────────────
+function onInput(){render();}
+document.querySelectorAll('.field').forEach(el=>el.addEventListener('input',onInput));
+
+function render(){
+  renderSecurityTxt();
+  renderPolicy();
+}
+
+function renderSecurityTxt(){
+  const lines=[];
+  const org=val('orgName')||'(организация)';
+  lines.push(`# security.txt — ${org}`);
+  lines.push(`# Соответствует RFC 9116`);
+  lines.push('');
+  const email=val('contactEmail');
+  if(email) lines.push(`Contact: mailto:${email}`);
+  const pgp=val('pgpKey');
+  if(pgp) lines.push(`Encryption: ${pgp.startsWith('http')?pgp:`openpgp4fpr:${pgp.replace(/\s/g,'')}`}`);
+  lines.push(`Preferred-Languages: ru, en`);
+  const pUrl=val('policyUrl');
+  if(pUrl) lines.push(`Policy: ${pUrl}`);
+  const bountyUrl=val('bountyUrl');
+  if(bountyUrl) lines.push(`Hiring: ${bountyUrl}`);
+  lines.push(`Expires: ${new Date(Date.now()+365*24*3600*1000).toISOString().split('T')[0]}T00:00:00.000Z`);
+  document.getElementById('securityTxt').textContent=lines.join('\n');
+}
+
+function renderPolicy(){
+  const org=val('orgName')||'наша команда';
+  const email=val('contactEmail');
+  const rt=val('responseTime')||'2';
+  const ft=val('fixTime')||'90';
+  const bType=val('bountyType');
+  const bRange=val('bountyRange');
+  const bUrl=val('bountyUrl');
+  const pgp=val('pgpKey');
+  const scopeIn=val('scopeIn').split('\n').filter(Boolean);
+  const scopeOut=val('scopeOut').split('\n').filter(Boolean);
+  const notes=val('extraNotes');
+
+  let html='';
+  html+=`<h2>Политика ответственного раскрытия уязвимостей</h2>`;
+  html+=`<p>${org} ценит усилия исследователей безопасности. Мы просим вас следовать принципу координированного раскрытия.</p>`;
+
+  html+=`<h2>Как сообщить об уязвимости</h2>`;
+  if(email){
+    html+=`<p>Отправьте подробный отчёт на <strong>${email}</strong>.`;
+    if(pgp) html+=` Вы можете зашифровать письмо с помощью нашего <a href="${pgp.startsWith('http')?pgp:'#'}">PGP-ключа</a>.`;
+    html+=`</p>`;
+  } else {
+    html+=`<p><em>(контактный e-mail не указан)</em></p>`;
+  }
+
+  html+=`<h2>Сроки</h2>`;
+  html+=`<ul><li>Первичный ответ: <strong>${rt} рабочих дня</strong></li><li>Ожидаемое время исправления: <strong>${ft} дней</strong></li></ul>`;
+
+  if(scopeIn.length>0){
+    html+=`<h2>В области действия (In-scope)</h2><ul>`;
+    scopeIn.forEach(s=>{html+=`<li>${esc(s)}</li>`;});
+    html+=`</ul>`;
+  }
+  if(scopeOut.length>0){
+    html+=`<h2>Вне области действия (Out-of-scope)</h2><ul>`;
+    scopeOut.forEach(s=>{html+=`<li>${esc(s)}</li>`;});
+    html+=`</ul>`;
+  }
+
+  html+=`<h2>Вознаграждение</h2>`;
+  if(bType==='none') html+=`<p>На данный момент мы не предлагаем денежного вознаграждения, но признаём вклад в нашем зале почёта (по желанию).</p>`;
+  else if(bType==='hvf') html+=`<p>Мы включаем исследователей, сообщивших о подтверждённых уязвимостях, в публичный <strong>Hall of Fame</strong>${bUrl?' (<a href="'+bUrl+'">'+bUrl+'</a>)':''}.`;
+  else if(bType==='paid'){
+    html+=`<p>Мы предлагаем денежное вознаграждение за подтверждённые уязвимости.`;
+    if(bRange) html+=` Диапазон: <strong>${esc(bRange)}</strong>.`;
+    if(bUrl) html+=` Подробности: <a href="${esc(bUrl)}">${esc(bUrl)}</a>.`;
+    html+=`</p>`;
+  }
+
+  if(notes){
+    html+=`<h2>Дополнительные условия</h2><p>${esc(notes).replace(/\n/g,'<br>')}</p>`;
+  }
+
+  html+=`<h2>Что мы просим</h2><ul>
+    <li>Не публиковать данные об уязвимости до её исправления</li>
+    <li>Не использовать уязвимость для доступа к чужим данным</li>
+    <li>Не осуществлять DoS-атаки</li>
+    <li>Предоставить достаточно информации для воспроизведения</li>
+  </ul>`;
+
+  document.getElementById('policyPreview').innerHTML=html;
+}
+
+function esc(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Copy security.txt ─────────────────────────────────────────────────────────
+document.getElementById('copySecurityTxt').addEventListener('click',()=>{
+  const txt=document.getElementById('securityTxt').textContent;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const btn=document.getElementById('copySecurityTxt');
+    const prev=btn.textContent;
+    btn.textContent='✓ Скопировано';
+    setTimeout(()=>{btn.textContent=prev;},1500);
+  });
+});
+
+// ── Save button ───────────────────────────────────────────────────────────────
+document.getElementById('saveBtn').addEventListener('click',save);
+
+load();
+})();
+</script>
+</body>
+</html>

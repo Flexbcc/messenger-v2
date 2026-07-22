@@ -11,6 +11,7 @@ import '../../core/ui/app_empty_state.dart';
 import '../../core/ui/app_switch_tile.dart';
 import '../../models/login_approval_request.dart';
 import '../../services/login_approval_service.dart';
+import '../../services/settings_runtime.dart';
 import '../../state/app_controller.dart';
 import '../../utils/format.dart';
 
@@ -25,6 +26,7 @@ class LoginApprovalScreen extends ConsumerStatefulWidget {
 class _LoginApprovalScreenState extends ConsumerState<LoginApprovalScreen> {
   bool _enabled = true;
   bool _loadingSetting = true;
+  List<String> _approvalMethods = const [];
 
   @override
   void initState() {
@@ -35,9 +37,11 @@ class _LoginApprovalScreenState extends ConsumerState<LoginApprovalScreen> {
 
   Future<void> _loadSetting() async {
     final enabled = await LoginApprovalService.instance.isEnabled();
+    final methods = await SettingsRuntime.instance.devicesApprovalMethods();
     if (mounted) {
       setState(() {
         _enabled = enabled;
+        _approvalMethods = methods;
         _loadingSetting = false;
       });
     }
@@ -49,6 +53,14 @@ class _LoginApprovalScreenState extends ConsumerState<LoginApprovalScreen> {
   }
 
   Future<void> _approve(LoginApprovalRequest request) async {
+    if (_enabled && !_approvalMethods.contains('trusted_device') && !_approvalMethods.contains('qr')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Нет разрешённых способов: ${_approvalMethods.join(', ')}')),
+        );
+      }
+      return;
+    }
     try {
       await ref.read(appControllerProvider).approveLoginRequest(request.deviceId);
       if (mounted) {
@@ -107,6 +119,13 @@ class _LoginApprovalScreenState extends ConsumerState<LoginApprovalScreen> {
                     'Новые входы требуют подтверждения с доверенного устройства.',
                     style: text.caption,
                   ),
+                  if (_approvalMethods.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Способы: ${_approvalMethods.join(', ')}',
+                      style: text.caption,
+                    ),
+                  ],
                 ],
               ),
             ),

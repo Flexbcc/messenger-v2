@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,20 @@ import '../state/app_controller.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
+
+int? _knownSizeBytes(ChatMessage message) {
+  final raw = message.plaintext?.trim();
+  if (raw == null || !raw.startsWith('{')) return null;
+  try {
+    final map = jsonDecode(raw) as Map<String, dynamic>;
+    final sizeRaw = map['size'];
+    if (sizeRaw is int) return sizeRaw;
+    if (sizeRaw is num) return sizeRaw.toInt();
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
 
 /// Grid of images from messages already in this chat's local history.
 class ChatMediaScreen extends ConsumerWidget {
@@ -61,7 +76,11 @@ class _MediaThumbState extends ConsumerState<_MediaThumb> {
   }
 
   Future<void> _load() async {
-    final allowed = await AutodownloadPolicy.instance.shouldDownload(MediaKind.photos);
+    final size = _knownSizeBytes(widget.message);
+    final allowed = await AutodownloadPolicy.instance.shouldDownload(
+      MediaKind.photos,
+      knownSizeBytes: size,
+    );
     if (!allowed) {
       if (mounted) {
         setState(() {

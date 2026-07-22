@@ -5,6 +5,7 @@ import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../security/pin_security.dart';
 import '../../services/privacy_preferences_store.dart';
+import '../../services/settings_runtime.dart';
 import 'pin_keypad.dart';
 
 /// Innocent-looking setup for the optional second PIN (decoy / duress PIN).
@@ -23,12 +24,17 @@ class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen> with 
   String? _pending;
   bool _confirmStep = false;
   String? _error;
+  int _pinLength = kPinLength;
   late final AnimationController _shakeController;
 
   @override
   void initState() {
     super.initState();
     _shakeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    Future.microtask(() async {
+      final len = await SettingsRuntime.instance.pinLength();
+      if (mounted) setState(() => _pinLength = len.clamp(4, 12));
+    });
   }
 
   @override
@@ -38,12 +44,12 @@ class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen> with 
   }
 
   void _onDigit(String d) {
-    if (_input.length >= kPinLength) return;
+    if (_input.length >= _pinLength) return;
     setState(() {
       _error = null;
       _input += d;
     });
-    if (_input.length == kPinLength) {
+    if (_input.length == _pinLength) {
       Future.delayed(const Duration(milliseconds: 120), _onComplete);
     }
   }
@@ -91,7 +97,14 @@ class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen> with 
   Widget build(BuildContext context) {
     final text = context.textStyles;
     return Scaffold(
-      appBar: AppBar(title: const Text('Дополнительный PIN')),
+      appBar: AppBar(
+        title: const Text('Дополнительный PIN'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: 'Закрыть',
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.screenPadding),
@@ -104,16 +117,14 @@ class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen> with 
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Отдельный код: открывает безопасный интерфейс без секретов. '
-                'Можно настроить оповещение доверенных (по умолчанию после 5 вводов). '
-                'Должен отличаться от основного PIN.',
+                'Отдельный код для быстрого входа. Должен отличаться от основного PIN.',
                 style: text.caption,
                 textAlign: TextAlign.center,
               ),
               const Spacer(),
               ShakeOnError(
                 controller: _shakeController,
-                child: PinDotsIndicator(filledCount: _input.length),
+                child: PinDotsIndicator(filledCount: _input.length, length: _pinLength),
               ),
               if (_error != null) ...[
                 const SizedBox(height: AppSpacing.sm),

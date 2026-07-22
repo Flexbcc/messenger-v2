@@ -345,6 +345,11 @@ def nodes_page():
     return FileResponse(ADMIN_STATIC / "nodes.html")
 
 
+@app.get("/vuln")
+def vuln_page():
+    return FileResponse(ADMIN_STATIC / "vuln.html")
+
+
 @app.api_route("/api/enrollment/proxy", methods=["GET", "POST"])
 async def enrollment_proxy(
     request: Request,

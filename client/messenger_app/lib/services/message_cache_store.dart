@@ -222,30 +222,6 @@ class MessageCacheStore {
         !prev.decryptFailed &&
         (next.plaintext == null || next.plaintext!.isEmpty || next.decryptFailed);
     if (!keepPrevPlaintext) return next;
-    // Sealed secret messages pass null plaintext on purpose — never resurrect from cache.
-    if ((prev.isSecret || next.isSecret) && (next.plaintext == null || next.plaintext!.isEmpty)) {
-      return ChatMessage(
-        id: next.id,
-        conversationId: next.conversationId,
-        senderUserId: next.senderUserId,
-        senderDeviceId: next.senderDeviceId,
-        ciphertext: next.ciphertext.isNotEmpty ? next.ciphertext : prev.ciphertext,
-        contentType: next.contentType,
-        cryptoVersion: next.cryptoVersion,
-        createdAt: next.createdAt,
-        plaintext: null,
-        decryptFailed: next.decryptFailed,
-        replyToMessageId: next.replyToMessageId ?? prev.replyToMessageId,
-        replyPreview: next.replyPreview ?? prev.replyPreview,
-        favoriteSourceConversationId: next.favoriteSourceConversationId,
-        favoriteSourceMessageId: next.favoriteSourceMessageId,
-        favoriteSourceTitle: next.favoriteSourceTitle,
-        favoriteSenderLabel: next.favoriteSenderLabel,
-        isSecret: next.isSecret || prev.isSecret,
-        systemKind: next.systemKind ?? prev.systemKind,
-        duressCode: next.duressCode ?? prev.duressCode,
-      );
-    }
     return ChatMessage(
       id: next.id,
       conversationId: next.conversationId,
@@ -272,6 +248,12 @@ class MessageCacheStore {
   Future<List<ChatMessage>> loadConversation(String userId, String conversationId, {int limit = 200}) async {
     if (kIsWeb) {
       final all = await _webLoadConversation(userId, conversationId);
+      if (all.isEmpty) {
+        // Packed blob may be undecryptable after key loss — drop it.
+        final prefs = await SharedPreferences.getInstance();
+        final packed = prefs.getString(_webConvKey(userId, conversationId));
+        if (packed != null) await prefs.remove(_webConvKey(userId, conversationId));
+      }
       if (all.length <= limit) return all;
       return all.sublist(all.length - limit);
     }
@@ -284,9 +266,24 @@ class MessageCacheStore {
       limit: limit,
     );
     final out = <ChatMessage>[];
+    final deadIds = <String>[];
     for (final row in rows) {
       final msg = await _rowToMessage(row);
-      if (msg != null) out.add(msg);
+      if (msg != null) {
+        out.add(msg);
+      } else {
+        deadIds.add(row['id'] as String);
+      }
+    }
+    // Drop rows encrypted with a lost device key so we don't keep failing forever.
+    if (deadIds.isNotEmpty) {
+      final placeholders = List.filled(deadIds.length, '?').join(',');
+      await db.delete(
+        'cached_messages',
+        where: 'user_id = ? AND id IN ($placeholders)',
+        whereArgs: [userId, ...deadIds],
+      );
+      debugPrint('MessageCacheStore: purged ${deadIds.length} unreadable rows for $conversationId');
     }
     return out;
   }

@@ -45,5 +45,31 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Camera — QR code scanning and video calls -->
+	<key>NSCameraUsageDescription</key>
+	<string>Камера используется для сканирования QR-кодов при верификации ключей и для видеозвонков.</string>
+	<!-- Microphone — voice and video calls -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Микрофон используется для голосовых и видеозвонков.</string>
+	<!-- Photo library — sending images and files -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Доступ к фото для отправки изображений в сообщениях.</string>
+	<!-- Photo library add — saving received media -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Сохранение полученных медиафайлов в фотогалерею.</string>
+	<!-- Local network — mDNS discovery for personal PC pairing -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Локальная сеть используется для обнаружения личного компьютера при сопряжении.</string>
+	<!-- Bonjour services for mDNS -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_messenger-storage._tcp</string>
+	</array>
+	<!-- Background modes — VoIP calls and audio -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>voip</string>
+	</array>
 </dict>
 </plist>

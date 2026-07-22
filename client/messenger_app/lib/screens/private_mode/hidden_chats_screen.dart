@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +13,7 @@ import '../../core/ui/app_tile.dart';
 import '../../core/ui/chat_list_tile.dart';
 import '../../models/conversation.dart';
 import '../../models/hidden_chat.dart';
+import '../../services/hidden_chats_store.dart';
 import '../../services/hidden_vault_session.dart';
 import '../../state/app_controller.dart';
 import '../../utils/format.dart';
@@ -31,16 +34,41 @@ class _HiddenChatsScreenState extends ConsumerState<HiddenChatsScreen> {
   final _searchController = TextEditingController();
   final _vault = HiddenVaultSession.instance;
   String _query = '';
+  Timer? _autolockTimer;
 
   @override
   void initState() {
     super.initState();
     _vault.addListener(_onVaultChanged);
     _searchController.addListener(() => setState(() => _query = _searchController.text.trim().toLowerCase()));
+    _armAutolock();
   }
+
+  Future<void> _armAutolock() async {
+    _autolockTimer?.cancel();
+    final duration = await HiddenChatsStore.instance.autolockDuration();
+    if (!mounted) return;
+    if (duration == Duration.zero) {
+      // Lock as soon as the screen is left — handled in dispose.
+      return;
+    }
+    _autolockTimer = Timer(duration, () {
+      _vault.lock();
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
+  }
+
+  void _bumpAutolock() => unawaited(_armAutolock());
 
   @override
   void dispose() {
+    _autolockTimer?.cancel();
+    // immediately / leaving the section
+    unawaited(HiddenChatsStore.instance.autolockDuration().then((d) {
+      if (d == Duration.zero) _vault.lock();
+    }));
     _vault.removeListener(_onVaultChanged);
     _searchController.dispose();
     super.dispose();
@@ -73,7 +101,9 @@ class _HiddenChatsScreenState extends ConsumerState<HiddenChatsScreen> {
     final vaultChats = _vaultFiltered;
     final empty = serverHidden.isEmpty && vaultChats.isEmpty;
 
-    return Scaffold(
+    return Listener(
+      onPointerDown: (_) => _bumpAutolock(),
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Скрытые чаты'),
         actions: [
@@ -141,6 +171,7 @@ class _HiddenChatsScreenState extends ConsumerState<HiddenChatsScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

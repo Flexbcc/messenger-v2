@@ -2,91 +2,59 @@ import 'package:flutter/foundation.dart';
 
 import '../security/pin_security.dart';
 import 'privacy_preferences_store.dart';
+import 'settings_runtime.dart';
 
-/// Locks the whole app on resume / idle when enabled in privacy settings.
+/// Locks the whole app on resume when enabled in privacy settings.
 class AppLockService extends ChangeNotifier {
   AppLockService._();
   static final instance = AppLockService._();
 
   bool enabled = false;
+  bool lockOnScreenOff = true;
   bool isLocked = false;
   bool _armed = false;
-  DateTime? _lastForegroundAt;
-  int _autoLockSeconds = 60;
-  DateTime? _forcedUntil;
 
   Future<void> init() async {
-    final prefs = PrivacyPreferencesStore();
-    enabled = await prefs.appLockEnabled();
-    _autoLockSeconds = await prefs.autoLockSeconds();
-    _lastForegroundAt = DateTime.now();
+    enabled = await PrivacyPreferencesStore().appLockEnabled();
+    lockOnScreenOff = await SettingsRuntime.instance.lockOnScreenOff();
     notifyListeners();
   }
 
   Future<void> refreshEnabled() async {
-    final prefs = PrivacyPreferencesStore();
-    enabled = await prefs.appLockEnabled();
-    _autoLockSeconds = await prefs.autoLockSeconds();
+    enabled = await PrivacyPreferencesStore().appLockEnabled();
+    lockOnScreenOff = await SettingsRuntime.instance.lockOnScreenOff();
     if (!enabled) {
       isLocked = false;
       _armed = false;
-      _forcedUntil = null;
     }
     notifyListeners();
   }
 
-  Future<void> refreshAutoLockSeconds() async {
-    _autoLockSeconds = await PrivacyPreferencesStore().autoLockSeconds();
-  }
-
-  /// Call when app goes to background — next resume may require PIN.
+  /// Call when app goes to background — next resume will require PIN.
   void arm() {
     if (!enabled) return;
     _armed = true;
   }
 
-  /// Call on resume — lock if backgrounded or idle timeout exceeded.
+  /// Call on screen-off / inactive when [lockOnScreenOff] is enabled.
+  void armForScreenOff() {
+    if (!enabled || !lockOnScreenOff) return;
+    _armed = true;
+  }
+
+  /// Call on resume — lock only if we were backgrounded before.
   Future<void> onResume() async {
-    if (!enabled) return;
+    if (!enabled || !_armed) return;
     final configured = await PinSecurity.isRealPinConfigured();
     if (!configured) return;
-
-    final now = DateTime.now();
-    final forced = _forcedUntil != null && now.isBefore(_forcedUntil!);
-    final idle = _lastForegroundAt != null &&
-        _autoLockSeconds > 0 &&
-        now.difference(_lastForegroundAt!).inSeconds >= _autoLockSeconds;
-
-    if (_armed || forced || idle) {
-      isLocked = true;
-      notifyListeners();
-    }
-    _armed = false;
-    _lastForegroundAt = now;
-  }
-
-  /// Mark active use (resets idle clock).
-  void noteUserActivity() {
-    _lastForegroundAt = DateTime.now();
-  }
-
-  /// Force lock from a duress `lockApp` action.
-  void lockNow({Duration? duration}) {
     isLocked = true;
-    if (duration != null) {
-      _forcedUntil = DateTime.now().add(duration);
-    }
     notifyListeners();
   }
 
   void unlock() {
     isLocked = false;
-    _forcedUntil = null;
-    _lastForegroundAt = DateTime.now();
     notifyListeners();
   }
-
-  Future<PinUnlockResult> evaluatePin(String pin) => PinSecurity.evaluatePin(pin);
 
   Future<bool> verifyPin(String pin) async {
     return PinSecurity.verifyRealPin(pin);

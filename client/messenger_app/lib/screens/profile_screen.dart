@@ -2,152 +2,299 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/extensions/context_extensions.dart';
+import '../core/theme/app_spacing.dart';
+import '../core/ui/app_avatar.dart';
+import '../core/ui/app_button.dart';
+import '../core/ui/app_card.dart';
+import '../core/ui/app_search_field.dart';
+import '../core/ui/app_section.dart';
+import '../core/ui/app_tile.dart';
+import '../services/api_client.dart';
 import '../state/app_controller.dart';
-import '../theme/app_decorations.dart';
-import '../theme/spacing.dart';
-import '../theme/typography.dart';
-import '../widgets/app_button.dart';
-import '../widgets/app_card.dart';
-import '../widgets/avatar.dart';
-import '../widgets/status_dot.dart';
+import 'settings_catalog_section_screen.dart';
 
-class ProfileScreen extends ConsumerWidget {
+/// Own profile + identity (name, username, phone, email, password, logout).
+/// Search visibility lives under Privacy — not here.
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref.read(appControllerProvider).loadMyProfile();
+    } catch (e) {
+      _error = e.toString();
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _editDisplayName() async {
+    final controller = ref.read(appControllerProvider);
+    final nameController = TextEditingController(text: controller.session?.displayName ?? '');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Изменить имя'),
+        content: AppTextField(controller: nameController, hintText: 'Имя'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Сохранить')),
+        ],
+      ),
+    );
+    if (saved != true || !mounted) return;
+    final newName = nameController.text.trim();
+    if (newName.isEmpty) return;
+    try {
+      await controller.updateDisplayName(newName);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Имя обновлено')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      }
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final currentController = TextEditingController();
+    final newController = TextEditingController();
+    final confirmController = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Сменить пароль'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppTextField(controller: currentController, hintText: 'Текущий пароль', obscureText: true),
+            const SizedBox(height: AppSpacing.sm),
+            AppTextField(controller: newController, hintText: 'Новый пароль', obscureText: true),
+            const SizedBox(height: AppSpacing.sm),
+            AppTextField(controller: confirmController, hintText: 'Повторите пароль', obscureText: true),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Сохранить')),
+        ],
+      ),
+    );
+    if (saved != true || !mounted) return;
+
+    final current = currentController.text;
+    final newPassword = newController.text;
+    if (newPassword != confirmController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Пароли не совпадают')));
+      return;
+    }
+    if (newPassword.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Новый пароль — минимум 6 символов')),
+      );
+      return;
+    }
+
+    try {
+      await ref.read(appControllerProvider).changePassword(
+            currentPassword: current,
+            newPassword: newPassword,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Пароль изменён')));
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final text = context.textStyles;
     final controller = ref.watch(appControllerProvider);
     final session = controller.session;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Профиль')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.screenPadding),
-        children: [
-          Center(
-            child: AppAvatar(label: session?.displayName ?? '?', size: AppAvatarSize.large),
-          ),
-          const SizedBox(height: AppSpacing.mediumGap),
-          Center(child: Text(session?.displayName ?? '', style: AppTypography.largeTitle)),
-          const SizedBox(height: AppSpacing.smallGap),
-          Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const StatusDot(status: AppStatus.online, diameter: 8),
-                const SizedBox(width: 6),
-                Text('В сети', style: AppTypography.caption),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sectionGap),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _QuickAction(icon: Icons.chat_bubble_outline, label: 'Написать', onTap: () => Navigator.pop(context)),
-              _QuickAction(icon: Icons.call_outlined, label: 'Позвонить', onTap: () {}),
-              _QuickAction(icon: Icons.videocam_outlined, label: 'Видео', onTap: () {}),
-              _QuickAction(icon: Icons.more_horiz, label: 'Ещё', onTap: () {}),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sectionGap),
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('User ID', style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
-                const SizedBox(height: 6),
-                Row(
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_error!, style: text.caption, textAlign: TextAlign.center),
+                      const SizedBox(height: AppSpacing.md),
+                      AppButton(label: 'Повторить', onPressed: _load),
+                    ],
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xl),
                   children: [
-                    Expanded(
-                      child: SelectableText(session?.userId ?? '', style: AppTypography.body.copyWith(fontSize: 13)),
+                    const SizedBox(height: AppSpacing.lg),
+                    Center(
+                      child: AppAvatar(label: session?.displayName, size: AppAvatarSize.large),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.copy_outlined, size: 18, color: AppColors.textSecondary),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: session?.userId ?? ''));
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Скопировано')));
-                      },
+                    const SizedBox(height: AppSpacing.md),
+                    Center(
+                      child: Text(session?.displayName ?? '', style: text.title),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    AppSettingsGroup(
+                      title: 'Данные профиля',
+                      children: [
+                        AppInfoRow(
+                          label: 'Имя',
+                          value: session?.displayName ?? '',
+                          onTap: _editDisplayName,
+                        ),
+                        AppInfoRow(
+                          label: 'Username (логин)',
+                          value: (controller.login?.isNotEmpty ?? false) ? '@${controller.login}' : 'не задан',
+                        ),
+                        AppInfoRow(label: 'Телефон', value: controller.phone ?? 'не привязан'),
+                        AppInfoRow(
+                          label: 'Email',
+                          value: controller.email ?? 'не привязан',
+                          showDivider: false,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                      child: Text(
+                        'Кто может найти вас по username / телефону — в разделе «Кто меня видит», не здесь.',
+                        style: text.caption,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    AppSettingsGroup(
+                      title: 'Каталог: профиль и вход',
+                      children: [
+                        AppTile(
+                          leading: Icon(Icons.person_outline, color: colors.textSecondary),
+                          title: 'Профиль (язык, формат даты)',
+                          trailing: AppTile.chevron(context),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsCatalogSectionScreen(sectionId: 'profile'),
+                            ),
+                          ),
+                        ),
+                        AppTile(
+                          leading: Icon(Icons.badge_outlined, color: colors.textSecondary),
+                          title: 'Телефон, почта, вход и восстановление',
+                          subtitle: 'Логин/recovery toggles · синхронизация профиля',
+                          trailing: AppTile.chevron(context),
+                          showDivider: false,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsCatalogSectionScreen(sectionId: 'identity'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                      child: AppCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('User ID', style: text.caption),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SelectableText(
+                                    session?.userId ?? '',
+                                    style: text.body.copyWith(fontSize: 13),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.copy_outlined, size: 18, color: colors.textSecondary),
+                                  onPressed: () {
+                                    Clipboard.setData(ClipboardData(text: session?.userId ?? ''));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Скопировано')),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              'Поделитесь ID, чтобы начать защищённый чат.',
+                              style: text.caption,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    AppSettingsGroup(
+                      title: 'Безопасность аккаунта',
+                      children: [
+                        AppTile(
+                          leading: Icon(Icons.lock_outline, color: colors.textSecondary),
+                          title: 'Сменить пароль',
+                          trailing: AppTile.chevron(context),
+                          onTap: _changePassword,
+                        ),
+                        AppTile(
+                          leading: Icon(Icons.visibility_outlined, color: colors.textSecondary),
+                          title: 'Кто меня видит и ищет',
+                          subtitle: 'Видимость номера, username, онлайн',
+                          trailing: AppTile.chevron(context),
+                          showDivider: false,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsCatalogSectionScreen(sectionId: 'privacy'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                      child: AppButton(
+                        label: 'Выйти',
+                        variant: AppButtonVariant.danger,
+                        onPressed: () => controller.logout(),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.smallGap),
-                Text(
-                  'Поделитесь ID, чтобы начать защищённый чат.',
-                  style: AppTypography.caption,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.mediumGap),
-          AppCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.badge_outlined, color: AppColors.textSecondary),
-                  title: Text('Имя', style: AppTypography.subtitle),
-                  subtitle: Text(session?.displayName ?? '', style: AppTypography.caption),
-                ),
-                const Divider(height: 1, color: AppColors.divider),
-                ListTile(
-                  leading: const Icon(Icons.lock_outline, color: AppColors.accentBlue),
-                  title: Text('Шифрование', style: AppTypography.subtitle),
-                  subtitle: Text('Сквозное E2E на устройстве', style: AppTypography.caption),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: AppDecorations.accentGradient,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text('ON', style: AppTypography.micro.copyWith(fontWeight: FontWeight.w600)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sectionGap),
-          AppButton(
-            label: 'Выйти',
-            variant: AppButtonVariant.danger,
-            onPressed: () => controller.logout(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({required this.icon, required this.label, required this.onTap});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadii.medium),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.cardSecondary,
-                borderRadius: BorderRadius.circular(AppRadii.medium),
-              ),
-              child: Icon(icon, color: AppColors.accentBlue, size: 22),
-            ),
-            const SizedBox(height: 6),
-            Text(label, style: AppTypography.micro),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -10,6 +10,10 @@ import '../security/pin_security.dart';
 import '../services/app_lock_service.dart';
 import '../services/app_privacy_session.dart';
 import '../services/duress_policy_engine.dart';
+import '../services/duress_policy_session.dart';
+import '../services/hidden_vault_session.dart';
+import '../services/privacy_preferences_store.dart';
+import '../services/settings_catalog_bridge.dart';
 import '../state/app_controller.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
@@ -29,6 +33,7 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> with SingleTick
   final _lock = AppLockService.instance;
   String _input = '';
   String? _error;
+  int _wrongAttempts = 0;
   bool _lockedOut = false;
   Duration? _lockoutRemaining;
   Timer? _lockoutTimer;
@@ -94,51 +99,75 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> with SingleTick
     if (_lockedOut) return;
 
     final controller = ref.read(appControllerProvider);
-    final result = await _lock.evaluatePin(_input);
+    final pin = _input;
+    final result = await PinSecurity.evaluatePin(pin);
     if (!mounted) return;
 
     if (result == PinUnlockResult.fakePin) {
+      // Fake PIN: enter decoy mode silently, fire duress trigger, show FakeMode.
+      _lock.unlock();
       AppPrivacySession.instance.enterDecoyMode();
       controller.deactivateSecretSessionForAll();
+      await controller.reloadFakeProfileChats();
       await DuressPolicyEngine.instance.handle(
         DuressTrigger.decoyPinStreak,
         controller: controller,
       );
       if (!mounted) return;
-      setState(() => _input = '');
-      _lock.unlock();
-      if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FakeModeScreen()));
-      return;
-    }
-
-    if (result != PinUnlockResult.realPin) {
-      final hr = await DuressPolicyEngine.instance.handle(
-        DuressTrigger.appLockFail,
-        controller: controller,
-      );
-      await _refreshLockout();
-      if (!mounted) return;
+      HiddenVaultSession.instance.lock();
+      DuressPolicySession.instance.lock();
       setState(() {
-        _error = hr.lockoutUntil != null
-            ? 'Подождите ${_formatLockout(hr.lockoutUntil!.difference(DateTime.now()))}'
-            : 'Неверный PIN';
         _input = '';
+        _error = null;
       });
-      _shakeController.forward(from: 0);
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute(builder: (_) => const FakeModeScreen()),
+      );
       return;
     }
 
-    await DuressPolicyEngine.instance.handle(
-      DuressTrigger.pinUnlockOkReal,
+    if (result == PinUnlockResult.realPin) {
+      _lock.unlock();
+      _wrongAttempts = 0;
+      setState(() {
+        _input = '';
+        _error = null;
+      });
+      return;
+    }
+
+    // Invalid PIN.
+    final prefs = PrivacyPreferencesStore();
+    if (await prefs.wipeOnWrongAttempts()) {
+      _wrongAttempts++;
+      final wipeRaw = await CatalogSettingsReader().getString('security.wipe_after', '15');
+      final wipeAfter = int.tryParse(wipeRaw) ?? 15;
+      if (_wrongAttempts >= wipeAfter) {
+        await PinSecurity.clearAll();
+        await HiddenVaultSession.instance.wipe();
+        await DuressPolicySession.instance.wipe();
+        _wrongAttempts = 0;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Данные Private Mode удалены')),
+          );
+        }
+      }
+    }
+
+    final hr = await DuressPolicyEngine.instance.handle(
+      DuressTrigger.appLockFail,
       controller: controller,
-      incrementCounter: false,
     );
-    _lock.unlock();
+    await _refreshLockout();
+    if (!mounted) return;
     setState(() {
+      _error = hr.lockoutUntil != null
+          ? 'Подождите ${_formatLockout(hr.lockoutUntil!.difference(DateTime.now()))}'
+          : 'Неверный PIN';
       _input = '';
-      _error = null;
     });
+    _shakeController.forward(from: 0);
   }
 
   @override

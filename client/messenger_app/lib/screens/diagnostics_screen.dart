@@ -9,10 +9,13 @@ import '../../core/ui/app_button.dart';
 import '../../core/ui/app_card.dart';
 import '../../core/ui/app_section.dart';
 import '../../core/ui/app_tile.dart';
+import '../../services/catalog_seed_service.dart';
 import '../../services/database_init.dart';
 import '../../services/debug_log.dart';
 import '../../state/app_controller.dart';
+import '../../state/settings_catalog_controller.dart';
 import '../../utils/format.dart';
+import 'settings_catalog_json_screen.dart';
 
 /// Developer diagnostics — local runtime state for distributed-network debugging.
 class DiagnosticsScreen extends ConsumerWidget {
@@ -27,7 +30,7 @@ class DiagnosticsScreen extends ConsumerWidget {
     final lastErr = DebugLog.instance.lastError;
 
     final rows = <(String, String)>[
-      ('Версия', '${AppInfo.version} (${AppInfo.buildNumber})'),
+      ('Версия', AppInfo.displayVersion),
       ('Home Node', AppConfig.homeNodeUrl),
       ('Gateway', AppConfig.gatewayNodeUrl),
       ('Discovery', AppConfig.discoveryNodeUrl),
@@ -109,6 +112,37 @@ class DiagnosticsScreen extends ConsumerWidget {
               },
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            child: AppButton(
+              label: 'JSON настроек / тестовый seed',
+              variant: AppButtonVariant.secondary,
+              icon: Icons.data_object,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SettingsCatalogJsonScreen()),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            child: AppButton(
+              label: 'Заполнить настройки тестовыми данными',
+              variant: AppButtonVariant.secondary,
+              icon: Icons.science_outlined,
+              onPressed: () async {
+                final catalog = await ref.read(settingsCatalogProvider.future);
+                final n = await CatalogSeedService().applyDevSeedAsset(catalog);
+                await ref.read(settingsCatalogValuesProvider).reloadFromLegacy(catalog);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Применено $n значений')),
+                  );
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
             child: Text(

@@ -153,4 +153,18 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
       await _prefs.remove(key);
     }
   }
+
+  /// Returns the count of stored (unconsumed) one-time prekeys.
+  int countStoredPreKeys() {
+    return _prefs.getKeys().where((k) => k.startsWith(_preKeyPrefix)).length;
+  }
+
+  /// Returns the max stored prekey ID so new IDs don't collide.
+  int maxPreKeyId() {
+    final ids = _prefs
+        .getKeys()
+        .where((k) => k.startsWith(_preKeyPrefix))
+        .map((k) => int.tryParse(k.substring(_preKeyPrefix.length)) ?? 0);
+    return ids.isEmpty ? 0 : ids.reduce((a, b) => a > b ? a : b);
+  }
 }

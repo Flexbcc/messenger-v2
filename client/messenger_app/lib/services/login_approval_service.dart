@@ -1,4 +1,5 @@
 import '../models/device_info.dart';
+import 'catalog_sync.dart';
 import 'local_settings_store.dart';
 
 /// Login approval settings and per-device awaiting flags (local until backend sync).
@@ -10,7 +11,10 @@ class LoginApprovalService {
 
   Future<bool> isEnabled() => _store.getBool('login_approval_enabled', true);
 
-  Future<void> setEnabled(bool value) => _store.setBool('login_approval_enabled', value);
+  Future<void> setEnabled(bool value) async {
+    await _store.setBool('login_approval_enabled', value);
+    await CatalogSync.syncDevices();
+  }
 
   /// Device is waiting for approval after login on this install.
   Future<bool> isDeviceAwaitingApproval(String deviceId) async {

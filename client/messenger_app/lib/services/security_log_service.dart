@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -6,13 +8,13 @@ class SecurityLogService {
   SecurityLogService._();
   static final instance = SecurityLogService._();
 
-  static const _key = 'security_log_v1';
+  static const _key = 'security_log_v2';
   static const _maxEvents = 100;
 
   Future<List<SecurityEvent>> load() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_key) ?? [];
-    return raw.map(SecurityEvent.decode).toList();
+    return raw.map(SecurityEvent.decode).whereType<SecurityEvent>().toList();
   }
 
   Future<void> append(SecurityEvent event) async {
@@ -40,18 +42,25 @@ class SecurityEvent {
   final DateTime at;
   final String icon;
 
-  String encode() => '${at.toIso8601String()}|$icon|$title|$subtitle';
+  /// JSON encoding — safe with any characters in title/subtitle.
+  String encode() => jsonEncode({
+        'at': at.toIso8601String(),
+        'icon': icon,
+        'title': title,
+        'subtitle': subtitle,
+      });
 
-  static SecurityEvent decode(String raw) {
-    final parts = raw.split('|');
-    if (parts.length < 4) {
-      return SecurityEvent(title: raw, subtitle: '', at: DateTime.now());
+  static SecurityEvent? decode(String raw) {
+    try {
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      return SecurityEvent(
+        at: DateTime.tryParse(m['at'] as String? ?? '') ?? DateTime.now(),
+        icon: m['icon'] as String? ?? 'shield',
+        title: m['title'] as String? ?? '',
+        subtitle: m['subtitle'] as String? ?? '',
+      );
+    } catch (_) {
+      return null;
     }
-    return SecurityEvent(
-      at: DateTime.tryParse(parts[0]) ?? DateTime.now(),
-      icon: parts[1],
-      title: parts[2],
-      subtitle: parts.sublist(3).join('|'),
-    );
   }
 }

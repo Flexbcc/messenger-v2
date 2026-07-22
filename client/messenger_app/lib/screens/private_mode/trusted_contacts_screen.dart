@@ -121,10 +121,8 @@ class _TrustedContactsScreenState extends ConsumerState<TrustedContactsScreen> {
             padding: const EdgeInsets.all(AppSpacing.screenPadding),
             child: AppCard(
               child: Text(
-                'При срабатывании правил (например 3 неверных PIN) каждому из списка уйдёт '
-                'сообщение в личный чат и/или серверный сигнал — по каналам в политике безопасности. '
-                'Лучше добавлять из существующих личных чатов. Канал «чат» должен быть включён '
-                'в политике (по умолчанию включены оба).',
+                'Эти люди получат сигнал в общем чате при срабатывании политики безопасности '
+                '(неверный PIN, дополнительный PIN и т.д.).',
                 style: text.caption,
               ),
             ),

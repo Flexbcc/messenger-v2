@@ -6,13 +6,13 @@ import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
 import '../../widgets/app_button.dart';
 import '../../services/duress_policy_session.dart';
-import '../../services/hidden_vault_session.dart';
 import '../../services/privacy_preferences_store.dart';
+import '../../services/settings_runtime.dart';
 import 'decoy_pin_setup_screen.dart';
 import 'pin_keypad.dart';
 import 'private_mode_state.dart';
 
-enum _Step { enterPin, confirmPin, biometric }
+enum _Step { enterPin, confirmPin }
 
 /// "Создать PIN" — mock PIN setup flow for Private Mode.
 ///
@@ -31,31 +31,45 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
   _Step _step = _Step.enterPin;
   String _input = '';
   String? _pendingRealPin;
-  bool _biometricEnabled = false;
   bool _saving = false;
   String? _error;
+  int _pinLength = kPinLength;
+  bool _alphanumeric = false;
 
   late final AnimationController _shakeController;
+  final _alphaCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _shakeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    Future.microtask(_loadPinPolicy);
+  }
+
+  Future<void> _loadPinPolicy() async {
+    final len = await SettingsRuntime.instance.pinLength();
+    final alpha = await SettingsRuntime.instance.alphanumericPassword();
+    if (!mounted) return;
+    setState(() {
+      _pinLength = len.clamp(4, 12);
+      _alphanumeric = alpha;
+    });
   }
 
   @override
   void dispose() {
     _shakeController.dispose();
+    _alphaCtrl.dispose();
     super.dispose();
   }
 
   void _onDigit(String d) {
-    if (_input.length >= kPinLength) return;
+    if (_input.length >= _pinLength) return;
     setState(() {
       _error = null;
       _input += d;
     });
-    if (_input.length == kPinLength) {
+    if (_input.length == _pinLength) {
       Future.delayed(const Duration(milliseconds: 150), _onEntryComplete);
     }
   }
@@ -76,15 +90,10 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
         });
       case _Step.confirmPin:
         if (_input == _pendingRealPin) {
-          setState(() {
-            _input = '';
-            _step = _Step.biometric;
-          });
+          _finish();
         } else {
           _fail(resetTo: _Step.enterPin, clearPending: true);
         }
-      case _Step.biometric:
-        break;
     }
   }
 
@@ -104,9 +113,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
     try {
       final state = ref.read(privateModeStateProvider);
       await state.configurePins(realPin: _pendingRealPin!);
-      await state.setBiometricEnabled(_biometricEnabled);
       await DuressPolicySession.instance.unlock(_pendingRealPin!);
-      await HiddenVaultSession.instance.unlock(_pendingRealPin!);
       if (!mounted) return;
       final decoyDone = await Navigator.of(context).push<bool>(
         MaterialPageRoute(builder: (_) => const DecoyPinSetupScreen(showSkip: true)),
@@ -115,8 +122,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
       if (decoyDone != true) {
         await PrivacyPreferencesStore().setDecoyPinStepComplete(true);
       }
-      // true = setup finished; caller can leave UnlockScreen for the hub.
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -131,18 +137,13 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
   String get _title => switch (_step) {
         _Step.enterPin => 'Создать PIN',
         _Step.confirmPin => 'Повторите PIN',
-        _Step.biometric => 'Готово',
       };
 
   String get _explanation => switch (_step) {
-        _Step.enterPin => 'PIN защищает доступ к приложению и приватным настройкам.',
-        _Step.confirmPin => 'Введите PIN ещё раз для подтверждения.',
-        _Step.biometric => 'На десктопе Face ID — заглушка. Переключатель сохраняет настройку для будущей интеграции.',
-      };
-
-  bool get _isPinStep => switch (_step) {
-        _Step.enterPin || _Step.confirmPin => true,
-        _ => false,
+        _Step.enterPin => _alphanumeric
+            ? 'Пароль ($_pinLength+ символов, буквы и цифры) защищает доступ к приложению.'
+            : 'PIN из $_pinLength цифр защищает доступ к приложению и приватным настройкам.',
+        _Step.confirmPin => 'Введите ${_alphanumeric ? 'пароль' : 'PIN'} ещё раз для подтверждения.',
       };
 
   @override
@@ -182,13 +183,58 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
   }
 
   Widget _buildStepBody() {
-    if (_isPinStep) {
+    if (_alphanumeric) {
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextField(
+              controller: _alphaCtrl,
+              obscureText: true,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Минимум $_pinLength символов',
+                errorText: _error,
+              ),
+              onSubmitted: (_) {
+                final v = _alphaCtrl.text;
+                if (v.length < _pinLength) {
+                  setState(() => _error = 'Слишком короткий пароль');
+                  return;
+                }
+                setState(() {
+                  _input = v;
+                  _error = null;
+                });
+                _onEntryComplete();
+                _alphaCtrl.clear();
+              },
+            ),
+            const SizedBox(height: AppSpacing.sectionGap),
+            AppButton(
+              label: 'Далее',
+              onPressed: () {
+                final v = _alphaCtrl.text;
+                if (v.length < _pinLength) {
+                  setState(() => _error = 'Слишком короткий пароль');
+                  return;
+                }
+                setState(() {
+                  _input = v;
+                  _error = null;
+                });
+                _onEntryComplete();
+                _alphaCtrl.clear();
+              },
+            ),
+          ],
+        );
+      }
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           ShakeOnError(
             controller: _shakeController,
-            child: PinDotsIndicator(filledCount: _input.length),
+            child: PinDotsIndicator(filledCount: _input.length, length: _pinLength),
           ),
           const SizedBox(height: AppSpacing.smallGap),
           SizedBox(
@@ -202,39 +248,5 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
         ],
       );
     }
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.cardPadding),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceLight,
-            borderRadius: BorderRadius.circular(AppRadii.medium),
-          ),
-          child: SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text('Включить Face ID / Touch ID', style: AppTypography.body),
-            subtitle: Text('Пока mock — на Mac не используется', style: AppTypography.caption),
-            value: _biometricEnabled,
-            activeThumbColor: AppColors.accentBlue,
-            onChanged: _saving ? null : (v) => setState(() => _biometricEnabled = v),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sectionGap),
-        AppButton(label: 'Готово', loading: _saving, onPressed: _saving ? null : _finish),
-        const SizedBox(height: AppSpacing.mediumGap),
-        AppButton(
-          label: 'Пропустить',
-          variant: AppButtonVariant.secondary,
-          onPressed: _saving
-              ? null
-              : () {
-                  setState(() => _biometricEnabled = false);
-                  _finish();
-                },
-        ),
-      ],
-    );
   }
 }

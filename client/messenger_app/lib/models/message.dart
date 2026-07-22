@@ -19,6 +19,7 @@ class ChatMessage {
     this.isSecret = false,
     this.systemKind,
     this.duressCode,
+    this.ttlSeconds,
   });
 
   final String id;
@@ -48,6 +49,9 @@ class ChatMessage {
 
   /// Numeric duress signal code when `systemKind == duress`.
   int? duressCode;
+
+  /// Optional per-message auto-delete TTL from E2E envelope (`ttl_seconds`).
+  int? ttlSeconds;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
         id: json['id'] as String,

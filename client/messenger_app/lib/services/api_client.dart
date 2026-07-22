@@ -151,25 +151,44 @@ class ApiClient {
     return _decodeOrThrow(resp) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> updateDisplayName(String displayName) async {
+    final resp = await _patchJson(_homeUri('/users/me'), {'display_name': displayName});
+    return _decodeOrThrow(resp) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateProfile({
+    String? displayName,
+    String? login,
+    String? email,
+    String? phone,
+    String? bio,
+  }) async {
+    final body = <String, dynamic>{};
+    if (displayName != null) body['display_name'] = displayName;
+    if (login != null) body['login'] = login;
+    if (email != null) body['email'] = email;
+    if (phone != null) body['phone'] = phone;
+    if (bio != null) body['bio'] = bio;
+    final resp = await http.put(_homeUri('/users/me/profile'), headers: _headers, body: jsonEncode(body));
+    return _decodeOrThrow(resp) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> getProfileSettings() async {
     final resp = await _get(_homeUri('/users/me/profile-settings'));
     return _decodeOrThrow(resp) as Map<String, dynamic>;
   }
 
   Future<void> updateProfileSettings(Map<String, dynamic> blob) async {
-    final encoded = jsonEncode(blob);
-    await _trackSent(encoded.length);
     final resp = await http.put(
       _homeUri('/users/me/profile-settings'),
       headers: _headers,
-      body: encoded,
+      body: jsonEncode(blob),
     );
-    await _trackReceived(resp);
     _decodeOrThrow(resp);
   }
 
-  Future<Map<String, dynamic>> updateDisplayName(String displayName) async {
-    final resp = await _patchJson(_homeUri('/users/me'), {'display_name': displayName});
+  Future<Map<String, dynamic>> searchUserByLogin(String login) async {
+    final resp = await _get(_discoveryUri('/registry/users/search?login=${Uri.encodeQueryComponent(login)}'));
     return _decodeOrThrow(resp) as Map<String, dynamic>;
   }
 
@@ -178,9 +197,41 @@ class ApiClient {
     return _decodeOrThrow(resp) as Map<String, dynamic>;
   }
 
+  /// Upload additional one-time prekeys to the server.
+  /// Returns {"status": "ok", "unused_prekeys": N, "low_prekey_warning": bool}.
+  Future<Map<String, dynamic>> uploadPrekeys(
+    String deviceId,
+    List<Map<String, dynamic>> prekeys,
+  ) async {
+    final resp = await _postJson(
+      _homeUri('/devices/$deviceId/prekeys'),
+      {'prekeys': prekeys},
+    );
+    return _decodeOrThrow(resp) as Map<String, dynamic>;
+  }
+
   Future<List<dynamic>> listConversations() async {
     final resp = await _get(_homeUri('/conversations'));
     return _decodeOrThrow(resp) as List<dynamic>;
+  }
+
+  /// Add members to a group conversation. Returns updated conversation.
+  Future<Map<String, dynamic>> addGroupMembers(
+    String conversationId,
+    List<String> userIds,
+  ) async {
+    final resp = await _postJson(
+      _homeUri('/conversations/$conversationId/members'),
+      {'user_ids': userIds},
+    );
+    return _decodeOrThrow(resp) as Map<String, dynamic>;
+  }
+
+  /// Remove a member from a group conversation.
+  Future<void> removeGroupMember(String conversationId, String userId) async {
+    final uri = _homeUri('/conversations/$conversationId/members/$userId');
+    final resp = await _delete(uri);
+    _decodeOrThrow(resp);
   }
 
   Future<Map<String, dynamic>> createConversation({
@@ -297,5 +348,27 @@ class ApiClient {
   Future<void> revokeDevice(String deviceId) async {
     final resp = await _delete(_homeUri('/users/me/devices/$deviceId'));
     _decodeOrThrow(resp);
+  }
+
+  /// Link the logged-in user to storage-app via QR JSON (Bearer auth).
+  Future<Map<String, dynamic>> pairPersonalPc({
+    required String payloadJson,
+  }) async {
+    final resp = await _postJson(_homeUri('/users/me/storage/personal-pc/pair'), {
+      'payload': payloadJson,
+    });
+    return _decodeOrThrow(resp) as Map<String, dynamic>;
+  }
+
+  /// Owner panel: pair any user via monitor API (operator access).
+  Future<Map<String, dynamic>> pairPersonalPcMonitor({
+    required String userId,
+    required String payloadJson,
+  }) async {
+    final resp = await _postJson(_homeUri('/monitor/storage/personal-pc/pair'), {
+      'user_id': userId,
+      'payload': payloadJson,
+    });
+    return _decodeOrThrow(resp) as Map<String, dynamic>;
   }
 }

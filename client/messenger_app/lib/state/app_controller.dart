@@ -39,8 +39,12 @@ import '../services/hidden_vault_session.dart';
 import '../services/login_approval_service.dart';
 import '../services/local_settings_store.dart';
 import '../services/media_cache.dart';
+import '../services/gallery_save_service.dart';
+import '../services/media_quality.dart';
+import '../services/ppc/personal_pc_media_store.dart';
 import '../services/message_cache_store.dart';
 import '../services/message_delivery_store.dart';
+import '../services/outbox_queue.dart';
 import '../services/message_local_actions_store.dart';
 import '../services/in_app_notification_service.dart';
 import '../services/os_notification_service.dart';
@@ -49,6 +53,7 @@ import '../services/secret_chat_preferences_store.dart';
 import '../security/secret_chat_security.dart';
 import '../security/pin_security.dart';
 import '../services/app_privacy_session.dart';
+import '../services/account_settings_scope.dart';
 import '../models/duress_policy.dart';
 import '../services/duress_audit_service.dart';
 import '../services/duress_policy_session.dart';
@@ -74,6 +79,8 @@ import '../utils/user_id.dart';
 import '../utils/crypto_serial_queue.dart';
 import '../services/realtime_service.dart';
 import '../services/session_store.dart';
+import '../services/settings_runtime.dart';
+import '../services/catalog_list_store.dart';
 
 final appControllerProvider = ChangeNotifierProvider<AppController>((ref) => AppController());
 
@@ -82,9 +89,6 @@ final appControllerProvider = ChangeNotifierProvider<AppController>((ref) => App
 class AppController extends ChangeNotifier {
   final _sessionStore = SessionStore();
   final _api = ApiClient();
-
-  /// Home/Discovery REST client (shared session token).
-  ApiClient get api => _api;
   final _realtime = RealtimeService();
   StreamSubscription<Map<String, dynamic>>? _realtimeSub;
   static const _callOfferMaxAge = Duration(seconds: 90);
@@ -141,6 +145,32 @@ class AppController extends ChangeNotifier {
   final Map<String, bool> chatMuted = {};
   final Map<String, int?> disappearingSeconds = {};
 
+  /// userId → Set of conversationIds where that user is currently typing.
+  /// Populated by incoming WS `typing` events and auto-cleared after timeout.
+  final Map<String, Set<String>> _typingByUser = {};
+  final Map<String, Timer> _typingTimers = {};
+
+  /// Returns true if any peer (not us) is typing in [conversationId].
+  bool anyoneTypingIn(String conversationId) {
+    final myId = session?.userId;
+    return _typingByUser.entries.any(
+      (e) => e.key != myId && e.value.contains(conversationId),
+    );
+  }
+
+  void _setTyping(String userId, String conversationId) {
+    _typingByUser.putIfAbsent(userId, () => {}).add(conversationId);
+    // Auto-clear after 6 s (server should re-send every ~4 s while typing).
+    final key = '$userId:$conversationId';
+    _typingTimers[key]?.cancel();
+    _typingTimers[key] = Timer(const Duration(seconds: 6), () {
+      _typingByUser[userId]?.remove(conversationId);
+      _typingTimers.remove(key);
+      notifyListeners();
+    });
+    notifyListeners();
+  }
+
   /// Active secret-chat sessions per conversation (device-local).
   final Set<String> _secretSessionActive = {};
   final Map<String, Timer> _secretSessionTimers = {};
@@ -157,9 +187,26 @@ class AppController extends ChangeNotifier {
   /// Secret-hidden chats — absent from main list, shown only in Hidden Chats.
   final Set<String> _secretHiddenConversationIds = {};
 
+  /// Groups created on this device — exempt from privacy.group_invites filter.
+  final Set<String> _locallyCreatedGroupIds = {};
+
+  /// Cached decoy allow-list (conversation ids) while in fake profile mode.
+  List<String> _fakeProfileChatIds = const [];
+
   bool hiddenChatsExcludeFromSearch = true;
   bool hiddenChatsSilenceNotifications = true;
+  bool hiddenChatsHideMedia = true;
+  bool hiddenChatsEnabled = false;
+  String hiddenChatsOpenMethod = 'pin';
   HiddenChatSort hiddenChatsSort = HiddenChatSort.recent;
+
+  /// Cached privacy.* flags for sync UI (refreshed via [refreshPrivacyRuntime]).
+  bool privacyOnlineStatusEnabled = true;
+  bool privacyInvisibleMode = false;
+  String privacyLastSeenPolicy = 'contacts';
+  Set<String> privacyLastSeenList = {};
+  bool privacyTypingEnabled = true;
+  bool privacyReadReceiptsVisible = true;
 
   /// Locally saved contact name overrides — take priority over server names.
   Map<String, String> _contactAliases = {};
@@ -186,7 +233,6 @@ class AppController extends ChangeNotifier {
   /// Locally hidden / pinned messages (device-only).
   final Set<String> _locallyHiddenMessageIds = {};
   final Set<String> _pinnedMessageIds = {};
-  final Map<String, Timer> _reminderTimers = {};
 
   /// The one call (incoming or outgoing) currently ringing/in progress —
   /// see spec/0303_CALLS.md, ADR-0008. Null when there is none.
@@ -201,9 +247,29 @@ class AppController extends ChangeNotifier {
   /// When true, full-screen call UI is hidden and a compact bar is shown instead.
   bool callUiMinimized = false;
 
+  /// Brief post-hangup overlay (“Звонок завершён”) after [endCall]/reject/cancel.
+  String? callEndedPeerLabel;
+
   void setCallUiMinimized(bool minimized) {
     callUiMinimized = minimized;
     notifyListeners();
+  }
+
+  void clearCallEndedOverlay() {
+    if (callEndedPeerLabel == null) return;
+    callEndedPeerLabel = null;
+    notifyListeners();
+  }
+
+  void _showCallEndedOverlay(String peerLabel) {
+    callEndedPeerLabel = peerLabel;
+    notifyListeners();
+    Future<void>.delayed(const Duration(seconds: 2), () {
+      if (callEndedPeerLabel == peerLabel) {
+        callEndedPeerLabel = null;
+        notifyListeners();
+      }
+    });
   }
 
   CallSignalingService get _callSignaling => CallSignalingService(crypto!);
@@ -219,6 +285,7 @@ class AppController extends ChangeNotifier {
     try {
       authKeyPair = await AuthKeyPair.loadOrCreate();
       crypto = await CryptoService.loadOrCreate();
+      await OutboxQueue.instance.load();
 
       final existing = await _sessionStore.load();
       knownDisplayNames.clear();
@@ -227,6 +294,10 @@ class AppController extends ChangeNotifier {
       deviceTrustProfiles = await loadAllDeviceTrust();
       knownDisplayNames.addAll(_contactAliases);
       callHistory = await _callHistoryStore.loadAll();
+      if (existing != null) {
+        // Bind settings/PIN namespace before reading any account-local prefs.
+        await AccountSettingsScope.activate(existing.userId);
+      }
       _hiddenConversationIds
         ..clear()
         ..addAll(await _localSettings.getStringList('hidden_conversations'));
@@ -252,17 +323,19 @@ class AppController extends ChangeNotifier {
           }
           _startTimeTasksTimer();
           unawaited(processTimeBasedTasks());
-          unawaited(_restoreReminderTimers());
+          unawaited(_replenishPrekeysIfNeeded());
         } on ApiException catch (e) {
           DebugLog.instance.warn('auth', 'stale session ${e.statusCode}, clearing local login');
           await _sessionStore.clear();
           session = null;
           _api.accessToken = null;
+          await AccountSettingsScope.deactivate();
         } catch (e) {
           DebugLog.instance.error('auth', 'session restore failed, clearing local login: $e');
           await _sessionStore.clear();
           session = null;
           _api.accessToken = null;
+          await AccountSettingsScope.deactivate();
         }
       }
     } finally {
@@ -283,23 +356,6 @@ class AppController extends ChangeNotifier {
   }
 
   bool isMessagePinned(String messageId) => _pinnedMessageIds.contains(messageId);
-
-  /// Pinned messages for [conversationId], newest first.
-  List<ChatMessage> pinnedMessagesFor(String conversationId) {
-    final msgs = messagesByConversation[conversationId] ?? [];
-    final byId = {for (final m in msgs) m.id: m};
-    final out = <ChatMessage>[];
-    for (final id in _pinnedMessageIds) {
-      final m = byId[id];
-      if (m != null && m.conversationId == conversationId && !_locallyHiddenMessageIds.contains(id)) {
-        out.add(m);
-      }
-    }
-    out.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return out;
-  }
-
-  int pinnedCountFor(String conversationId) => pinnedMessagesFor(conversationId).length;
 
   Future<void> hideMessageLocally(String messageId) async {
     final userId = session?.userId;
@@ -420,6 +476,8 @@ class AppController extends ChangeNotifier {
     );
     knownDisplayNames[session!.userId] = displayNameFallback;
 
+    await AccountSettingsScope.activate(session!.userId);
+
     try {
       await _api.getPreKeyBundle(session!.userId);
     } on ApiException catch (e) {
@@ -427,6 +485,7 @@ class AppController extends ChangeNotifier {
       await _sessionStore.clear();
       session = null;
       _api.accessToken = null;
+      await AccountSettingsScope.deactivate();
       throw StateError(
         'Аккаунт не найден на Home Node (${AppConfig.homeNodeUrl}). '
         'Возможно, запущено два сервера на порту 8001 — остановите лишний и зарегистрируйтесь снова.',
@@ -491,17 +550,37 @@ class AppController extends ChangeNotifier {
     await _relogin();
     _connectRealtime();
     await refreshConversations();
+    unawaited(_replenishPrekeysIfNeeded());
+    if (OutboxQueue.instance.isNotEmpty && websocketConnected) {
+      unawaited(_drainOutboxQueue());
+    }
     await _recordCurrentDeviceSessionMeta();
     await processTimeBasedTasks();
   }
 
+  bool _outboxDrainPending = false;
+
   Future<void> _onRealtimeEvent(Map<String, dynamic> event) async {
+    // On first realtime event after reconnect, drain the outbox queue.
+    if (!_outboxDrainPending && OutboxQueue.instance.isNotEmpty) {
+      _outboxDrainPending = true;
+      unawaited(_drainOutboxQueue());
+    }
+
     final type = event['type'] as String?;
     if (type == 'security_signal') {
       final fromUserId = event['from_user_id'] as String?;
       final code = event['event'] as int?;
       if (fromUserId != null && code != null) {
         await ingestSecuritySignal(fromUserId: fromUserId, event: code);
+      }
+      return;
+    }
+    if (type == 'typing') {
+      final fromUserId = event['from_user_id'] as String?;
+      final convId = event['conversation_id'] as String?;
+      if (fromUserId != null && convId != null && fromUserId != session?.userId) {
+        _setTyping(fromUserId, convId);
       }
       return;
     }
@@ -535,6 +614,21 @@ class AppController extends ChangeNotifier {
     if (CallSignalingService.isCallSignal(msg.contentType)) {
       await _handleIncomingCallSignal(msg);
       return; // control message — never shown as a chat bubble
+    }
+
+    if (msg.senderUserId != session?.userId) {
+      if (await SettingsRuntime.instance.isBlocked(msg.senderUserId)) return;
+      final isContact = isKnownContact(msg.senderUserId);
+      final prior = messagesByConversation[convId];
+      final weMessaged = prior?.any((m) => m.senderUserId == session?.userId) ?? false;
+      if (!weMessaged &&
+          !await SettingsRuntime.instance.incomingMessagesAllowed(
+            msg.senderUserId,
+            isContact: isContact,
+          )) {
+        DebugLog.instance.info('delivery', 'incoming message blocked by privacy.incoming_messages');
+        return;
+      }
     }
 
     final list = messagesByConversation.putIfAbsent(convId, () => []);
@@ -584,10 +678,17 @@ class AppController extends ChangeNotifier {
     }
 
     final sender = labelFor(msg.senderUserId);
+    final forceGeneric = isHidden && settings.hiddenChatPolicy == 'generic';
+    final body = settings.bodyForMessage(
+      message: msg,
+      senderLabel: sender,
+      isGroup: conv.isGroup,
+      forceGeneric: forceGeneric,
+    );
     InAppNotificationService.instance.notify(
       InAppNotificationEvent(
         title: settings.titleForSender(sender),
-        body: settings.bodyForMessage(message: msg, senderLabel: sender, isGroup: conv.isGroup),
+        body: body,
         playSound: settings.sounds,
         vibrate: settings.vibration,
         conversationId: convId,
@@ -595,7 +696,7 @@ class AppController extends ChangeNotifier {
     );
     OsNotificationService.instance.show(
       title: settings.titleForSender(sender),
-      body: settings.bodyForMessage(message: msg, senderLabel: sender, isGroup: conv.isGroup),
+      body: body,
       conversationId: convId,
     );
   }
@@ -669,6 +770,23 @@ class AppController extends ChangeNotifier {
           }
           return;
         }
+        final allowed = await SettingsRuntime.instance.callsAllowed(
+          msg.senderUserId,
+          isContact: isKnownContact(msg.senderUserId),
+        );
+        if (!allowed) {
+          try {
+            await _sendCallSignal(
+              peerUserId: msg.senderUserId,
+              contentType: CallSignalType.reject.contentType,
+              ciphertext: await _callSignaling.encodeReject(
+                peerUserId: msg.senderUserId,
+                callId: signal.callId,
+              ),
+            );
+          } catch (_) {}
+          return;
+        }
         currentCall = ActiveCall(
           callId: signal.callId,
           peerUserId: msg.senderUserId,
@@ -723,16 +841,36 @@ class AppController extends ChangeNotifier {
 
   Future<void> refreshConversations() async {
     final raw = await _api.listConversations();
-    conversations = raw.map((j) => Conversation.fromJson(j as Map<String, dynamic>)).toList();
-    for (final c in raw) {
-      final names = (c as Map<String, dynamic>)['participant_display_names'] as Map<String, dynamic>;
-      names.forEach((uid, name) {
-        // Only keep valid UUID user ids here; other keys break chat creation.
+    final me = session?.userId;
+    final next = <Conversation>[];
+    for (final j in raw) {
+      final map = j as Map<String, dynamic>;
+      final conv = Conversation.fromJson(map);
+      if (conv.isGroup && me != null && !_locallyCreatedGroupIds.contains(conv.id)) {
+        final others = conv.participantUserIds.where((id) => id != me);
+        var allowed = false;
+        for (final peer in others) {
+          final isContact = contactTrustLevels[peer] != null &&
+              contactTrustLevels[peer] != TrustLevel.unknown;
+          if (await SettingsRuntime.instance.groupInviteAllowed(peer, isContact: isContact)) {
+            allowed = true;
+            break;
+          }
+        }
+        if (!allowed && others.isNotEmpty) {
+          DebugLog.instance.info('chat', 'group ${conv.id} ignored by privacy.group_invites');
+          continue;
+        }
+      }
+      next.add(conv);
+      final names = map['participant_display_names'] as Map<String, dynamic>?;
+      names?.forEach((uid, name) {
         final id = uid.toString();
         if (!isValidUserIdFormat(id)) return;
         if (name != null) knownDisplayNames[id] = name as String;
       });
     }
+    conversations = next;
     // Aliases are local-only; also sanitize to UUID keys.
     _contactAliases.forEach((uid, label) {
       if (!isValidUserIdFormat(uid)) return;
@@ -742,7 +880,6 @@ class AppController extends ChangeNotifier {
     await recomputeAllUnread();
     await validateAllConversationsReachability();
     _ensureTrustForConversationPeers();
-    final me = session?.userId;
     DebugLog.instance.info('session', 'user=$me conversations=${conversations.length}');
     for (final c in conversations) {
       if (c.isGroup) continue;
@@ -751,6 +888,7 @@ class AppController extends ChangeNotifier {
       DebugLog.instance.info('chat', '${c.id.substring(0, 8)}… peer=$peer reachable=$ok');
     }
     lastConversationSyncAt = DateTime.now();
+    await SettingsRuntime.instance.markLastSync(lastConversationSyncAt);
     notifyListeners();
   }
 
@@ -778,8 +916,88 @@ class AppController extends ChangeNotifier {
   /// Reconnect WebSocket and refresh session data (for Connection Status UI).
   Future<void> reconnectConnection() => onAppResumed();
 
-  /// Send is blocked when offline — messages need an active realtime channel in MVP.
-  bool get canSendMessages => session != null && websocketConnected;
+  /// Drain the outbox queue — send queued messages in order once online.
+  Future<void> _drainOutboxQueue() async {
+    final entries = List<OutboxEntry>.from(OutboxQueue.instance.entries);
+    for (final entry in entries) {
+      if (!websocketConnected) break; // Stop if we go offline again
+      try {
+        final conversation = _findConversation(entry.conversationId);
+        if (conversation == null) {
+          // Conversation not found — drop the entry
+          await OutboxQueue.instance.remove(entry.id);
+          await MessageDeliveryStore.instance.setStatus(entry.id, MessageDeliveryStatus.failed, error: 'Conversation not found');
+          continue;
+        }
+        // Update UI status to sending
+        await MessageDeliveryStore.instance.setStatus(entry.id, MessageDeliveryStatus.sending);
+        notifyListeners();
+
+        final wireBody = MessagePayload.encodeText(
+          body: entry.text,
+          secret: entry.secret,
+          replyToMessageId: entry.replyToMessageId,
+          replyPreview: entry.replyPreview,
+          ttlSeconds: entry.ttlSeconds,
+        );
+        final ciphertext = await _encryptForConversation(conversation, Uint8List.fromList(utf8.encode(wireBody)));
+        final resp = await _api.sendMessage(
+          conversationId: conversation.id,
+          ciphertext: ciphertext,
+          contentType: 'text',
+          clientMsgId: entry.id,
+        );
+
+        await OutboxQueue.instance.remove(entry.id);
+        final msg = ChatMessage.fromJson(resp)
+          ..plaintext = entry.text
+          ..replyToMessageId = entry.replyToMessageId
+          ..replyPreview = entry.replyPreview
+          ..isSecret = entry.secret
+          ..ttlSeconds = entry.ttlSeconds;
+        final list = messagesByConversation[conversation.id]!;
+        final idx = list.indexWhere((m) => m.id == entry.id);
+        if (idx >= 0) {
+          list[idx] = msg;
+        }
+        await MessageDeliveryStore.instance.setStatus(msg.id, MessageDeliveryStatus.sent);
+        await _persistMessage(msg);
+        notifyListeners();
+      } catch (e) {
+        DebugLog.instance.warn('outbox', 'Failed to send queued message ${entry.id}: $e');
+        await MessageDeliveryStore.instance.setStatus(entry.id, MessageDeliveryStatus.failed, error: e.toString());
+        await OutboxQueue.instance.remove(entry.id);
+        notifyListeners();
+      }
+    }
+    _outboxDrainPending = false;
+  }
+
+  /// Replenish one-time prekeys on the server if the local count is low.
+  /// Called at boot and after app resumes. Silent failure is intentional —
+  /// the next replenishment attempt will happen on next startup.
+  Future<void> _replenishPrekeysIfNeeded() async {
+    final c = crypto;
+    final s = session;
+    if (c == null || s == null) return;
+    try {
+      final local = c.countLocalPreKeys();
+      if (local >= CryptoService.prekeyLowWatermark) return;
+      final needed = CryptoService.prekeyReplenishTarget - local;
+      DebugLog.instance.info('prekey', 'Low prekeys ($local), replenishing $needed...');
+      final batch = await c.generateReplenishmentBatch(count: needed);
+      final result = await _api.uploadPrekeys(s.deviceId, batch);
+      DebugLog.instance.info('prekey', 'Replenished: server now has ${result['unused_prekeys']} prekeys');
+    } catch (e) {
+      DebugLog.instance.warn('prekey', 'Replenishment failed: $e');
+    }
+  }
+
+  /// Returns true when messages can be sent immediately or queued for later.
+  bool get canSendMessages => session != null;
+
+  /// Returns true when there is an active realtime channel for immediate delivery.
+  bool get canSendImmediately => session != null && websocketConnected;
 
   int get failedOutboundCount {
     var count = 0;
@@ -813,11 +1031,39 @@ class AppController extends ChangeNotifier {
   }
 
   /// Chats for the main list — optionally includes local «Избранное» at the top.
+  /// In decoy mode, filters to [security.fake_profile_chats] when non-empty.
   List<Conversation> get conversationsForList {
-    final list = sortedConversations;
+    var list = sortedConversations;
+    if (AppPrivacySession.instance.isInDecoyMode && _fakeProfileChatIds.isNotEmpty) {
+      final allow = _fakeProfileChatIds.toSet();
+      list = list.where((c) => allow.contains(c.id)).toList();
+    }
     final fav = visibleFavoritesConversation;
     if (fav == null) return list;
+    if (AppPrivacySession.instance.isInDecoyMode && _fakeProfileChatIds.isNotEmpty) {
+      if (!_fakeProfileChatIds.contains(fav.id)) return list;
+    }
     return [fav, ...list];
+  }
+
+  Future<void> reloadFakeProfileChats() async {
+    _fakeProfileChatIds = await SettingsRuntime.instance.fakeProfileChats();
+    notifyListeners();
+  }
+
+  /// Conversations matching [query] for the main list search bar.
+  /// When [hidden.hide_from_search] is false, secret-hidden chats are included.
+  List<Conversation> conversationsMatchingSearch(String query) {
+    final q = query.trim().toLowerCase();
+    final base = conversationsForList;
+    final pool = <Conversation>[...base];
+    if (!hiddenChatsExcludeFromSearch && hiddenChatsEnabled) {
+      for (final c in secretHiddenConversations) {
+        if (!pool.any((x) => x.id == c.id)) pool.add(c);
+      }
+    }
+    if (q.isEmpty) return pool;
+    return pool.where((c) => conversationTitle(c).toLowerCase().contains(q)).toList();
   }
 
   Conversation? get visibleFavoritesConversation {
@@ -935,39 +1181,7 @@ class AppController extends ChangeNotifier {
       remindAt: remindAt,
     );
     await MessageReminderStore.instance.save(reminder);
-    _scheduleReminderTimer(reminder);
     notifyListeners();
-  }
-
-  void _scheduleReminderTimer(MessageReminder reminder) {
-    _reminderTimers.remove(reminder.id)?.cancel();
-    final delay = reminder.remindAt.difference(DateTime.now());
-    if (delay.isNegative) {
-      unawaited(_fireReminder(reminder));
-      return;
-    }
-    _reminderTimers[reminder.id] = Timer(delay, () {
-      unawaited(_fireReminder(reminder));
-    });
-  }
-
-  Future<void> _fireReminder(MessageReminder reminder) async {
-    _reminderTimers.remove(reminder.id);
-    final stillStored = (await MessageReminderStore.instance.loadAll()).any((r) => r.id == reminder.id);
-    if (!stillStored) return;
-    await _applyReminder(reminder);
-    await MessageReminderStore.instance.remove(reminder.id);
-    notifyListeners();
-  }
-
-  Future<void> _restoreReminderTimers() async {
-    for (final timer in _reminderTimers.values) {
-      timer.cancel();
-    }
-    _reminderTimers.clear();
-    for (final reminder in await MessageReminderStore.instance.loadAll()) {
-      _scheduleReminderTimer(reminder);
-    }
   }
 
   Future<void> processTimeBasedTasks() async {
@@ -1034,9 +1248,24 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _loadHiddenChatsPolicies() async {
-    hiddenChatsExcludeFromSearch = await HiddenChatsStore.instance.excludeFromGlobalSearch();
-    hiddenChatsSilenceNotifications = await HiddenChatsStore.instance.silenceNotifications();
+    final runtime = SettingsRuntime.instance;
+    hiddenChatsEnabled = await runtime.hiddenEnabled();
+    hiddenChatsOpenMethod = await runtime.hiddenOpenMethod();
+    hiddenChatsExcludeFromSearch = await runtime.hiddenHideFromSearch();
+    hiddenChatsSilenceNotifications = await runtime.hiddenHideNotifications();
+    hiddenChatsHideMedia = await runtime.hiddenHideMedia();
     hiddenChatsSort = await HiddenChatsStore.instance.sortOrder();
+    await _loadPrivacyPolicies();
+  }
+
+  Future<void> _loadPrivacyPolicies() async {
+    final runtime = SettingsRuntime.instance;
+    privacyOnlineStatusEnabled = await runtime.onlineStatusEnabled();
+    privacyInvisibleMode = await runtime.invisibleMode();
+    privacyLastSeenPolicy = await runtime.lastSeenPolicy();
+    privacyLastSeenList = (await CatalogListStore().load('privacy.last_seen_list')).toSet();
+    privacyTypingEnabled = await runtime.typingEnabled();
+    privacyReadReceiptsVisible = await runtime.readReceiptsVisible();
   }
 
   Future<void> refreshHiddenChatsPolicies() async {
@@ -1044,9 +1273,85 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reload privacy.* caches after catalog edits.
+  Future<void> refreshPrivacyRuntime() async {
+    await _loadPrivacyPolicies();
+    notifyListeners();
+  }
+
+  bool isKnownContact(String userId) =>
+      knownDisplayNames.containsKey(userId) ||
+      (contactTrustLevels[userId] != null && contactTrustLevels[userId] != TrustLevel.unknown);
+
+  bool _visibilityAllowsSync(String policy, Set<String> list, String viewerUserId) {
+    return switch (policy) {
+      'nobody' => false,
+      'contacts' => isKnownContact(viewerUserId),
+      'selected' => list.contains(viewerUserId),
+      'everyone' => true,
+      _ => isKnownContact(viewerUserId),
+    };
+  }
+
+  /// Mutual-style: show peer presence only when we would share ours with them.
+  bool canShowOnlineStatusFor(String peerUserId) {
+    if (privacyInvisibleMode || !privacyOnlineStatusEnabled) return false;
+    return _visibilityAllowsSync(privacyLastSeenPolicy, privacyLastSeenList, peerUserId);
+  }
+
+  bool canShowLastSeenFor(String peerUserId) {
+    if (privacyInvisibleMode) return false;
+    return _visibilityAllowsSync(privacyLastSeenPolicy, privacyLastSeenList, peerUserId);
+  }
+
+  /// Sends typing indicator to server over WebSocket.
+  Future<void> notifyTyping(String conversationId) async {
+    if (!privacyTypingEnabled) return;
+    if (!await SettingsRuntime.instance.typingEnabled()) return;
+    if (!websocketConnected) return;
+    _realtime.send({
+      'type': 'typing',
+      'conversation_id': conversationId,
+    });
+  }
+
+  /// Voice-recording status to peers — gated by privacy.voice_record_status.
+  Future<void> notifyVoiceRecording(String conversationId) async {
+    if (!await SettingsRuntime.instance.voiceRecordStatusEnabled()) return;
+    if (!websocketConnected) return;
+    _realtime.send({
+      'type': 'typing', // reuse typing channel, UI shows "recording…" separately
+      'conversation_id': conversationId,
+      'kind': 'voice',
+    });
+  }
+
+  /// Whether the UI may show "recording…" to the local user / peers.
+  Future<bool> voiceRecordStatusVisible() =>
+      SettingsRuntime.instance.voiceRecordStatusEnabled();
+
+  Future<void> reloadSecretHiddenFromStore() async {
+    _secretHiddenConversationIds
+      ..clear()
+      ..addAll(await HiddenChatsStore.instance.loadSecretHiddenIds());
+    await CatalogListStore().save(
+      'hidden.chat_list',
+      _secretHiddenConversationIds.toList(),
+    );
+    await _loadHiddenChatsPolicies();
+    notifyListeners();
+  }
+
   Future<void> hideConversationAsSecret(String conversationId) async {
+    if (!await SettingsRuntime.instance.hiddenEnabled()) {
+      throw StateError('Скрытые чаты отключены');
+    }
     _secretHiddenConversationIds.add(conversationId);
     await HiddenChatsStore.instance.addSecretHidden(conversationId);
+    await CatalogListStore().save(
+      'hidden.chat_list',
+      _secretHiddenConversationIds.toList(),
+    );
     if (activeConversationId == conversationId) activeConversationId = null;
     notifyListeners();
   }
@@ -1054,6 +1359,10 @@ class AppController extends ChangeNotifier {
   Future<void> unhideConversation(String conversationId) async {
     _secretHiddenConversationIds.remove(conversationId);
     await HiddenChatsStore.instance.removeSecretHidden(conversationId);
+    await CatalogListStore().save(
+      'hidden.chat_list',
+      _secretHiddenConversationIds.toList(),
+    );
     notifyListeners();
   }
 
@@ -1166,7 +1475,13 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> loadSecretChatPreferences() async {
-    secretDisappearingSeconds = await SecretChatPreferencesStore.instance.secretDisappearingSeconds();
+    var seconds = await SecretChatPreferencesStore.instance.secretDisappearingSeconds();
+    // Catalog auto-delete overlaps secret disappearing when the secret-specific
+    // preference is off — apply catalog TTL as the effective secret TTL.
+    if (seconds == null && await SettingsRuntime.instance.autoDeleteEnabled()) {
+      seconds = await SettingsRuntime.instance.outgoingAutoDeleteSeconds();
+    }
+    secretDisappearingSeconds = seconds;
     notifyListeners();
   }
 
@@ -1202,21 +1517,22 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  String get sessionDisplayName {
-    final n = session?.displayName.trim();
-    if (n != null && n.isNotEmpty) return n;
-    return 'контакт';
-  }
-
   Future<void> sendDuressSignalToTrusted({
     required int code,
     DuressTrigger? trigger,
     List<String>? channelsOverride,
-    String? messageText,
   }) async {
+    if (!await SettingsRuntime.instance.distressSignalEnabled()) {
+      DebugLog.instance.info('duress', 'distress_signal disabled — skip send');
+      return;
+    }
     List<String> trusted;
     List<String> channels;
-    if (DuressPolicySession.instance.isUnlocked) {
+    final distress = await SettingsRuntime.instance.distressContacts();
+    if (distress.isNotEmpty) {
+      trusted = distress;
+      channels = channelsOverride ?? ['chat'];
+    } else if (DuressPolicySession.instance.isUnlocked) {
       final data = DuressPolicySession.instance.data;
       trusted = data?.trustedUserIds ?? [];
       channels = channelsOverride ?? data?.trustedChannels ?? ['chat'];
@@ -1229,22 +1545,13 @@ class AppController extends ChangeNotifier {
     if (!_duressChannelEnabled(channels, 'chat')) return;
     var sent = false;
     for (final peerId in trusted) {
-      Conversation? conv = directConversationWith(peerId);
-      if (conv == null) {
-        try {
-          conv = await _findOrCreateDirectConversation(peerId);
-        } catch (e) {
-          DebugLog.instance.error('duress', 'no chat with trusted $peerId: $e');
-          continue;
-        }
-      }
-      await _sendDuressMessage(conv, code: code, messageText: messageText);
+      final conv = directConversationWith(peerId);
+      if (conv == null) continue;
+      await _sendDuressMessage(conv, code: code);
       sent = true;
     }
     if (sent) {
       await DuressAuditService.instance.recordOutbound(code: code, channel: 'chat', trigger: trigger);
-    } else {
-      DebugLog.instance.warn('duress', 'chat notify skipped — no reachable trusted conversations');
     }
   }
 
@@ -1321,15 +1628,8 @@ class AppController extends ChangeNotifier {
 
   Future<void> ingestSecuritySignal({required String fromUserId, required int event}) async {
     if (session == null) return;
-    Conversation? conv = directConversationWith(fromUserId);
-    if (conv == null) {
-      try {
-        conv = await _findOrCreateDirectConversation(fromUserId);
-      } catch (e) {
-        DebugLog.instance.error('duress', 'ingest: cannot open chat with $fromUserId: $e');
-        return;
-      }
-    }
+    final conv = directConversationWith(fromUserId);
+    if (conv == null) return;
 
     final wireBody = MessagePayload.encodeDuress(code: event);
     final msg = ChatMessage(
@@ -1353,13 +1653,9 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _sendDuressMessage(
-    Conversation conversation, {
-    required int code,
-    String? messageText,
-  }) async {
+  Future<void> _sendDuressMessage(Conversation conversation, {required int code}) async {
     if (session == null) return;
-    final wireBody = MessagePayload.encodeDuress(code: code, text: messageText);
+    final wireBody = MessagePayload.encodeDuress(code: code);
     try {
       final ciphertext = await _encryptForConversation(conversation, Uint8List.fromList(utf8.encode(wireBody)));
       final resp = await _api.sendMessage(
@@ -1378,46 +1674,6 @@ class AppController extends ChangeNotifier {
     } catch (e) {
       DebugLog.instance.error('duress', 'system alert failed: $e');
     }
-  }
-
-  /// Local-only chat wipe for duress recipes.
-  Future<void> applyDuressChatDelete({
-    required DuressChatScope scope,
-    required List<String> conversationIds,
-    required DuressChatDeleteMode mode,
-  }) async {
-    final userId = session?.userId;
-    if (userId == null) return;
-
-    final targets = <String>{};
-    switch (scope) {
-      case DuressChatScope.specific:
-        targets.addAll(conversationIds);
-      case DuressChatScope.allSecret:
-        targets.addAll(_secretHiddenConversationIds);
-      case DuressChatScope.allHidden:
-        targets.addAll(_hiddenConversationIds);
-        targets.addAll(_secretHiddenConversationIds);
-      case DuressChatScope.allDirect:
-        for (final c in conversations) {
-          if (!c.isGroup) targets.add(c.id);
-        }
-    }
-    if (targets.isEmpty) return;
-
-    for (final id in targets) {
-      messagesByConversation.remove(id);
-      await _messageCache.clearConversation(userId, id);
-      if (mode == DuressChatDeleteMode.removeLocal) {
-        conversations.removeWhere((c) => c.id == id);
-        _hiddenConversationIds.add(id);
-        if (activeConversationId == id) activeConversationId = null;
-      }
-    }
-    if (mode == DuressChatDeleteMode.removeLocal) {
-      await _localSettings.setStringList('hidden_conversations', _hiddenConversationIds.toList());
-    }
-    notifyListeners();
   }
 
   Future<void> loadChatPreferences(String conversationId) async {
@@ -1444,6 +1700,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> _sendReadReceipt(String conversationId, DateTime readUntil) async {
     if (session == null) return;
+    if (!await SettingsRuntime.instance.readReceiptsEnabled()) return;
     Conversation? conv;
     for (final c in conversations) {
       if (c.id == conversationId) {
@@ -1473,6 +1730,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _handleReadReceipt(ChatMessage msg) async {
+    if (!await SettingsRuntime.instance.readReceiptsVisible()) return;
     if (msg.plaintext == null) await _decryptInPlace(msg);
     if (msg.plaintext == null) return;
     try {
@@ -1530,11 +1788,7 @@ class AppController extends ChangeNotifier {
     final secretOn = isSecretSessionActive(conversationId);
     var visible = all.where((m) => !_locallyHiddenMessageIds.contains(m.id) && !_isNonChatEnvelope(m));
     if (!secretOn) {
-      visible = visible.where((m) {
-        if (m.isSecret) return false;
-        if (_secretPlaintextVault.containsKey(m.id)) return false;
-        return true;
-      });
+      visible = visible.where((m) => !m.isSecret);
     }
     final normalSeconds = disappearingSeconds[conversationId];
     if (normalSeconds != null) {
@@ -1546,6 +1800,13 @@ class AppController extends ChangeNotifier {
       final cutoff = DateTime.now().subtract(Duration(seconds: secretSeconds));
       visible = visible.where((m) => !m.isSecret || m.createdAt.isAfter(cutoff));
     }
+    // Per-message TTL from outgoing auto-delete envelope.
+    final now = DateTime.now();
+    visible = visible.where((m) {
+      final ttl = m.ttlSeconds;
+      if (ttl == null || ttl <= 0) return true;
+      return m.createdAt.add(Duration(seconds: ttl)).isAfter(now);
+    });
     return visible.toList();
   }
 
@@ -1743,6 +2004,7 @@ class AppController extends ChangeNotifier {
       participantUserIds: resolved.map((m) => m.key).toList(),
     );
     final conv = Conversation.fromJson(json);
+    _locallyCreatedGroupIds.add(conv.id);
     await refreshConversations();
     return conv;
   }
@@ -1772,8 +2034,25 @@ class AppController extends ChangeNotifier {
 
     final plaintextIndex = _plaintextIndexFor(conversationId, [...diskCached, ...prior]);
 
+    final runtime = SettingsRuntime.instance;
+    if (!await runtime.messageHistorySyncAllowed()) {
+      await recomputeUnread(conversationId);
+      notifyListeners();
+      return;
+    }
+    final maxAge = await runtime.historySyncMaxAge();
+    if (maxAge == Duration.zero) {
+      await recomputeUnread(conversationId);
+      notifyListeners();
+      return;
+    }
+
     final raw = await _api.getMessages(conversationId, limit: 100);
-    final all = raw.map((j) => ChatMessage.fromJson(j as Map<String, dynamic>)).toList();
+    var all = raw.map((j) => ChatMessage.fromJson(j as Map<String, dynamic>)).toList();
+    if (maxAge != null) {
+      final cutoff = DateTime.now().subtract(maxAge);
+      all = all.where((m) => !m.createdAt.isBefore(cutoff)).toList();
+    }
     all.sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
     final mergedById = <String, ChatMessage>{
@@ -1806,11 +2085,16 @@ class AppController extends ChangeNotifier {
 
     final merged = mergedById.values.toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     messagesByConversation[conversationId] = merged;
-    if (!isSecretSessionActive(conversationId)) {
-      _sealSecretMessagesInConversation(conversationId);
-    } else if (userId != null) {
+    if (userId != null) {
       try {
-        await _messageCache.upsertMessages(userId, merged);
+        // Never persist decrypt-failed shells — that used to overwrite good local plaintext
+        // after a device-key rotation and made history permanently unreadable.
+        final persistable = merged
+            .where((m) => m.plaintext != null && m.plaintext!.isNotEmpty && !m.decryptFailed)
+            .toList();
+        if (persistable.isNotEmpty) {
+          await _messageCache.upsertMessages(userId, persistable);
+        }
       } catch (e) {
         debugPrint('Message cache bulk persist failed: $e');
       }
@@ -1853,9 +2137,6 @@ class AppController extends ChangeNotifier {
   Future<void> _persistMessage(ChatMessage message) async {
     final userId = session?.userId;
     if (userId == null) return;
-    if (message.isSecret && !isSecretSessionActive(message.conversationId)) {
-      _sealSecretMessage(message);
-    }
     try {
       await _messageCache.upsertMessage(userId, message);
     } catch (e) {
@@ -1867,7 +2148,53 @@ class AppController extends ChangeNotifier {
     if (await crypto!.hasSessionWith(otherUserId)) return;
     DebugLog.instance.info('crypto', 'establish session with $otherUserId');
     final bundleResp = await _api.getPreKeyBundle(otherUserId);
-    await crypto!.establishSessionFromBundle(otherUserId, bundleResp['bundle'] as Map<String, dynamic>);
+    try {
+      await crypto!.establishSessionFromBundle(otherUserId, bundleResp['bundle'] as Map<String, dynamic>);
+    } catch (e) {
+      if (_isUntrustedIdentityError(e)) {
+        await _handleIdentityKeyChange(otherUserId);
+      }
+      rethrow;
+    }
+  }
+
+  bool _isUntrustedIdentityError(Object e) {
+    final s = e.toString();
+    return s.contains('UntrustedIdentityException') || s.contains('Untrusted identity');
+  }
+
+  Future<void> _handleIdentityKeyChange(String userId) async {
+    final runtime = SettingsRuntime.instance;
+    if (await runtime.keyChangeWarning()) {
+      await setContactTrustLevel(userId, TrustLevel.unknown, logEvent: false);
+      await SecurityLogService.instance.append(
+        SecurityEvent(
+          title: 'Ключ контакта изменился',
+          subtitle: labelFor(userId),
+          at: DateTime.now(),
+          icon: 'shield',
+        ),
+      );
+      InAppNotificationService.instance.notify(
+        InAppNotificationEvent(
+          title: 'Ключ изменился',
+          body: 'Проверьте безопасность: ${labelFor(userId)}',
+          playSound: true,
+          vibrate: true,
+        ),
+      );
+    }
+    if (await runtime.blockOnKeyChange()) {
+      await runtime.blockUser(userId);
+      await SecurityLogService.instance.append(
+        SecurityEvent(
+          title: 'Контакт заблокирован после смены ключа',
+          subtitle: labelFor(userId),
+          at: DateTime.now(),
+          icon: 'block',
+        ),
+      );
+    }
   }
 
   String _cryptoQueueKey(ChatMessage m, {Conversation? conversation}) {
@@ -1879,16 +2206,13 @@ class AppController extends ChangeNotifier {
   }
 
   Map<String, ChatMessage> _plaintextIndexFor(String conversationId, List<ChatMessage> diskCached) {
-    final secretOn = isSecretSessionActive(conversationId);
     final index = <String, ChatMessage>{};
     for (final m in diskCached) {
-      if (!secretOn && m.isSecret) continue;
       if (m.plaintext != null && m.plaintext!.isNotEmpty && !m.decryptFailed) {
         index[m.id] = m;
       }
     }
     for (final m in messagesByConversation[conversationId] ?? []) {
-      if (!secretOn && m.isSecret) continue;
       if (m.plaintext != null && m.plaintext!.isNotEmpty && !m.decryptFailed) {
         index[m.id] = m;
       }
@@ -1902,7 +2226,6 @@ class AppController extends ChangeNotifier {
     target.replyToMessageId = source.replyToMessageId;
     target.replyPreview = source.replyPreview;
     target.decryptFailed = false;
-    target.isSecret = target.isSecret || source.isSecret;
     MessagePayload.applyTo(target);
   }
 
@@ -1931,12 +2254,6 @@ class AppController extends ChangeNotifier {
 
     // Outgoing messages cannot be Signal-decrypted on this device — plaintext from cache only.
     if (m.senderUserId == session?.userId) {
-      final indexed = plaintextIndex?[m.id];
-      if (indexed != null) {
-        m.isSecret = m.isSecret || indexed.isSecret;
-        _applyPlaintextFrom(m, indexed);
-        _sealSecretMessage(m);
-      }
       return;
     }
 
@@ -1953,6 +2270,9 @@ class AppController extends ChangeNotifier {
         MessagePayload.applyTo(m);
         _sealSecretMessage(m);
       } catch (e) {
+        if (_isUntrustedIdentityError(e)) {
+          await _handleIdentityKeyChange(m.senderUserId);
+        }
         if (_isDuplicateDecryptError(e)) {
           final fromIndex = plaintextIndex?[m.id];
           if (fromIndex != null) {
@@ -1998,6 +2318,58 @@ class AppController extends ChangeNotifier {
     _groupKeysDistributed.add(conversation.id);
   }
 
+  /// Adds members to a group conversation and distributes the sender key to new members.
+  Future<void> addGroupMembers(Conversation conversation, List<String> userIds) async {
+    if (crypto == null || session == null) return;
+    final updatedJson = await _api.addGroupMembers(conversation.id, userIds);
+    final updated = Conversation.fromJson(updatedJson);
+
+    // Update local state
+    final idx = conversations.indexWhere((c) => c.id == conversation.id);
+    if (idx >= 0) conversations[idx] = updated;
+
+    // Send sender key distribution to new members
+    final distributionB64 = await crypto!.createGroupSenderKeyDistribution(conversation.id, session!.userId);
+    final payload = jsonEncode({'group_id': conversation.id, 'distribution': distributionB64});
+    for (final memberId in userIds) {
+      if (memberId == session!.userId) continue;
+      try {
+        await _ensureSessionWith(memberId);
+        final ciphertext = await crypto!.encrypt(memberId, Uint8List.fromList(utf8.encode(payload)));
+        final directConv = await _findOrCreateDirectConversation(memberId);
+        await _api.sendMessage(
+          conversationId: directConv.id,
+          ciphertext: ciphertext,
+          contentType: 'sender_key_distribution',
+        );
+      } catch (e) {
+        DebugLog.instance.warn('group', 'Failed to distribute sender key to $memberId: $e');
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Removes a member from a group and rotates the sender key (forward secrecy).
+  Future<void> removeGroupMember(Conversation conversation, String userId) async {
+    if (crypto == null || session == null) return;
+    await _api.removeGroupMember(conversation.id, userId);
+
+    // Rotate sender key — invalidate current key so removed member can't decrypt future messages
+    _groupKeysDistributed.remove(conversation.id);
+
+    // Update local conversation state
+    final idx = conversations.indexWhere((c) => c.id == conversation.id);
+    if (idx >= 0) {
+      // Refresh from server to get accurate participant list
+      await refreshConversations();
+      final refreshed = conversations.firstWhere((c) => c.id == conversation.id, orElse: () => conversation);
+
+      // Distribute new sender key to remaining members
+      await _distributeGroupKeyIfNeeded(refreshed);
+    }
+    notifyListeners();
+  }
+
   /// Reuses an existing direct Conversation with [otherUserId] if we
   /// already have one locally, to avoid piling up duplicate 1:1
   /// conversations purely for control-message delivery.
@@ -2026,6 +2398,11 @@ class AppController extends ChangeNotifier {
     final servers = <Map<String, dynamic>>[
       {'urls': 'stun:stun.l.google.com:19302'},
     ];
+    final allowRelays = await SettingsRuntime.instance.nodeAllowRelays();
+    if (!allowRelays) {
+      DebugLog.instance.info('calls', 'node.allow_relays=false — STUN only');
+      return servers;
+    }
     try {
       final nodes = await _api.findNodes(capability: 'turn');
       final online = nodes.map((n) => n as Map<String, dynamic>).where((n) => n['status'] == 'online');
@@ -2061,11 +2438,24 @@ class AppController extends ChangeNotifier {
   /// tracks it as [currentCall] (spec/0303_CALLS.md, ADR-0008).
   Future<void> startCall({required String peerUserId, required CallKind kind}) async {
     if (currentCall != null) throw StateError('already in a call');
+    final runtime = SettingsRuntime.instance;
+    var effectiveKind = kind;
+    if (kind == CallKind.video && !await runtime.callsVideo()) {
+      effectiveKind = CallKind.audio;
+    }
     final callId = _uuid.v4();
     await _ensureSessionWith(peerUserId);
 
-    final media = await CallMediaController.create(iceServers: await _resolveIceServers(), video: kind == CallKind.video);
-    final call = ActiveCall(callId: callId, peerUserId: peerUserId, kind: kind, outgoing: true)..media = media;
+    final media = await CallMediaController.create(
+      iceServers: await _resolveIceServers(),
+      video: effectiveKind == CallKind.video,
+      forceRelay: await runtime.callsIceRelayOnly(),
+      noiseSuppression: await runtime.callsNoiseSuppression(),
+      echoCancellation: await runtime.callsEchoCancellation(),
+      quality: await runtime.callsQuality(),
+      dataSaver: await runtime.callsDataSaver(),
+    );
+    final call = ActiveCall(callId: callId, peerUserId: peerUserId, kind: effectiveKind, outgoing: true)..media = media;
     currentCall = call;
     callUiMinimized = false;
     _wireMedia(call, media);
@@ -2075,7 +2465,7 @@ class AppController extends ChangeNotifier {
     await _sendCallSignal(
       peerUserId: peerUserId,
       contentType: CallSignalType.offer.contentType,
-      ciphertext: await _callSignaling.encodeOffer(peerUserId: peerUserId, callId: callId, kind: kind, sdp: sdp),
+      ciphertext: await _callSignaling.encodeOffer(peerUserId: peerUserId, callId: callId, kind: effectiveKind, sdp: sdp),
     );
   }
 
@@ -2086,7 +2476,18 @@ class AppController extends ChangeNotifier {
     final call = currentCall;
     if (call == null || call.outgoing || call.answered || call.remoteSdp == null) return;
 
-    final media = await CallMediaController.create(iceServers: await _resolveIceServers(), video: call.kind == CallKind.video);
+    final runtime = SettingsRuntime.instance;
+    final useVideo = call.kind == CallKind.video && await runtime.callsVideo();
+
+    final media = await CallMediaController.create(
+      iceServers: await _resolveIceServers(),
+      video: useVideo,
+      forceRelay: await runtime.callsIceRelayOnly(),
+      noiseSuppression: await runtime.callsNoiseSuppression(),
+      echoCancellation: await runtime.callsEchoCancellation(),
+      quality: await runtime.callsQuality(),
+      dataSaver: await runtime.callsDataSaver(),
+    );
     call.media = media;
     _wireMedia(call, media);
     for (final candidate in call.pendingRemoteIceCandidates) {
@@ -2168,6 +2569,7 @@ class AppController extends ChangeNotifier {
   }
 
   bool isContactOnline(String userId) {
+    if (!canShowOnlineStatusFor(userId)) return false;
     if (currentCall?.peerUserId == userId && currentCall!.answered) return true;
     final last = lastActivityFor(userId);
     if (last == null) return false;
@@ -2179,6 +2581,7 @@ class AppController extends ChangeNotifier {
       return currentCall!.answered ? 'В звонке' : 'Звонит…';
     }
     if (isContactOnline(userId)) return 'Недавно в сети';
+    if (!canShowLastSeenFor(userId)) return '';
     final last = lastActivityFor(userId);
     if (last == null) return 'Не в сети';
     return formatRelativeTime(last);
@@ -2289,12 +2692,14 @@ class AppController extends ChangeNotifier {
       startedAt: call.startedAt,
       durationSeconds: duration,
     );
+    final peerLabel = labelFor(call.peerUserId);
     await _callHistoryStore.append(entry);
     callHistory.insert(0, entry);
     if (callHistory.length > 200) {
       callHistory.removeRange(200, callHistory.length);
     }
     await _clearCall(call);
+    _showCallEndedOverlay(peerLabel);
   }
 
   Future<void> _clearCall(ActiveCall call) async {
@@ -2343,6 +2748,7 @@ class AppController extends ChangeNotifier {
     DebugLog.instance.info('send', 'text to conv=${conversation.id.substring(0, 8)}… peer=$peer');
     final clientMsgId = _uuid.v4();
     final secret = isSecretSessionActive(conversation.id) && !AppPrivacySession.instance.isInDecoyMode;
+    final ttlSeconds = await SettingsRuntime.instance.outgoingAutoDeleteSeconds();
     final pending = ChatMessage(
       id: clientMsgId,
       conversationId: conversation.id,
@@ -2356,8 +2762,26 @@ class AppController extends ChangeNotifier {
       replyToMessageId: replyToMessageId,
       replyPreview: replyPreview,
       isSecret: secret,
+      ttlSeconds: ttlSeconds,
     );
     messagesByConversation.putIfAbsent(conversation.id, () => []).add(pending);
+
+    // If offline, enqueue for later and return without error.
+    if (!websocketConnected) {
+      await OutboxQueue.instance.enqueue(OutboxEntry(
+        id: clientMsgId,
+        conversationId: conversation.id,
+        text: text,
+        replyToMessageId: replyToMessageId,
+        replyPreview: replyPreview,
+        secret: secret,
+        ttlSeconds: ttlSeconds,
+      ));
+      await MessageDeliveryStore.instance.setStatus(clientMsgId, MessageDeliveryStatus.queued);
+      notifyListeners();
+      return;
+    }
+
     await MessageDeliveryStore.instance.setStatus(clientMsgId, MessageDeliveryStatus.sending);
     notifyListeners();
 
@@ -2367,6 +2791,7 @@ class AppController extends ChangeNotifier {
         secret: secret,
         replyToMessageId: replyToMessageId,
         replyPreview: replyPreview,
+        ttlSeconds: ttlSeconds,
       );
       final ciphertext = await _encryptForConversation(conversation, Uint8List.fromList(utf8.encode(wireBody)));
       final resp = await _api.sendMessage(
@@ -2380,7 +2805,8 @@ class AppController extends ChangeNotifier {
         ..plaintext = text
         ..replyToMessageId = replyToMessageId
         ..replyPreview = replyPreview
-        ..isSecret = secret;
+        ..isSecret = secret
+        ..ttlSeconds = ttlSeconds;
       final list = messagesByConversation[conversation.id]!;
       final idx = list.indexWhere((m) => m.id == clientMsgId);
       if (idx >= 0) {
@@ -2426,39 +2852,72 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> sendImage(Conversation conversation, Uint8List bytes, String filename, String mime) async {
+    return sendAttachment(conversation, bytes, filename, mime, 'image');
+  }
+
+  Future<void> sendAttachment(
+    Conversation conversation,
+    Uint8List bytes,
+    String filename,
+    String mime,
+    String contentType,
+  ) async {
     final clientMsgId = _uuid.v4();
     final secret = isSecretSessionActive(conversation.id) && !AppPrivacySession.instance.isInDecoyMode;
+    final ttlSeconds = await SettingsRuntime.instance.outgoingAutoDeleteSeconds();
+
+    var payload = bytes;
+    String? videoQualityHint;
+    if (contentType == 'image') {
+      payload = await MediaQuality.prepareImage(bytes);
+    } else if (contentType == 'video') {
+      final prepared = await MediaQuality.prepareVideo(bytes);
+      payload = prepared.$1;
+      videoQualityHint = prepared.$2;
+    }
+
     final pending = ChatMessage(
       id: clientMsgId,
       conversationId: conversation.id,
       senderUserId: session!.userId,
       senderDeviceId: session!.deviceId,
       ciphertext: '',
-      contentType: 'image',
+      contentType: contentType,
       cryptoVersion: 'local-pending',
       createdAt: DateTime.now(),
       plaintext: '{"pending":true}',
       isSecret: secret,
+      ttlSeconds: ttlSeconds,
     );
     messagesByConversation.putIfAbsent(conversation.id, () => []).add(pending);
     notifyListeners();
 
     try {
-      final (cipherForUpload, pointer) = await MediaCrypto.encrypt(bytes, filename: filename, mime: mime);
-      final mediaId = await _api.uploadMedia(cipherForUpload, filename);
-      final fullPointer = {...pointer, 'media_id': mediaId};
-      final pointerJson = MessagePayload.encodeJsonMap(fullPointer, secret: secret);
+      final (cipherForUpload, pointer) = await MediaCrypto.encrypt(payload, filename: filename, mime: mime);
+      final mediaId = await _uploadChatMedia(cipherForUpload, filename);
+      final fullPointer = {
+        ...pointer,
+        'media_id': mediaId,
+        if (videoQualityHint != null) 'video_quality': videoQualityHint,
+      };
+      final pointerJson = MessagePayload.encodeJsonMap(
+        fullPointer,
+        secret: secret,
+        ttlSeconds: ttlSeconds,
+      );
 
       final ciphertext =
           await _encryptForConversation(conversation, Uint8List.fromList(utf8.encode(pointerJson)));
       final resp = await _api.sendMessage(
         conversationId: conversation.id,
         ciphertext: ciphertext,
-        contentType: 'image',
+        contentType: contentType,
         clientMsgId: clientMsgId,
       );
 
-      final msg = ChatMessage.fromJson(resp)..plaintext = pointerJson;
+      final msg = ChatMessage.fromJson(resp)
+        ..plaintext = pointerJson
+        ..ttlSeconds = ttlSeconds;
       MessagePayload.applyTo(msg);
       final list = messagesByConversation[conversation.id]!;
       final idx = list.indexWhere((m) => m.id == clientMsgId);
@@ -2467,7 +2926,12 @@ class AppController extends ChangeNotifier {
       } else {
         list.add(msg);
       }
-      MediaCache.instance.put(mediaId, bytes);
+      if (!await SettingsRuntime.instance.shouldIsolateHiddenMedia(
+        isSecretHidden: isSecretHidden(conversation.id),
+      )) {
+        MediaCache.instance.put(mediaId, payload);
+        await GallerySaveService.instance.maybeSave(filename: filename, bytes: payload);
+      }
       await _persistMessage(msg);
       if (activeConversationId == conversation.id) {
         await markConversationRead(conversation.id);
@@ -2505,13 +2969,40 @@ class AppController extends ChangeNotifier {
     return crypto!.encrypt(other, plaintext);
   }
 
+  void _configurePpcMediaStore() {
+    final userId = session?.userId;
+    final keys = authKeyPair;
+    if (userId == null || keys == null) return;
+    PersonalPcMediaStore.instance.configure(userId: userId, authKeyPair: keys);
+  }
+
+  Future<String> _uploadChatMedia(Uint8List ciphertext, String filename) async {
+    _configurePpcMediaStore();
+    if (await PersonalPcMediaStore.instance.shouldHandleMedia()) {
+      return PersonalPcMediaStore.instance.upload(ciphertext);
+    }
+    return _api.uploadMedia(ciphertext, filename);
+  }
+
+  Future<Uint8List> _downloadChatMedia(String mediaId) async {
+    if (mediaId.startsWith(PersonalPcMediaStore.mediaIdPrefix)) {
+      _configurePpcMediaStore();
+      return PersonalPcMediaStore.instance.download(mediaId);
+    }
+    return _api.downloadMedia(mediaId);
+  }
+
   Future<Uint8List> resolveImageBytes(ChatMessage message, {bool forceDownload = false}) async {
+    return resolveAttachmentBytes(message, forceDownload: forceDownload);
+  }
+
+  Future<Uint8List> resolveAttachmentBytes(ChatMessage message, {bool forceDownload = false}) async {
     if (message.plaintext == null || message.plaintext!.isEmpty) {
-      throw StateError('image metadata missing');
+      throw StateError('attachment metadata missing');
     }
     final pointer = jsonDecode(message.plaintext!) as Map<String, dynamic>;
     if (pointer['pending'] == true) {
-      throw StateError('image still uploading');
+      throw StateError('attachment still uploading');
     }
     final mediaId = pointer['media_id'] as String?;
     if (mediaId == null || mediaId.isEmpty) {
@@ -2522,9 +3013,15 @@ class AppController extends ChangeNotifier {
     if (!forceDownload) {
       throw StateError('autodownload_disabled');
     }
-    final cipherBytes = await _api.downloadMedia(mediaId);
+    final cipherBytes = await _downloadChatMedia(mediaId);
     final plain = await MediaCrypto.decrypt(cipherBytes, pointer);
-    MediaCache.instance.put(mediaId, plain);
+    if (!await SettingsRuntime.instance.shouldIsolateHiddenMedia(
+      isSecretHidden: isSecretHidden(message.conversationId),
+    )) {
+      MediaCache.instance.put(mediaId, plain);
+      final name = pointer['filename'] as String? ?? mediaId;
+      await GallerySaveService.instance.maybeSave(filename: name, bytes: plain);
+    }
     return plain;
   }
 
@@ -2742,13 +3239,32 @@ class AppController extends ChangeNotifier {
     final currentId = session?.deviceId;
     final knownIds = devices.map((d) => d.id).toSet();
     deviceTrustProfiles.removeWhere((id, _) => !knownIds.contains(id));
+    final hiddenDefault = await SettingsRuntime.instance.devicesHiddenAccessDefault();
+    final requireApproval = await SettingsRuntime.instance.devicesRequireApproval();
 
     for (final device in devices) {
-      if (device.isCurrent && !deviceTrustProfiles.containsKey(device.id)) {
+      if (!deviceTrustProfiles.containsKey(device.id)) {
         final awaiting = await LoginApprovalService.instance.isDeviceAwaitingApproval(device.id);
-        if (!awaiting) {
+        if (device.isCurrent && !awaiting) {
           deviceTrustProfiles[device.id] = DeviceTrustProfile.currentDevice;
           await _deviceTrustStore.setProfile(device.id, DeviceTrustProfile.currentDevice);
+        } else if (!device.isCurrent && !requireApproval && !awaiting) {
+          // Auto-trust only when approval is not required.
+          final profile = DeviceTrustProfile(
+            trusted: true,
+            privateModeAccess: hiddenDefault,
+            secretRoomAccess: hiddenDefault,
+          );
+          deviceTrustProfiles[device.id] = profile;
+          await _deviceTrustStore.setProfile(device.id, profile);
+        } else if (!deviceTrustProfiles.containsKey(device.id)) {
+          final profile = DeviceTrustProfile(
+            trusted: false,
+            privateModeAccess: hiddenDefault,
+            secretRoomAccess: hiddenDefault,
+          );
+          deviceTrustProfiles[device.id] = profile;
+          await _deviceTrustStore.setProfile(device.id, profile);
         }
       }
     }
@@ -2927,10 +3443,11 @@ class AppController extends ChangeNotifier {
     _realtime.disconnect();
     if (userId != null) {
       await _messageCache.clearUser(userId);
+      // Clear in-scope list while still namespaced to this user.
+      await _localSettings.setStringList('hidden_conversations', []);
     }
     await _sessionStore.clear();
     _hiddenConversationIds.clear();
-    await _localSettings.setStringList('hidden_conversations', []);
     if (currentCall != null) await _clearCall(currentCall!);
     loginApprovalPending = false;
     pendingLoginApprovals = [];
@@ -2947,15 +3464,14 @@ class AppController extends ChangeNotifier {
       t.cancel();
     }
     _secretSessionTimers.clear();
-    for (final t in _reminderTimers.values) {
-      t.cancel();
-    }
-    _reminderTimers.clear();
     secretDisappearingSeconds = null;
     activeConversationId = null;
     phone = null;
     login = null;
     email = null;
+    // Detach settings/PIN namespace so the next account starts clean.
+    // Namespaced prefs for this userId remain for a later re-login.
+    await AccountSettingsScope.deactivate();
     notifyListeners();
   }
 }

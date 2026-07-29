@@ -31,6 +31,7 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
   final _store = PrivacyPreferencesStore();
   bool _loading = true;
 
+  bool _faceId = false;
   bool _hasRealPin = false;
   bool _decoyStepDone = false;
   bool _secretRoomConfigured = false;
@@ -76,6 +77,7 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
     if (!mounted) return;
     setState(() {
       _hasRealPin = realPin;
+      _faceId = pm.biometricEnabled;
       _hasDecoyPin = fakePin;
       _decoyStepDone = decoyDoneNow;
       _secretRoomConfigured = secretConfigured;
@@ -244,6 +246,17 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
                         MaterialPageRoute(builder: (_) => const DuressPolicyScreen()),
                       ),
                       showDivider: true,
+                    ),
+                    AppSwitchTile(
+                      leading: Icon(Icons.fingerprint, color: colors.textSecondary),
+                      title: 'Face ID / Touch ID',
+                      subtitle: PlatformCapabilities.isWeb ? 'Mock на web' : 'Биометрический вход',
+                      value: _faceId,
+                      enabled: true,
+                      onChanged: (v) async {
+                        await ref.read(privateModeStateProvider).setBiometricEnabled(v);
+                        setState(() => _faceId = v);
+                      },
                     ),
                     AppSwitchTile(
                       leading: Icon(Icons.lock_open_outlined, color: colors.textSecondary),

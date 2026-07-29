@@ -20,14 +20,14 @@ android {
     }
 
     defaultConfig {
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.messenger.messenger_app"
-        // flutter_secure_storage, WebRTC, mobile_scanner all require API 21+
-        minSdk = 21
+        // You can update the following values to match your application needs.
+        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        // Enable multidex for Signal Protocol + cryptography deps
-        multiDexEnabled = true
     }
 
     buildTypes {

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Пульт оператора</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  .channels { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; margin-bottom:24px; }
+  .channel { padding:16px; border:1px solid var(--border,#1e293b); border-radius:10px; background:var(--surface,#0f172a); }
+  .channel h3 { margin:0 0 4px; font-size:14px; display:flex; align-items:center; gap:8px; }
+  .channel .sub { font-size:12px; color:var(--text-muted,#94a3b8); margin-bottom:12px; }
+  .dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex:none; }
+  .dot.on { background:#22c55e; } .dot.off { background:#ef4444; } .dot.warn { background:#f59e0b; }
+  .kv { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; }
+  .kv span:first-child { color:var(--text-muted,#94a3b8); }
+  .kv code { font-size:11px; }
+
+  .section { margin-bottom:28px; }
+  .section > h2 { font-size:15px; margin:0 0 4px; }
+  .section > .hint { font-size:12px; color:var(--text-muted,#94a3b8); margin-bottom:12px; }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-weight:500; font-size:11px; text-transform:uppercase;
+       letter-spacing:.04em; color:var(--text-muted,#94a3b8); padding:6px 8px;
+       border-bottom:1px solid var(--border,#1e293b); }
+  td { padding:8px; border-bottom:1px solid var(--border,#1e293b); vertical-align:middle; }
+
+  .pill { font-size:11px; padding:2px 8px; border-radius:20px; white-space:nowrap; }
+  .pill.own    { background:rgba(34,197,94,.15);  color:#22c55e; }
+  .pill.ext    { background:rgba(148,163,184,.15); color:#94a3b8; }
+  .pill.up     { background:rgba(34,197,94,.15);  color:#22c55e; }
+  .pill.down   { background:rgba(239,68,68,.15);  color:#ef4444; }
+  .pill.trust  { background:rgba(59,130,246,.15); color:#3b82f6; }
+
+  button.act { font-size:11px; padding:3px 10px; margin-right:4px; border-radius:5px;
+               border:1px solid var(--border,#1e293b); background:transparent;
+               color:var(--text,#f1f5f9); cursor:pointer; }
+  button.act:hover:not(:disabled) { background:var(--border,#1e293b); }
+  button.act:disabled { opacity:.35; cursor:not-allowed; }
+
+  .msg { padding:12px 14px; border-radius:8px; font-size:13px; margin-bottom:14px; }
+  .msg.err  { background:rgba(239,68,68,.1);  border:1px solid rgba(239,68,68,.3); }
+  .msg.info { background:rgba(59,130,246,.1); border:1px solid rgba(59,130,246,.3); }
+  .empty { text-align:center; padding:32px; color:var(--text-muted,#94a3b8); font-size:13px; }
+
+  pre.logs { background:#020617; border:1px solid var(--border,#1e293b); border-radius:8px;
+             padding:12px; font-size:11px; max-height:340px; overflow:auto; margin-top:8px; }
+</style>
+<!-- shared.js — AdminBase и перехватчик авторизации. Должен идти первым. -->
+<script src="/static/shared.js"></script>
+</head>
+<body class="page-operator">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Operator Admin</h1>
+          <p class="subtitle">Пульт управления федерацией</p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./" class="active">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup">Настройка</a>
+        <a href="storage">Хранилище</a>
+        <a href="enrollment">Доверие</a>
+        <a href="vuln">Безопасность</a>
+        <a href="audit">Аудит</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить" aria-label="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему" aria-label="Сменить тему">◐</button>
+      </div>
+    </header>
+
+
+<main class="dashboard">
+
+  <div id="banner"></div>
+
+  <!-- Состояние каналов -->
+  <div class="channels" id="channels"></div>
+
+  <!-- Ноды федерации (mTLS) -->
+  <div class="section">
+    <h2>Ноды федерации</h2>
+    <div class="hint">
+      Телеметрия из heartbeat — ноды присылают её сами. Управление членством
+      применимо к любой ноде; во внутренности чужих нод пульт не заходит.
+    </div>
+    <table>
+      <thead><tr>
+        <th>Нода</th><th>Принадлежность</th><th>Доверие</th>
+        <th>CPU</th><th>RAM</th><th>Сообщений/24ч</th><th>Действия</th>
+      </tr></thead>
+      <tbody id="nodesBody"><tr><td colspan="7" class="empty">Загрузка…</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Свои серверы (SSH) -->
+  <div class="section">
+    <h2>Свои серверы</h2>
+    <div class="hint">
+      Контейнеры на машинах, к которым есть SSH-доступ. Чужие ноды сюда
+      не попадают — их обслуживают владельцы.
+    </div>
+    <table>
+      <thead><tr>
+        <th>Сервис</th><th>Хост</th><th>Состояние</th><th>Действия</th>
+      </tr></thead>
+      <tbody id="svcBody"><tr><td colspan="4" class="empty">Загрузка…</td></tr></tbody>
+    </table>
+    <pre class="logs" id="logs" style="display:none"></pre>
+  </div>
+
+</main>
+  </div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function note(kind, html) {
+    $("banner").innerHTML = `<div class="msg ${kind}">${html}</div>`;
+  }
+
+  async function api(path, opts) {
+    const r = await fetch(AdminBase.url(path), opts);
+    const text = await r.text();
+    let data; try { data = JSON.parse(text); } catch { data = { detail: text }; }
+    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+    return data;
+  }
+
+  // ── Состояние каналов ────────────────────────────────────────────────────
+  function renderChannels(s) {
+    const mtlsOk = s.mtls?.certificates?.ready;
+    const sshOk = s.ssh?.configured;
+
+    const mtls = `
+      <div class="channel">
+        <h3><span class="dot ${mtlsOk ? "on" : "off"}"></span> Канал mTLS</h3>
+        <div class="sub">Телеметрия и реестр федерации</div>
+        <div class="kv"><span>Сертификат</span><span>${mtlsOk ? "на месте" : "не найден"}</span></div>
+        <div class="kv"><span>Шлюз discovery</span><code>${esc(s.mtls?.gateways?.discovery || "не задан")}</code></div>
+        <div class="kv"><span>Шлюз home</span><code>${esc(s.mtls?.gateways?.home || "не задан")}</code></div>
+      </div>`;
+
+    const hosts = Object.entries(s.ssh?.hosts || {});
+    const ssh = `
+      <div class="channel">
+        <h3><span class="dot ${sshOk ? "on" : "warn"}"></span> Канал SSH</h3>
+        <div class="sub">Обслуживание своих серверов</div>
+        <div class="kv"><span>Ключ</span><span>${s.ssh?.key?.exists ? "на месте" : "не найден"}</span></div>
+        ${hosts.length
+          ? hosts.map(([a, t]) => `<div class="kv"><span>${esc(a)}</span><code>${esc(t)}</code></div>`).join("")
+          : '<div class="kv"><span>Хосты</span><span>не настроены</span></div>'}
+      </div>`;
+
+    const owned = s.owned_nodes || [];
+    const own = `
+      <div class="channel">
+        <h3><span class="dot ${owned.length ? "on" : "warn"}"></span> Свои ноды</h3>
+        <div class="sub">Для них доступны конфигурация и рестарт</div>
+        ${owned.length
+          ? owned.map((n) => `<div class="kv"><span>${esc(n)}</span><span class="pill own">своя</span></div>`).join("")
+          : '<div class="kv"><span>Список пуст</span><span>OPERATOR_OWNED_NODES</span></div>'}
+      </div>`;
+
+    $("channels").innerHTML = mtls + ssh + own;
+
+    if (!mtlsOk) {
+      note("err", "<strong>Канал mTLS не готов.</strong> Без него недоступны телеметрия " +
+        "и управление федерацией. Проверьте сертификаты в <code>operator-console/certs/</code>.");
+    } else if (!sshOk) {
+      note("info", "<strong>SSH-канал не настроен</strong> — деплой и перезапуск недоступны. " +
+        "Телеметрия и управление членством работают.");
+    }
+  }
+
+  // ── Ноды федерации ───────────────────────────────────────────────────────
+  function pct(v) { return v == null ? "—" : `${v}%`; }
+
+  function renderNodes(data) {
+    const nodes = data.nodes || (Array.isArray(data) ? data : []);
+    if (!nodes.length) {
+      $("nodesBody").innerHTML = '<tr><td colspan="7" class="empty">Нод не найдено</td></tr>';
+      return;
+    }
+    $("nodesBody").innerHTML = nodes.map((n) => {
+      const m = n.metrics || {};
+      const owned = n.is_owned;
+      const trust = n.trust_level || n.trust_status || "—";
+      return `<tr>
+        <td><code>${esc(n.node_id)}</code></td>
+        <td><span class="pill ${owned ? "own" : "ext"}">${owned ? "своя" : "чужая"}</span></td>
+        <td><span class="pill trust">${esc(trust)}</span></td>
+        <td>${pct(m.cpu_percent_est)}</td>
+        <td>${pct(m.ram_percent)}</td>
+        <td>${m.messages_24h ?? "—"}</td>
+        <td>
+          <button class="act" data-node="${esc(n.node_id)}" data-act="suspend">Приостановить</button>
+          <button class="act" data-node="${esc(n.node_id)}" data-act="reinstate">Вернуть</button>
+        </td>
+      </tr>`;
+    }).join("");
+
+    $("nodesBody").querySelectorAll("button.act").forEach((b) => {
+      b.addEventListener("click", async () => {
+        const { node, act } = b.dataset;
+        if (!confirm(`Действие «${act}» для ноды ${node}. Продолжить?`)) return;
+        b.disabled = true;
+        try {
+          await api(`/api/operator/registry/${encodeURIComponent(node)}/${act}`, { method: "POST" });
+          await loadNodes();
+        } catch (e) {
+          note("err", `Не удалось выполнить «${act}» для ${esc(node)}: ${esc(e.message)}`);
+          b.disabled = false;
+        }
+      });
+    });
+  }
+
+  // ── Свои серверы ─────────────────────────────────────────────────────────
+  function renderServices(data) {
+    const svcs = data.services || [];
+    if (!svcs.length) {
+      $("svcBody").innerHTML = '<tr><td colspan="4" class="empty">Инвентарь пуст — задайте OPERATOR_NODE_INVENTORY</td></tr>';
+      return;
+    }
+    $("svcBody").innerHTML = svcs.map((s) => `
+      <tr>
+        <td><code>${esc(s.service)}</code></td>
+        <td>${esc(s.host_alias)}</td>
+        <td><span class="pill ${s.running ? "up" : "down"}">${s.running ? "работает" : "остановлен"}</span></td>
+        <td>
+          <button class="act" data-svc="${esc(s.service)}" data-act="logs">Логи</button>
+          <button class="act" data-svc="${esc(s.service)}" data-act="restart">Перезапустить</button>
+        </td>
+      </tr>`).join("");
+
+    $("svcBody").querySelectorAll("button.act").forEach((b) => {
+      b.addEventListener("click", async () => {
+        const { svc, act } = b.dataset;
+        if (act === "restart" && !confirm(`Перезапустить ${svc}? Нода ненадолго станет недоступна.`)) return;
+        b.disabled = true;
+        try {
+          if (act === "logs") {
+            const r = await api(`/api/operator/services/${encodeURIComponent(svc)}/logs?lines=200`);
+            $("logs").style.display = "block";
+            $("logs").textContent = (r.lines || []).join("\n") || "(пусто)";
+            $("logs").scrollTop = $("logs").scrollHeight;
+          } else {
+            await api(`/api/operator/services/${encodeURIComponent(svc)}/restart`, { method: "POST" });
+            await loadServices();
+          }
+        } catch (e) {
+          note("err", `${esc(svc)}: ${esc(e.message)}`);
+        } finally {
+          b.disabled = false;
+        }
+      });
+    });
+  }
+
+  // ── Загрузка ─────────────────────────────────────────────────────────────
+  async function loadNodes() {
+    try {
+      renderNodes(await api("/api/operator/nodes"));
+    } catch (e) {
+      $("nodesBody").innerHTML =
+        `<tr><td colspan="7" class="empty">${esc(e.message)}</td></tr>`;
+    }
+  }
+
+  async function loadServices() {
+    try {
+      renderServices(await api("/api/operator/services"));
+    } catch (e) {
+      $("svcBody").innerHTML =
+        `<tr><td colspan="4" class="empty">${esc(e.message)}</td></tr>`;
+    }
+  }
+
+  async function init() {
+    if (window.AdminTheme) AdminTheme.init();
+    try {
+      renderChannels(await api("/api/operator/status"));
+    } catch (e) {
+      note("err", `Не удалось получить состояние пульта: ${esc(e.message)}`);
+    }
+    await Promise.all([loadNodes(), loadServices()]);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

@@ -73,3 +73,170 @@ health-check.
 - SQLite-файлы каждой ноды лежат в `./data/<нода>/` рядом с
   `docker-compose.yml` — бэкапить/переносить нужно руками, репликации
   между нодами нет (см. `spec/0700_DATABASE.md`).
+
+## Настройка WebRTC звонков (coturn)
+
+Сервис `coturn` в `docker-compose.yml` поднимается автоматически вместе со стеком, но требует дополнительной настройки для работы вне локальной сети.
+
+### Минимум для локальной сети (dev)
+Ничего дополнительно делать не нужно — coturn поднимется с дефолтным shared secret и realm `messenger.local`. WebRTC между браузерами в одной локалке будет работать через STUN без TURN (P2P).
+
+### Для работы за NAT / в интернете
+
+1. Узнать публичный IP сервера:
+   ```
+   curl ifconfig.me
+   ```
+
+2. Добавить в `.env`:
+   ```
+   TURN_EXTERNAL_IP=1.2.3.4         # публичный IP
+   TURN_REALM=turn.yourdomain.com   # ваш домен или IP
+   TURN_SHARED_SECRET=очень-длинный-случайный-секрет
+   ```
+
+3. Открыть порты на файрволле:
+   ```bash
+   # STUN/TURN (обязательно)
+   ufw allow 3478/udp
+   ufw allow 3478/tcp
+   # TURN over TLS (опционально, если клиенты требуют turns://)
+   ufw allow 5349/udp
+   ufw allow 5349/tcp
+   # Медиарелей (обязательно для TURN)
+   ufw allow 49152:65535/udp
+   ```
+
+   > **Важно**: без открытия `49152:65535/udp` coturn запустится и выдаст
+   > credentials, но медиарелей работать не будет — WebRTC-соединение
+   > зависнет на `checking` и не перейдёт в `connected`.
+
+4. Перезапустить стек:
+   ```
+   docker compose up -d coturn turn-node
+   ```
+
+### Проверка
+```bash
+# Проверить, что coturn слушает
+docker compose logs coturn | tail -20
+
+# Проверить выдачу credentials от turn-node
+curl http://localhost:8006/turn/credentials
+# Должен вернуть {urls, username, credential}
+
+# Проверить STUN/TURN (нужен turnutils_uclient или онлайн-тест)
+# https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/
+```
+
+### Архитектура
+```
+Клиент A  ←──WebRTC──→  Клиент Б
+              ↑ P2P если доступно
+              
+Клиент A  →  coturn  →  Клиент Б
+              ↑ relay если P2P заблокирован NAT/firewall
+
+Клиент  →  turn-node /turn/credentials  →  временные HMAC credentials
+turn-node не трогает медиа — только выдаёт credentials
+coturn обрабатывает сам медиарелей
+Оба используют один TURN_SHARED_SECRET
+```
+
+## TLS между нодами (nginx reverse proxy)
+
+По умолчанию ноды общаются по HTTP внутри Docker-сети. Для продакшна или любой сети вне доверенной локалки нужен TLS.
+
+### Включить за один шаг
+
+```bash
+bash scripts/enable-tls.sh
+```
+
+Скрипт:
+1. Генерирует CA + сертификаты в `config/mtls/` (через `scripts/generate-mtls-certs.sh`)
+2. Поднимает `nginx-tls` сервис (Docker profile `tls`)
+3. Проверяет, что все 5 нод отвечают по HTTPS
+
+### Порты после включения TLS
+
+| Нода           | Plain HTTP | HTTPS (через nginx) |
+|----------------|-----------|---------------------|
+| home-node      | 8001      | **8101**            |
+| storage-node   | 8002      | **8102**            |
+| discovery-node | 8003      | **8103**            |
+| media-node     | 8004      | **8104**            |
+| relay-node     | 8005      | **8105**            |
+
+### Обновить federation URLs
+
+После включения TLS обновите `.env` чтобы ноды общались через HTTPS:
+
+```env
+HOME_NODE_PUBLIC_URL=https://192.168.1.10:8101
+RELAY_NODE_PUBLIC_URL=https://192.168.1.10:8105
+# ... и т.д.
+```
+
+Затем перезапустите ноды: `docker compose up -d`
+
+### Обновить сертификаты
+
+```bash
+FORCE=1 bash scripts/enable-tls.sh
+```
+
+Сертификаты пересоздаются, nginx-tls перезапускается автоматически.
+Ноды не перезапускаются — они за nginx и TLS не трогают.
+
+### Проверка TLS вручную
+
+```bash
+# Все 5 нод за nginx
+for port in 8101 8102 8103 8104 8105; do
+  echo -n "Port $port: "
+  curl -sk --max-time 3 https://localhost:$port/health | python3 -m json.tool --no-indent 2>/dev/null || echo "FAIL"
+done
+
+# Посмотреть сертификат
+openssl s_client -connect localhost:8101 -showcerts </dev/null 2>/dev/null | openssl x509 -noout -dates
+```
+
+### mTLS (взаимная аутентификация нод) — опционально
+
+По умолчанию nginx проверяет только серверный сертификат. Для строгой проверки клиентских нод:
+
+1. В `config/nginx/nginx-tls.conf` раскомментировать строки:
+   ```nginx
+   ssl_client_certificate /etc/nginx/certs/ca.crt;
+   ssl_verify_client on;
+   ```
+
+2. В `.env` установить:
+   ```env
+   MTLS_MODE=enforce
+   ```
+
+3. Перезапустить nginx-tls:
+   ```bash
+   docker compose --profile tls restart nginx-tls
+   ```
+
+После этого только ноды с сертификатом от вашего CA смогут обращаться к эндпоинтам.
+
+---
+
+## Полный чеклист перед первым запуском в "боевой" локалке
+
+```
+[ ] docker + docker compose установлены на каждой машине
+[ ] ./scripts/setup-node.sh запущен на каждой машине (выбрана роль, введён LAN IP)
+[ ] Admin UI (порт 9200/9201) доступен только по SSH-туннелю или с localhost
+[ ] TURN_SHARED_SECRET изменён (не дефолтный)
+[ ] JWT_SECRET изменён (не дефолтный)
+[ ] DISCOVERY_ADMIN_SECRET установлен (иначе admin API discovery открыт)
+[ ] Порты 8001-8007 закрыты от внешнего интернета (только локалка)
+[ ] Если нужен TURN за NAT: TURN_EXTERNAL_IP установлен, порты 3478 и 49152-65535/udp открыты
+[ ] Если нужен TLS: bash scripts/enable-tls.sh запущен, PUBLIC_URL обновлены на https://
+[ ] Резервное копирование ./data/ настроено (cron или скрипт)
+```

@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../security/pin_security.dart';
 import 'app_lock_service.dart';
 import 'local_settings_store.dart';
-import 'privacy_preferences_store.dart';
 
 typedef AccountScopeListener = Future<void> Function(String? userId);
 
@@ -36,7 +35,6 @@ class AccountSettingsScope {
     PinSecurity.setActiveUser(userId);
     await LocalSettingsStore.clearUnscopedAccountData();
     await PinSecurity.clearUnscopedKeys();
-    await PrivacyPreferencesStore().migrateAppLockIfNeeded();
     await AppLockService.instance.init();
     await _notify(userId);
   }

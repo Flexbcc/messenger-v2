@@ -51,8 +51,31 @@ services:
       FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
       FEDERATION_ENVELOPE_MODE: ${FEDERATION_ENVELOPE_MODE:-legacy}
       HOME_DB_PATH: /data/home.db
+      PUSH_PROXY_URL: ${PUSH_PROXY_URL:-http://push-proxy:8008}
+      PUSH_PROXY_SECRET: ${PUSH_PROXY_SECRET:-changeme-push-secret}
     volumes:
       - ./data/home:/data
+
+  push-proxy:
+    build: ./services/push-proxy
+    restart: unless-stopped
+    # Internal по умолчанию — expose наружу только если нужен прямой доступ клиентов
+    expose:
+      - "8008"
+    ports:
+      - "${PUSH_PROXY_PORT:-8008}:8008"
+    environment:
+      PUSH_PROXY_SECRET: ${PUSH_PROXY_SECRET:-changeme-push-secret}
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-com.example.messenger}
+      APNS_KEY_PATH: /data/apns_key.p8
+      APNS_SANDBOX: ${APNS_SANDBOX:-true}
+      DATABASE_URL: /data/push_tokens.db
+      TOKEN_STALE_DAYS: ${TOKEN_STALE_DAYS:-90}
+    volumes:
+      - ./data/push:/data
 
   storage-node:
     build:
@@ -169,6 +192,55 @@ services:
       TURN_SERVER_PORT: ${TURN_SERVER_PORT:-3478}
     volumes:
       - ./data/turn:/data
+
+  # coturn — реальный TURN/STUN-сервер (RFC 5766 / RFC 8656).
+  # Использует тот же TURN_SHARED_SECRET что и turn-node (HMAC-SHA1 REST API).
+  # Клиент получает временные credentials от turn-node, а медиа идёт через coturn.
+  # Порты: 3478 (TURN/STUN UDP+TCP), 5349 (TLS), 49152-65535 (медиа relay UDP).
+  coturn:
+    image: coturn/coturn:latest
+    restart: unless-stopped
+    network_mode: host   # обязательно для корректной работы ICE/STUN (видит реальный внешний IP)
+    volumes:
+      - ./config/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+      - ./data/coturn:/var/lib/coturn
+    environment:
+      # Передаём секрет через env — turnserver.conf читает его через ${TURN_SHARED_SECRET}
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:-dev-only-insecure-secret-change-me}
+      TURN_REALM: ${TURN_REALM:-messenger.local}
+      TURN_EXTERNAL_IP: ${TURN_EXTERNAL_IP:-}  # установить в публичный IP при деплое
+    command: >
+      -c /etc/coturn/turnserver.conf
+      --use-auth-secret
+      --static-auth-secret=${TURN_SHARED_SECRET:-dev-only-insecure-secret-change-me}
+      --realm=${TURN_REALM:-messenger.local}
+      ${TURN_EXTERNAL_IP:+--external-ip=${TURN_EXTERNAL_IP}}
+
+  # nginx-tls — TLS reverse proxy перед нодами (Деплой TLS, опциональный профиль).
+  # Запуск: docker compose --profile tls up -d nginx-tls
+  # Генерация сертификатов: bash scripts/generate-mtls-certs.sh
+  # TLS-порты: 8101(home) 8102(storage) 8103(discovery) 8104(media) 8105(relay)
+  nginx-tls:
+    image: nginx:alpine
+    profiles: [tls]
+    restart: unless-stopped
+    ports:
+      - "8101:8101"  # home-node TLS
+      - "8102:8102"  # storage-node TLS
+      - "8103:8103"  # discovery-node TLS
+      - "8104:8104"  # media-node TLS
+      - "8105:8105"  # relay-node TLS
+    volumes:
+      - ./config/nginx/nginx-tls.conf:/etc/nginx/nginx.conf:ro
+      - ./config/mtls/gateway.crt:/etc/nginx/certs/gateway.crt:ro
+      - ./config/mtls/gateway.key:/etc/nginx/certs/gateway.key:ro
+      - ./config/mtls/ca.crt:/etc/nginx/certs/ca.crt:ro
+    depends_on:
+      - home-node
+      - storage-node
+      - discovery-node
+      - media-node
+      - relay-node
 
   gateway-node:
     build:

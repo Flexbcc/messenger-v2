@@ -29,6 +29,12 @@ HEALTHCHECK_TIMEOUT_SECONDS = float(os.environ.get("DISCOVERY_HEALTHCHECK_TIMEOU
 QUARANTINE_MODE_DEFAULT = os.environ.get("DISCOVERY_QUARANTINE_MODE", "warn").lower()
 FORCE_UPGRADE_DEFAULT = os.environ.get("DISCOVERY_FORCE_UPGRADE", "true").lower() in ("1", "true", "yes", "on")
 
+# Discovery signing key — used to sign user records (user_id→home_node_url).
+# Home-nodes verify the signature before trusting the resolved address.
+DISCOVERY_SIGNING_KEY_PATH = os.environ.get(
+    "DISCOVERY_SIGNING_KEY_PATH", "/data/discovery_signing.key"
+)
+
 TRUST_STATUSES = frozenset({"pending", "trusted", "suspended", "compromised", "unknown"})
 REACHABILITY_ONLINE = "online"
 REACHABILITY_OFFLINE = "offline"

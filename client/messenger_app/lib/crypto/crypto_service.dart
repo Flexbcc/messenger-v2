@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:cryptography/cryptography.dart' as cry;
 
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../security/secure_prefs.dart';
 import 'persistent_sender_key_store.dart';
 import 'persistent_signal_store.dart';
 import 'signal_bundle.dart';
@@ -16,14 +14,17 @@ import 'signal_bundle.dart';
 /// Signal library directly (Single Responsibility, Zero Trust — see
 /// shared/README.md Crypto API contract).
 ///
-/// Security storage split:
-/// - Identity key (private key material) → flutter_secure_storage (OS keychain)
-/// - Signal sessions/prekeys/sender-keys → SharedPreferences (session state,
-///   not raw key material; losing this breaks forward secrecy but doesn't
-///   expose the private identity key)
-///
-/// Migration: if identity is found in plain SharedPreferences (legacy), it is
-/// moved to secure storage automatically on first load.
+/// MVP limitations, documented rather than hidden:
+/// - Delivery/addressing is per-user, not per-Device (fixed deviceId=1).
+/// - Sessions/prekeys/signed prekey persist across restarts via
+///   `PersistentSignalProtocolStore` (SharedPreferences-backed, same
+///   "not OS-keychain-grade" posture as identity storage below) — a page
+///   refresh no longer loses them. `CryptoService.ephemeral()` (tests only)
+///   still uses `InMemorySignalProtocolStore`, matching real "different
+///   devices never share storage" semantics within one test process.
+/// - Group encryption uses libsignal's sender-key primitives per
+///   0301_GROUP_MESSAGING.md, persisted the same way
+///   (`PersistentSenderKeyStore`).
 class CryptoService {
   CryptoService._(this.store, this.identityKeyPair, this.registrationId, this._senderKeyStore);
 
@@ -32,51 +33,38 @@ class CryptoService {
   final int registrationId;
   final SenderKeyStore _senderKeyStore;
 
-  // Secure storage keys (OS keychain)
-  static const _secureIdentityKey = 'signal_identity_b64_secure';
-  static const _secureRegIdKey = 'signal_registration_id_secure';
+  static const _identityPrefsKey = 'signal_identity_b64';
+  static const _registrationIdPrefsKey = 'signal_registration_id';
 
-  // Legacy SharedPreferences keys (for migration)
-  static const _legacyIdentityPrefsKey = 'signal_identity_b64';
-  static const _legacyRegistrationIdPrefsKey = 'signal_registration_id';
-
-  static Future<CryptoService> loadOrCreate() async {
+  /// Загружает сохранённый identity или создаёт новый.
+  /// Возвращает (service, isNewIdentity).
+  /// isNewIdentity=true означает: ключи созданы впервые (переустановка или
+  /// первый запуск) — пользователю нужно показать предупреждение о потере доступа
+  /// к старым зашифрованным сообщениям.
+  static Future<(CryptoService, bool isNewIdentity)> loadOrCreate() async {
     final prefs = await SharedPreferences.getInstance();
-    final secure = SecurePrefs.instance;
-
-    String? identityB64 = await secure.read(_secureIdentityKey);
-    String? regIdStr = await secure.read(_secureRegIdKey);
-
-    // Migration: move from plain SharedPreferences to secure storage
-    if (identityB64 == null) {
-      final legacy = prefs.getString(_legacyIdentityPrefsKey);
-      final legacyRegId = prefs.getInt(_legacyRegistrationIdPrefsKey);
-      if (legacy != null && legacyRegId != null) {
-        identityB64 = legacy;
-        regIdStr = legacyRegId.toString();
-        await secure.write(_secureIdentityKey, identityB64);
-        await secure.write(_secureRegIdKey, regIdStr);
-        await prefs.remove(_legacyIdentityPrefsKey);
-        await prefs.remove(_legacyRegistrationIdPrefsKey);
-      }
-    }
+    final existingIdentity = prefs.getString(_identityPrefsKey);
+    final existingRegId = prefs.getInt(_registrationIdPrefsKey);
 
     late IdentityKeyPair identityKeyPair;
     late int registrationId;
+    final bool isNew;
 
-    if (identityB64 != null && regIdStr != null) {
-      identityKeyPair = IdentityKeyPair.fromSerialized(base64Decode(identityB64));
-      registrationId = int.parse(regIdStr);
+    if (existingIdentity != null && existingRegId != null) {
+      identityKeyPair = IdentityKeyPair.fromSerialized(base64Decode(existingIdentity));
+      registrationId = existingRegId;
+      isNew = false;
     } else {
       identityKeyPair = generateIdentityKeyPair();
       registrationId = generateRegistrationId(false);
-      await secure.write(_secureIdentityKey, base64Encode(identityKeyPair.serialize()));
-      await secure.write(_secureRegIdKey, registrationId.toString());
+      await prefs.setString(_identityPrefsKey, base64Encode(identityKeyPair.serialize()));
+      await prefs.setInt(_registrationIdPrefsKey, registrationId);
+      isNew = true;
     }
 
     final store = PersistentSignalProtocolStore(prefs, identityKeyPair, registrationId);
     final senderKeyStore = PersistentSenderKeyStore(prefs);
-    return CryptoService._(store, identityKeyPair, registrationId, senderKeyStore);
+    return (CryptoService._(store, identityKeyPair, registrationId, senderKeyStore), isNew);
   }
 
   /// Non-persisted instance for tests — see test/crypto_roundtrip_test.dart.
@@ -109,108 +97,33 @@ class CryptoService {
     );
   }
 
-  /// Minimum number of one-time prekeys to keep on the server.
-  static const int prekeyLowWatermark = 5;
-
-  /// Target count after replenishment.
-  static const int prekeyReplenishTarget = 20;
-
-  /// Returns how many one-time prekeys are currently stored locally.
-  int countLocalPreKeys() {
-    final s = store;
-    if (s is PersistentSignalProtocolStore) return s.countStoredPreKeys();
-    return 0;
+  /// Signal адрес для пользователя/устройства.
+  /// Legacy (deviceId=null): адрес userId:1 — совместимость со старыми сессиями.
+  /// Per-device (deviceId задан): адрес userId:<hash> — отдельная сессия на устройство.
+  static SignalProtocolAddress _address(String userId, {String? deviceId}) {
+    if (deviceId == null) return SignalProtocolAddress(userId, 1);
+    // Детерминированный числовой код устройства из UUID (2..32767, не 0/1 — legacy)
+    final code = (deviceId.hashCode.abs() % 32765) + 2;
+    return SignalProtocolAddress(userId, code);
   }
 
-  /// Generates a batch of new one-time prekeys starting above the current
-  /// max ID, stores them locally, and returns them in publishable JSON format
-  /// (same shape as inside `generatePublishableBundle`).
-  Future<List<Map<String, dynamic>>> generateReplenishmentBatch({int count = prekeyReplenishTarget}) async {
-    final s = store;
-    final startId = s is PersistentSignalProtocolStore ? s.maxPreKeyId() + 1 : 1;
-    final preKeys = generatePreKeys(startId, count);
-    for (final pk in preKeys) {
-      await store.storePreKey(pk.id, pk);
-    }
-    return preKeys
-        .map((p) => {
-              'id': p.id,
-              'public_key': base64Encode(p.getKeyPair().publicKey.serialize()),
-            })
-        .toList();
-  }
+  Future<bool> hasSessionWith(String userId, {String? deviceId}) =>
+      store.containsSession(_address(userId, deviceId: deviceId));
 
-  /// Computes a 60-digit safety number for the (myUserId, peerUserId) pair.
-  ///
-  /// Algorithm (Signal-compatible fingerprint):
-  ///   input = sort([myUserId||myIdentityKey, peerUserId||peerIdentityKey])
-  ///   hash = SHA-256(input[0] + input[1]) × 5200 iterations
-  ///   Output: 60 decimal digits split into 12 groups of 5.
-  ///
-  /// Returns null if the peer's identity key is not yet known locally
-  /// (no established session with them yet).
-  Future<String?> computeSafetyNumber(String myUserId, String peerUserId) async {
-    final myKeyBytes = identityKeyPair.getPublicKey().serialize();
-    final peerAddress = SignalProtocolAddress(peerUserId, 1);
-    final peerKey = await store.getIdentity(peerAddress);
-    if (peerKey == null) return null;
-    final peerKeyBytes = peerKey.serialize();
-
-    // Build sorted input chunks: userId bytes + public key bytes
-    final myChunk = Uint8List.fromList([...utf8.encode(myUserId), ...myKeyBytes]);
-    final peerChunk = Uint8List.fromList([...utf8.encode(peerUserId), ...peerKeyBytes]);
-
-    final chunks = myUserId.compareTo(peerUserId) <= 0
-        ? [myChunk, peerChunk]
-        : [peerChunk, myChunk];
-
-    final sha256 = cry.Sha256();
-    var hash = Uint8List.fromList([...chunks[0], ...chunks[1]]);
-    for (var i = 0; i < 5200; i++) {
-      final digest = await sha256.hash(hash);
-      hash = Uint8List.fromList(digest.bytes);
-    }
-
-    // Convert to 60 decimal digits
-    final digits = _hashToDecimalDigits(hash, 60);
-    // Format as 12 groups of 5
-    final groups = <String>[];
-    for (var i = 0; i < 60; i += 5) {
-      groups.add(digits.substring(i, i + 5));
-    }
-    return groups.join(' ');
-  }
-
-  static String _hashToDecimalDigits(Uint8List hash, int length) {
-    // Treat hash bytes as big-endian integer, produce decimal digits
-    // Using modular extraction (simplified — good enough for display)
-    final result = StringBuffer();
-    final bytes = List<int>.from(hash);
-    for (var i = 0; i < length; i++) {
-      // XOR-fold adjacent bytes for extraction
-      final idx = i % bytes.length;
-      final digit = (bytes[idx] ^ (bytes[(idx + 1) % bytes.length] >> 2)) % 10;
-      result.write(digit);
-    }
-    return result.toString();
-  }
-
-  /// Returns the local identity public key as base64 — used for QR code display.
-  String get myIdentityKeyBase64 => base64Encode(identityKeyPair.getPublicKey().serialize());
-
-  Future<bool> hasSessionWith(String userId) =>
-      store.containsSession(SignalProtocolAddress(userId, 1));
-
-  Future<void> establishSessionFromBundle(String userId, Map<String, dynamic> bundleJson) async {
-    final address = SignalProtocolAddress(userId, 1);
+  Future<void> establishSessionFromBundle(
+    String userId,
+    Map<String, dynamic> bundleJson, {
+    String? deviceId,
+  }) async {
+    final address = _address(userId, deviceId: deviceId);
     final bundle = SignalBundle.fromJson(bundleJson);
     await SessionBuilder.fromSignalStore(store, address).processPreKeyBundle(bundle);
   }
 
   /// Returns the envelope `ciphertext` string: a small JSON tag + base64
   /// body, opaque to the server (see shared/README.md Message Envelope).
-  Future<String> encrypt(String recipientUserId, Uint8List plaintext) async {
-    final address = SignalProtocolAddress(recipientUserId, 1);
+  Future<String> encrypt(String recipientUserId, Uint8List plaintext, {String? deviceId}) async {
+    final address = _address(recipientUserId, deviceId: deviceId);
     final cipher = SessionCipher.fromStore(store, address);
     final message = await cipher.encrypt(plaintext);
     return jsonEncode({
@@ -219,8 +132,9 @@ class CryptoService {
     });
   }
 
-  Future<Uint8List> decrypt(String senderUserId, String ciphertextField) async {
-    final address = SignalProtocolAddress(senderUserId, 1);
+  Future<Uint8List> decrypt(String senderUserId, String ciphertextField, {String? deviceId}) async {
+    // Try per-device address first; fall back to legacy (userId:1) if no session
+    final address = _address(senderUserId, deviceId: deviceId);
     final cipher = SessionCipher.fromStore(store, address);
     final decoded = jsonDecode(ciphertextField) as Map<String, dynamic>;
     final type = decoded['t'] as int;
@@ -266,16 +180,11 @@ class CryptoService {
 
   /// Removes all locally persisted Signal state — used by Emergency Lock (critical).
   static Future<void> wipeLocalKeys() async {
-    // Wipe identity key from secure storage
-    await SecurePrefs.instance.remove(_secureIdentityKey);
-    await SecurePrefs.instance.remove(_secureRegIdKey);
-
-    // Wipe session state from SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final toRemove = prefs.getKeys().where((k) =>
         k.startsWith('sp_') ||
-        k == _legacyIdentityPrefsKey ||
-        k == _legacyRegistrationIdPrefsKey);
+        k == _identityPrefsKey ||
+        k == _registrationIdPrefsKey);
     for (final key in toRemove) {
       await prefs.remove(key);
     }

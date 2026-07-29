@@ -26,11 +26,16 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
         return
 
     user_id = payload["sub"]
-    await manager.connect(user_id, websocket)
+    device_id = payload.get("device_id", "")
+    await manager.connect(user_id, device_id, websocket)
 
     # Drain anything buffered while this user's devices were all offline.
-    for envelope in await drain_buffer(user_id):
-        await manager.send_to_user(user_id, {"type": "new_message", "message": envelope})
+    # Push first, delete only on success, so a failed send leaves the entry
+    # buffered for the next reconnect instead of losing it.
+    async def _push_buffered(envelope: dict) -> bool:
+        return await manager.send_to_user(user_id, {"type": "new_message", "message": envelope})
+
+    await drain_buffer(user_id, _push_buffered)
 
     try:
         while True:

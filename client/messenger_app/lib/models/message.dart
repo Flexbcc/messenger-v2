@@ -20,6 +20,11 @@ class ChatMessage {
     this.systemKind,
     this.duressCode,
     this.ttlSeconds,
+    this.deliveryStatus,
+    // Task #70: когда сервер автоудалит это сообщение
+    this.expiresAt,
+    // Task #71: время последнего редактирования, null = не редактировалось
+    this.editedAt,
   });
 
   final String id;
@@ -53,6 +58,15 @@ class ChatMessage {
   /// Optional per-message auto-delete TTL from E2E envelope (`ttl_seconds`).
   int? ttlSeconds;
 
+  /// Task #45: статус доставки (sent/delivered/read/failed).
+  String? deliveryStatus;
+
+  /// Task #70: когда сервер автоудалит (UTC). null = не исчезает.
+  DateTime? expiresAt;
+
+  /// Task #71: время последнего редактирования, null = не редактировалось.
+  DateTime? editedAt;
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
         id: json['id'] as String,
         conversationId: json['conversation_id'] as String,
@@ -62,5 +76,8 @@ class ChatMessage {
         contentType: json['content_type'] as String,
         cryptoVersion: json['crypto_version'] as String,
         createdAt: DateTime.parse(json['created_at'] as String),
+        deliveryStatus: json['delivery_status'] as String?,
+        expiresAt: json['expires_at'] != null ? DateTime.tryParse(json['expires_at'] as String) : null,
+        editedAt: json['edited_at'] != null ? DateTime.tryParse(json['edited_at'] as String) : null,
       );
 }

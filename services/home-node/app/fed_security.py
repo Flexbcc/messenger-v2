@@ -15,6 +15,7 @@ def get_federation_security() -> FederationSecurity:
         signing_key_path=settings.signing_key_path,
         nonce_db_path=settings.federation_nonce_db_path,
         audit_db_path=settings.federation_audit_db_path,
+        curve_key_path=settings.curve_key_path,
     )
 
 

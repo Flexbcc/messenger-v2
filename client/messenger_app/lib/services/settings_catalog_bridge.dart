@@ -65,12 +65,8 @@ class SettingsCatalogBridge {
         await _store.setString('notif_hidden', _hiddenPolicyToLegacy(policy));
         break;
       case 'security.pin_enabled':
-        await PrivacyPreferencesStore().setPinEnabled(value == true);
-        await AppLockService.instance.refreshEnabled();
-        break;
       case 'security.lock_on_background':
-        await PrivacyPreferencesStore().setLockOnBackground(value == true);
-        await AppLockService.instance.refreshEnabled();
+        await PrivacyPreferencesStore().setAppLockEnabled(value == true);
         break;
       case 'security.lock_on_screen_off':
         await AppLockService.instance.refreshEnabled();
@@ -85,7 +81,7 @@ class SettingsCatalogBridge {
         await PrivacyPreferencesStore().setWipeOnWrongAttempts(value == true);
         break;
       case 'privacy.invisible_mode':
-        await PrivacyPreferencesStore().setInvisibleMode(value == true);
+        await PrivacyPreferencesStore().setMaskNotifications(value == true);
         break;
       case 'hidden.enabled':
         await PrivacyPreferencesStore().setHiddenChatsEnabled(value == true);
@@ -158,13 +154,11 @@ class SettingsCatalogBridge {
       };
 
   static int _autolockToSeconds(String? spec) => switch (spec) {
-        'immediately' => 0,
-        '30s' => 30,
+        'immediate' => 0,
         '1m' => 60,
         '5m' => 300,
         '15m' => 900,
         '1h' => 3600,
-        'never' => -1,
         _ => 300,
       };
 

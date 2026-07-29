@@ -172,3 +172,54 @@ async def remove_member(
     )
     await db.commit()
     return {"status": "ok", "removed_user_id": user_id}
+
+
+@router.put("/{conversation_id}/disappearing-ttl")
+async def set_disappearing_ttl(
+    conversation_id: str,
+    ttl_seconds: int = Body(..., embed=True, ge=0),
+    current=Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """Установить TTL исчезающих сообщений (Task #70).
+
+    ttl_seconds=0 отключает исчезающие сообщения для этого разговора.
+    Только участники разговора могут менять настройку.
+    Уже отправленные сообщения не меняются — TTL применяется только к новым.
+    """
+    caller_user_id, _ = current
+    conv = await db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Not found")
+    # Проверить что caller — участник
+    result = await db.execute(
+        select(ConversationParticipant).where(
+            ConversationParticipant.conversation_id == conversation_id,
+            ConversationParticipant.user_id == caller_user_id,
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Not a participant")
+
+    conv.disappearing_ttl_seconds = ttl_seconds if ttl_seconds > 0 else None
+    await db.commit()
+
+    # Оповестить всех участников через WS
+    from app.ws import manager as ws_manager
+    participants = await db.execute(
+        select(ConversationParticipant.user_id).where(
+            ConversationParticipant.conversation_id == conversation_id
+        )
+    )
+    for (uid,) in participants:
+        await ws_manager.send_to_user(uid, {
+            "type": "disappearing_ttl_changed",
+            "conversation_id": conversation_id,
+            "ttl_seconds": ttl_seconds if ttl_seconds > 0 else None,
+            "changed_by": caller_user_id,
+        })
+
+    return {
+        "conversation_id": conversation_id,
+        "disappearing_ttl_seconds": conv.disappearing_ttl_seconds,
+    }

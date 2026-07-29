@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audit Log — Admin</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  /* Цвета действий — специфика этой страницы, в общем стиле их нет */
+  .action-pill { display:inline-block; padding:2px 8px; border-radius:4px;
+                 font-size:11px; font-weight:600; white-space:nowrap; }
+  .action-approve       { background:rgba(34,197,94,.15);  color:#22c55e; }
+  .action-suspend       { background:rgba(249,115,22,.15); color:#fb923c; }
+  .action-reinstate     { background:rgba(59,130,246,.15); color:#60a5fa; }
+  .action-compromise    { background:rgba(239,68,68,.15);  color:#f87171; }
+  .action-promote       { background:rgba(167,139,250,.15);color:#a78bfa; }
+  .action-block_version { background:rgba(251,191,36,.15); color:#fbbf24; }
+  .action-default       { background:rgba(148,163,184,.15);color:#94a3b8; }
+</style>
+<!-- shared.js — AdminBase + перехватчик авторизации панели. Должен идти первым. -->
+<script src="/static/shared.js"></script>
+</head>
+<body class="page-audit">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Operator Admin</h1>
+          <p class="subtitle">Журнал административных действий</p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup">Настройка</a>
+        <a href="storage">Хранилище</a>
+        <a href="enrollment">Доверие</a>
+        <a href="vuln">Безопасность</a>
+        <a href="audit" class="active">Аудит</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить" aria-label="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему" aria-label="Сменить тему">◐</button>
+      </div>
+    </header>
+
+<main class="dashboard">
+  <div class="page-toolbar">
+    <h1 class="page-title">Журнал действий</h1>
+    <select id="limit-select">
+      <option value="50">50 записей</option>
+      <option value="100" selected>100 записей</option>
+      <option value="250">250 записей</option>
+      <option value="500">500 записей</option>
+    </select>
+    <span id="status" class="page-subtitle" style="margin:0"></span>
+    <button class="btn btn-secondary" onclick="load()">⟳ Обновить</button>
+  </div>
+
+  <div class="table-wrap">
+    <table class="audit-table">
+      <thead>
+        <tr>
+          <th>Время</th>
+          <th>Действие</th>
+          <th>Нода</th>
+          <th>Кластер</th>
+          <th>Оператор</th>
+          <th>Детали (IP и прочее)</th>
+        </tr>
+      </thead>
+      <tbody id="audit-body">
+        <tr class="empty-row"><td colspan="6">Загрузка…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+  </div>
+
+<script>
+  const auditBody = document.getElementById("audit-body");
+  const statusEl  = document.getElementById("status");
+  const limitSel  = document.getElementById("limit-select");
+
+  const ACTION_CLASSES = {
+    approve: "action-approve",
+    reinstate: "action-reinstate",
+    suspend: "action-suspend",
+    compromise: "action-compromise",
+    promote: "action-promote",
+    block_version: "action-block_version",
+  };
+
+  function actionPill(action) {
+    const cls = ACTION_CLASSES[action] || "action-default";
+    return `<span class="action-pill ${cls}">${esc(action)}</span>`;
+  }
+
+  function esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;",
+    }[c]));
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    try { return new Date(iso).toLocaleString("ru-RU", { dateStyle:"short", timeStyle:"medium" }); }
+    catch { return iso; }
+  }
+
+  async function load() {
+    const limit = limitSel.value || 100;
+    statusEl.textContent = "Загрузка…";
+    try {
+      // Запрос идёт на admin-server, который проксирует в discovery
+      // и сам подставляет DISCOVERY_ADMIN_SECRET. Заголовок авторизации
+      // панели (X-Admin-Panel-Secret) добавляет перехватчик в shared.js.
+      const url = AdminBase.url(`/api/monitor/audit/history?limit=${limit}`);
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+      const data = await r.json();
+      const entries = data.entries || [];
+      statusEl.textContent = `${entries.length} записей`;
+      if (!entries.length) {
+        auditBody.innerHTML = '<tr class="empty-row"><td colspan="6">Нет записей</td></tr>';
+        return;
+      }
+      auditBody.innerHTML = entries.map(e => `
+        <tr>
+          <td class="mono" style="white-space:nowrap;">${esc(fmtDate(e.created_at))}</td>
+          <td>${actionPill(e.action)}</td>
+          <td><code>${esc(e.node_id)}</code></td>
+          <td class="muted">${esc(e.cluster_id || "—")}</td>
+          <td>${esc(e.actor || "—")}</td>
+          <td class="muted">${esc(e.detail || "")}</td>
+        </tr>
+      `).join("");
+    } catch (err) {
+      statusEl.textContent = `Ошибка: ${err.message}`;
+      auditBody.innerHTML = `<tr class="empty-row"><td colspan="6" style="color:var(--danger)">${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  limitSel.addEventListener("change", load);
+  load();
+</script>
+</body>
+</html>

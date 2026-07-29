@@ -20,6 +20,11 @@ class Settings:
     node_id: str = os.environ.get("HOME_NODE_ID", "home-local")
     public_url: str = os.environ.get("HOME_NODE_PUBLIC_URL", "http://localhost:8001")
     discovery_url: str = os.environ.get("DISCOVERY_NODE_URL", "http://localhost:8003")
+    # Post-R5: short in-memory TTL for resolve_home_node (see
+    # docs/reality/R4-routing.md Gaps "Нет TTL/кэша user→home"). 0 disables caching.
+    discovery_resolve_cache_ttl_seconds: int = int(
+        os.environ.get("DISCOVERY_RESOLVE_CACHE_TTL_SECONDS", "60")
+    )
     storage_node_url: str = os.environ.get("STORAGE_NODE_URL", "http://localhost:8002")
     db_path: str = os.environ.get("HOME_DB_PATH", "home.db")
     jwt_secret: str = os.environ.get("JWT_SECRET", "dev-secret-change-me-in-production")
@@ -57,10 +62,16 @@ class Settings:
     release_signature: str = os.environ.get("NODE_RELEASE_SIGNATURE", "")
 
     signing_key_path: str = os.environ.get("NODE_SIGNING_KEY_PATH", "/data/node_signing_key")
+    # Sealed sender (Task #68): X25519 key для шифрования sender_user_id от relay-нод
+    curve_key_path: str = os.environ.get("NODE_CURVE_KEY_PATH", "/data/node_curve_key")
     federation_nonce_db_path: str = os.environ.get("FEDERATION_NONCE_DB_PATH", "/data/federation_nonces.db")
     federation_audit_db_path: str = os.environ.get("FEDERATION_AUDIT_DB_PATH", "/data/federation_audit.db")
     internal_security_mode: str = os.environ.get("INTERNAL_SECURITY_MODE", "legacy")
     federation_envelope_mode: str = os.environ.get("FEDERATION_ENVELOPE_MODE", "legacy")
+
+    # Push proxy — для уведомлений о входящем звонке (Task #17)
+    push_proxy_url: str | None = os.environ.get("PUSH_PROXY_URL")   # None = disabled
+    push_proxy_secret: str = os.environ.get("PUSH_PROXY_SECRET", "changeme")
 
     media_node_url: str = os.environ.get("MEDIA_NODE_URL", "http://localhost:8004")
     media_access_secret: str = os.environ.get("MEDIA_ACCESS_SECRET", "") or os.environ.get(

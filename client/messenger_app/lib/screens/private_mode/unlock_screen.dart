@@ -199,6 +199,28 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const FakeModeScreen()));
   }
 
+  void _onBiometricTap() async {
+    if (!ref.read(privateModeStateProvider).isConfigured) return;
+    final vaultOk = await HiddenVaultSession.instance.unlockFromSession();
+    if (!mounted) return;
+    if (!vaultOk) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Сначала введите PIN в этой сессии')),
+      );
+      return;
+    }
+    final secretEnabled = await PrivacyPreferencesStore().secretRoomEnabled();
+    if (!mounted) return;
+    if (!secretEnabled) {
+      setState(() {
+        _error = 'Private Mode отключён в настройках';
+        _input = '';
+      });
+      return;
+    }
+    _openSecretRoom();
+  }
+
   void _closeWithoutUnlock() {
     // Soft exit — leave Private Mode without unlocking or triggering panic/duress.
     Navigator.of(context, rootNavigator: true).pop();
@@ -273,6 +295,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
                 PinKeypad(
                   onDigit: _onDigit,
                   onBackspace: _onBackspace,
+                  onBiometric: state.biometricEnabled ? _onBiometricTap : null,
                 ),
               ],
               const Spacer(),

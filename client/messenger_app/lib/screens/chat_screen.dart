@@ -33,6 +33,7 @@ import '../widgets/chat/chat_message_bubble.dart';
 import '../widgets/chat/time_action_sheets.dart';
 import '../widgets/avatar.dart';
 import 'chat_info_screen.dart';
+import 'chat_search_screen.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
@@ -53,8 +54,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   bool _loadingHistory = true;
   bool _sending = false;
+  bool _showTyping = false;
   bool _typingEnabled = true;
   ChatMessage? _replyTo;
+  // Task #71: сообщение которое сейчас редактируется
+  ChatMessage? _editingMessage;
   AppController? _controller;
   Timer? _draftTimer;
   Timer? _typingNotifyTimer;
@@ -82,7 +86,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _typingEnabled = typing;
       _videoCallsEnabled = video;
       _voiceRecordStatusEnabled = voiceStatus;
-      // peerTyping is now computed reactively from controller in build()
+      if (!_typingEnabled) _showTyping = false;
     });
   }
 
@@ -465,7 +469,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ? () {
               _textController.text = message.plaintext ?? '';
               _textController.selection = TextSelection.collapsed(offset: _textController.text.length);
-              setState(() => _replyTo = null);
+              setState(() {
+                _replyTo = null;
+                _editingMessage = message;
+              });
             }
           : null,
     );
@@ -505,6 +512,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final text = raw.trim();
     if (text.isEmpty || _sending) return;
+
+    // Task #71: если редактируем существующее сообщение — вызываем edit API
+    final editTarget = _editingMessage;
+    if (editTarget != null) {
+      setState(() => _sending = true);
+      try {
+        await ref.read(appControllerProvider).editMessage(
+              widget.conversation,
+              editTarget,
+              text,
+            );
+        _textController.clear();
+        setState(() => _editingMessage = null);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Не удалось изменить: ${friendlyApiError(e)}')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _sending = false);
+      }
+      return;
+    }
+
     ref.read(appControllerProvider).touchSecretSession(widget.conversation.id);
     setState(() => _sending = true);
     try {
@@ -772,7 +804,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
     final peerOnline = peerId != null && controller.isContactOnline(peerId);
     final peerStatus = peerId != null ? controller.contactStatusLabel(peerId) : '';
-    final peerTyping = _typingEnabled && controller.anyoneTypingIn(widget.conversation.id);
 
     ref.listen(settingsCatalogValuesProvider, (_, __) {
       _reloadSendKey();
@@ -840,6 +871,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
             ),
           if (!_isFavoritesChat) ...[
+            IconButton(
+              icon: const Icon(Icons.search_outlined),
+              tooltip: 'Поиск в чате',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChatSearchScreen(conversation: widget.conversation),
+                ),
+              ),
+            ),
             IconButton(
               icon: const Icon(Icons.touch_app_outlined),
               tooltip: 'Действия с сообщениями',
@@ -991,7 +1031,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ),
             ),
           ),
-          if (peerTyping) const TypingIndicator(),
+          if (_showTyping && _typingEnabled) const TypingIndicator(),
           if (!_voiceRecordStatusEnabled)
             Padding(
               padding: const EdgeInsets.only(left: 16, bottom: 4),
@@ -1006,6 +1046,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Task #71: баннер режима редактирования
+                if (_editingMessage != null)
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      border: Border(top: BorderSide(color: AppColors.divider)),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding, vertical: AppSpacing.smallGap),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                        const SizedBox(width: AppSpacing.smallGap),
+                        Expanded(
+                          child: Text(
+                            'Редактирование: ${messageDisplayBody(_editingMessage!)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.caption,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18, color: AppColors.textMuted),
+                          onPressed: () => setState(() {
+                            _editingMessage = null;
+                            _textController.clear();
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (_replyTo != null)
                   Container(
                     width: double.infinity,

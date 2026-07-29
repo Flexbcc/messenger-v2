@@ -141,7 +141,7 @@ class SettingsCatalogActions {
         }
       case 'storage.delete_remote':
         if (!await _ensureCriticalPin('delete_profile')) return;
-        await _deleteRemoteData();
+        await _deleteRemoteStub();
       case 'developer.logs':
         if (context.mounted) {
           await Navigator.of(context).push(
@@ -274,7 +274,7 @@ class SettingsCatalogActions {
     }
   }
 
-  Future<void> _deleteRemoteData() async {
+  Future<void> _deleteRemoteStub() async {
     final app = ref.read(appControllerProvider);
     try {
       if (await SettingsRuntime.instance.devicesRemoteWipeEnabled()) {
@@ -283,14 +283,14 @@ class SettingsCatalogActions {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Сеансы на других устройствах завершены'),
+            content: Text('Удаление удалённых копий: сеансы на других устройствах завершены (API stub)'),
           ),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e')),
+          SnackBar(content: Text('Удаление remote: $e')),
         );
       }
     }
@@ -561,7 +561,7 @@ class SettingsCatalogActions {
     await app.logout();
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Локальный профиль удалён')),
+        const SnackBar(content: Text('Локальный профиль удалён (серверного API нет)')),
       );
     }
   }

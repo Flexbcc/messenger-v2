@@ -24,7 +24,7 @@ class CatalogSync {
   }
 
   static Future<void> syncTheme() async {
-    final legacy = await _store.getString('theme_mode', 'system');
+    final legacy = await _store.getString('theme_mode', 'dark');
     await _store.setString(_key('appearance.theme'), legacy);
   }
 
@@ -58,12 +58,11 @@ class CatalogSync {
 
   static Future<void> syncPrivacy() async {
     final privacy = PrivacyPreferencesStore();
-    await _store.setBool(_key('security.pin_enabled'), await privacy.pinEnabled());
-    await _store.setBool(_key('security.lock_on_background'), await privacy.lockOnBackground());
+    await _store.setBool(_key('security.lock_on_background'), await privacy.appLockEnabled());
     await _store.setBool(_key('security.fake_pin_enabled'), await privacy.fakePinEnabled());
     await _store.setBool(_key('security.wipe_enabled'), await privacy.wipeOnWrongAttempts());
     await _store.setBool(_key('hidden.enabled'), await privacy.hiddenChatsEnabled());
-    await _store.setBool(_key('privacy.invisible_mode'), await privacy.invisibleMode());
+    await _store.setBool(_key('privacy.invisible_mode'), await privacy.maskNotifications());
     await _store.setString(
       _key('security.autolock'),
       _secondsToAutolock(await privacy.autoLockSeconds()),
@@ -117,12 +116,10 @@ class CatalogSync {
       };
 
   static String _secondsToAutolock(int seconds) => switch (seconds) {
-        0 => 'immediately',
-        <= 30 => '30s',
+        0 => 'immediate',
         <= 60 => '1m',
         <= 300 => '5m',
         <= 900 => '15m',
-        <= 3600 => '1h',
-        _ => 'never',
+        _ => '1h',
       };
 }

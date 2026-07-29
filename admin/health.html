@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Health Dashboard — Messenger</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3e;
+    --ok: #22c55e; --warn: #f59e0b; --err: #ef4444; --muted: #64748b;
+    --text: #e2e8f0; --text2: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; font-size: 14px; }
+
+  header { display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .nav-links a { color: var(--text2); text-decoration: none; margin-left: 16px; font-size: 13px; }
+  .nav-links a:hover, .nav-links a.active { color: var(--text); }
+
+  .toolbar { display: flex; align-items: center; gap: 12px;
+    padding: 12px 24px; border-bottom: 1px solid var(--border); }
+  .toolbar label { color: var(--text2); font-size: 13px; }
+  select { background: var(--card); color: var(--text); border: 1px solid var(--border);
+    padding: 4px 8px; border-radius: 6px; font-size: 13px; }
+  button { background: #3b82f6; color: #fff; border: none; padding: 5px 14px;
+    border-radius: 6px; font-size: 13px; cursor: pointer; }
+  button:hover { background: #2563eb; }
+  #last-update { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px; padding: 20px 24px; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .card-header { display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot.ok   { background: var(--ok);   box-shadow: 0 0 6px var(--ok); }
+  .dot.warn { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+  .dot.err  { background: var(--err);  box-shadow: 0 0 6px var(--err); }
+  .dot.loading { background: var(--muted); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .card-title { font-weight: 600; font-size: 14px; }
+  .card-url   { color: var(--muted); font-size: 11px; margin-left: auto; }
+
+  .card-body { padding: 12px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .kv { display: contents; }
+  .kv .k { color: var(--text2); font-size: 12px; }
+  .kv .v { font-size: 12px; font-weight: 500; text-align: right; }
+  .kv .v.ok   { color: var(--ok); }
+  .kv .v.warn { color: var(--warn); }
+  .kv .v.err  { color: var(--err); }
+
+  .card-error { padding: 10px 16px; color: var(--err); font-size: 12px; }
+
+  .fed-row { grid-column: 1/-1; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .fed-pill { background: rgba(255,255,255,0.05); border-radius: 4px;
+    padding: 2px 8px; font-size: 11px; color: var(--text2); }
+  .fed-pill span { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⬡ Messenger — Health Dashboard</h1>
+  <nav class="nav-links">
+    <a href="index.html">Главная</a>
+    <a href="nodes.html">Ноды</a>
+    <a href="enrollment.html">Enrollment</a>
+    <a href="storage.html">Хранилище</a>
+    <a href="audit.html">Аудит</a>
+    <a href="health.html" class="active">Health</a>
+  </nav>
+</header>
+
+<div class="toolbar">
+  <label>Интервал:</label>
+  <select id="interval-select">
+    <option value="10">10 с</option>
+    <option value="30" selected>30 с</option>
+    <option value="60">60 с</option>
+    <option value="0">Вручную</option>
+  </select>
+  <button onclick="refresh()">↻ Обновить</button>
+  <span id="last-update"></span>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+// Список нод — URL читаем из localStorage (чтобы не хардкодить).
+// Можно задать через: localStorage.setItem('health_nodes', JSON.stringify([...]))
+// Или добавить ниже дефолты.
+
+const DEFAULT_NODES = [
+  { name: 'discovery-node', url: '' },
+  { name: 'home-node',      url: '' },
+  { name: 'storage-node',   url: '' },
+  { name: 'relay-node',     url: '' },
+  { name: 'media-node',     url: '' },
+  { name: 'turn-node',      url: '' },
+  { name: 'gateway-node',   url: '' },
+];
+
+function loadNodes() {
+  try {
+    const saved = localStorage.getItem('health_nodes');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  // Попытка читать из meta-тегов (можно сгенерить сервером)
+  const metas = document.querySelectorAll('meta[data-node]');
+  if (metas.length) {
+    return Array.from(metas).map(m => ({ name: m.dataset.node, url: m.dataset.url }));
+  }
+  return DEFAULT_NODES;
+}
+
+const nodes = loadNodes().filter(n => n.url);
+
+function saveNodes() { localStorage.setItem('health_nodes', JSON.stringify(nodes)); }
+
+// Если нет ни одной ноды — показываем инструкцию
+if (!nodes.length) {
+  document.getElementById('grid').innerHTML = `
+    <div style="grid-column:1/-1;padding:32px 0;color:var(--muted);text-align:center;">
+      <p style="margin-bottom:12px">Ни одна нода не сконфигурирована.</p>
+      <p style="font-size:12px">Выполните в консоли браузера:</p>
+      <pre style="display:inline-block;background:var(--card);border:1px solid var(--border);
+        border-radius:6px;padding:8px 16px;margin-top:8px;font-size:12px;text-align:left"
+>localStorage.setItem('health_nodes', JSON.stringify([
+  { name: 'home-node',      url: 'http://192.168.1.21:8001' },
+  { name: 'storage-node',   url: 'http://192.168.1.22:8002' },
+  { name: 'discovery-node', url: 'http://192.168.1.10:8003' },
+]));
+location.reload();</pre>
+    </div>`;
+}
+
+// Рендер карточек (сначала пустые)
+function renderCards() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  nodes.forEach(node => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = `card-${node.name}`;
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="dot loading" id="dot-${node.name}"></div>
+        <span class="card-title">${node.name}</span>
+        <span class="card-url">${node.url}</span>
+      </div>
+      <div class="card-body" id="body-${node.name}">
+        <div class="kv"><span class="k">Загрузка…</span></div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+async function fetchNode(node) {
+  const dot  = document.getElementById(`dot-${node.name}`);
+  const body = document.getElementById(`body-${node.name}`);
+  dot.className = 'dot loading';
+
+  try {
+    const resp = await fetch(`${node.url}/health`, { signal: AbortSignal.timeout(6000) });
+    const d = await resp.json();
+
+    const status = d.status || 'unknown';
+    dot.className = status === 'ok' ? 'dot ok' : 'dot warn';
+
+    let rows = `
+      <div class="kv"><span class="k">status</span><span class="v ${status==='ok'?'ok':'warn'}">${status}</span></div>
+      <div class="kv"><span class="k">build</span><span class="v">${d.build_hash || d.version || '—'}</span></div>`;
+
+    const load = d.load || {};
+
+    if (load.active_connections !== undefined)
+      rows += kv('ws connections', load.active_connections);
+    if (load.buffered_items !== undefined)
+      rows += kv('buffered items', load.buffered_items);
+    if (load.buffer_limit_per_recipient !== undefined)
+      rows += kv('buf limit/recipient', load.buffer_limit_per_recipient);
+    if (load.buffer_eviction_policy !== undefined)
+      rows += kv('eviction', load.buffer_eviction_policy);
+    if (load.queued !== undefined)
+      rows += kv('outbox queued', load.queued);
+    if (load.dead !== undefined)
+      rows += kv('outbox dead', load.dead, load.dead > 0 ? 'err' : 'ok');
+
+    // Federation counters
+    if (load.federation) {
+      const f = load.federation;
+      rows += `<div class="fed-row">
+        <span class="fed-pill">direct <span>${f.direct_ok||0}</span></span>
+        <span class="fed-pill">relay <span>${f.relay_ok||0}</span></span>
+        <span class="fed-pill">buffer <span>${f.buffer_ok||0}</span></span>
+        <span class="fed-pill err-pill">failed <span style="color:${(f.failed||0)>0?'var(--err)':'var(--ok)'}">${f.failed||0}</span></span>
+      </div>`;
+    }
+
+    body.innerHTML = rows;
+  } catch (e) {
+    dot.className = 'dot err';
+    body.innerHTML = `<div class="card-error">Недоступен: ${e.message}</div>`;
+  }
+}
+
+function kv(label, value, cls) {
+  const c = cls || '';
+  return `<div class="kv"><span class="k">${label}</span><span class="v ${c}">${value}</span></div>`;
+}
+
+function refresh() {
+  document.getElementById('last-update').textContent = 'Обновление…';
+  Promise.all(nodes.map(fetchNode)).then(() => {
+    const t = new Date().toLocaleTimeString('ru');
+    document.getElementById('last-update').textContent = `Обновлено: ${t}`;
+  });
+}
+
+// Авто-обновление
+let timer = null;
+function applyInterval() {
+  clearInterval(timer);
+  const val = parseInt(document.getElementById('interval-select').value);
+  if (val > 0) timer = setInterval(refresh, val * 1000);
+}
+document.getElementById('interval-select').addEventListener('change', applyInterval);
+
+renderCards();
+refresh();
+applyInterval();
+</script>
+</body>
+</html>

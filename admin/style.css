@@ -1339,3 +1339,568 @@ code {
   .metrics-grid { grid-template-columns: repeat(2, 1fr); }
   .hero-card { flex-direction: column; align-items: flex-start; }
 }
+
+/* ===========================================================================
+   ФОРМЫ — глобально
+   ===========================================================================
+   Раньше поля были оформлены только внутри .form-card. На страницах, где
+   разметка другая (хранилище, аудит), select и input отрисовывались
+   системным стилем — белые прямоугольники посреди тёмной панели.
+
+   Здесь стиль задаётся для всех полей сразу, независимо от обёртки.
+   =========================================================================== */
+
+select,
+input[type="text"],
+input[type="url"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="email"],
+textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.4;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+
+select:hover:not(:disabled),
+input:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--text-muted);
+}
+
+select:focus,
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .15);
+}
+
+select:disabled,
+input:disabled,
+textarea:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/* Выпадающие списки.
+   appearance:none убирает системную отрисовку — иначе macOS игнорирует
+   и фон, и цвет текста. Стрелка рисуется фоновым SVG. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 32px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+/* Пункты списка — в тёмной теме браузер рисует их отдельно от самого select */
+select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Чекбоксы и радио — просто перекрасить в цвет темы */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--primary);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+/* Внутри .form-card поля занимают всю ширину — это поведение сохраняем */
+.form-card input[type="text"],
+.form-card input[type="url"],
+.form-card input[type="password"],
+.form-card input[type="number"],
+.form-card select,
+.toolbar input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+}
+
+/* Поля в строке с подписью — не растягивать */
+label > select,
+label > input[type="text"],
+label > input[type="number"] {
+  width: auto;
+  display: inline-block;
+  margin-left: 8px;
+}
+
+/* ===========================================================================
+   ЕДИНЫЕ ТАБЛИЦЫ И ЗАГОЛОВКИ СТРАНИЦ
+   ===========================================================================
+   Раньше nodes.html и audit.html несли собственные копии стилей таблиц —
+   отсюда разная высота строк, разные отступы и цвета шапки. Здесь общий
+   вид для всех страниц панели.
+   =========================================================================== */
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 20px;
+}
+
+/* Панель действий над таблицей: заголовок слева, кнопки справа */
+.page-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.page-toolbar > :last-child {
+  margin-left: auto;
+}
+
+/* Таблица данных — один вид на всю панель */
+.data-table,
+.audit-table,
+.nodes-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.data-table th,
+.audit-table th,
+.nodes-table th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  background: var(--card-soft);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data-table td,
+.audit-table td,
+.nodes-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  color: var(--text);
+}
+
+.data-table tr:last-child td,
+.audit-table tr:last-child td,
+.nodes-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tbody tr:hover td,
+.audit-table tbody tr:hover td,
+.nodes-table tbody tr:hover td {
+  background: var(--card-soft);
+}
+
+/* Строка-заглушка: «загрузка», «нет записей», текст ошибки */
+.empty-row td,
+.table-empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Таблица шире экрана — горизонтальная прокрутка вместо ломки вёрстки */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+}
+
+.mono,
+code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+}
+
+/* ===========================================================================
+   НЕДОСТАЮЩИЕ КЛАССЫ
+   ===========================================================================
+   Причина прежнего разнобоя: страницы писались с собственными наборами
+   классов, а в style.css попала лишь часть. Разметка была, оформления не
+   было — браузер рисовал голый HTML.
+
+   Проверить, что ничего не отвалилось снова:
+       python3 scripts/check-css.py
+   =========================================================================== */
+
+/* ── Кнопки ─────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, opacity .15s;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled)  { background: var(--card-soft); border-color: var(--text-muted); }
+.btn:disabled              { opacity: .45; cursor: not-allowed; }
+.btn-sm                    { padding: 4px 10px; font-size: 12px; }
+.btn-primary               { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary:hover:not(:disabled) { opacity: .9; background: var(--primary); }
+.btn-secondary             { background: transparent; }
+.btn-promote               { color: var(--primary);  border-color: rgba(37,99,235,.35); }
+.btn-demote                { color: var(--warning);  border-color: rgba(217,119,6,.35); }
+.btn-suspend               { color: var(--danger);   border-color: rgba(239,68,68,.35); }
+
+/* ── Сетка карточек нод ─────────────────────────────────────────────────── */
+.nodes-grid,
+.vuln-grid,
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.node-card,
+.channel,
+.card {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.node-header,
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.node-header > :first-child { font-weight: 600; font-size: 15px; }
+.node-header > .status-badge + * { margin-right: auto; }
+
+.node-url,
+.card-url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  word-break: break-all;
+  margin-bottom: 4px;
+}
+
+.card-title { font-weight: 600; font-size: 15px; }
+.card-body  { font-size: 13px; color: var(--text-secondary); }
+.card-error { color: var(--danger); font-size: 12px; }
+
+/* ── Значки состояния ───────────────────────────────────────────────────── */
+.status-badge,
+.trust-badge,
+.stat-chip,
+.fed-pill,
+.err-pill,
+.saved-pill,
+.action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--card-soft);
+  color: var(--text-secondary);
+}
+
+.status-badge.online,
+.fed-pill.ok      { background: rgba(34,197,94,.15);  color: var(--success); }
+.status-badge.offline,
+.err-pill         { background: rgba(239,68,68,.15);  color: var(--danger); }
+.saved-pill       { background: rgba(34,197,94,.15);  color: var(--success); }
+
+.trust-badge.trusted   { background: rgba(34,197,94,.15);  color: var(--success); }
+.trust-badge.pending   { background: rgba(217,119,6,.15);  color: var(--warning); }
+.trust-badge.suspended { background: rgba(239,68,68,.15);  color: var(--danger); }
+
+/* Точка-индикатор перед названием */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: none;
+  background: var(--text-muted);
+}
+.dot.on, .dot.online   { background: var(--success); }
+.dot.off, .dot.offline { background: var(--danger); }
+.dot.warn              { background: var(--warning); }
+
+/* ── Метрики: CPU / RAM / диск ──────────────────────────────────────────── */
+.metrics-row,
+.counters-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 14px;
+  margin: 14px 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.metric-cell { min-width: 0; }
+
+.metric-cell > :first-child {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.metric-cell strong,
+.metric-cell b { font-size: 15px; font-weight: 600; }
+
+.metric-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--card-soft);
+  overflow: hidden;
+  margin: 5px 0 3px;
+}
+
+.metric-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--primary);
+  transition: width .3s ease;
+}
+.metric-bar-fill.warn { background: var(--warning); }
+.metric-bar-fill.crit { background: var(--danger); }
+
+.no-metrics {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ── Пороги повышения уровня доверия ────────────────────────────────────── */
+.threshold-bar {
+  font-size: 11px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+}
+.threshold-ok   { color: var(--success); }
+.threshold-miss { color: var(--warning); }
+
+/* ── Действия в карточке ────────────────────────────────────────────────── */
+.node-actions,
+.policy-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Пары «ключ — значение» ─────────────────────────────────────────────── */
+.kv,
+.fed-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  padding: 4px 0;
+}
+.kv .k, .kv > span:first-child { color: var(--text-muted); }
+.kv .v, .kv > span:last-child  { color: var(--text); text-align: right; }
+
+/* ── Секции внутри страницы ─────────────────────────────────────────────── */
+.section { margin-bottom: 28px; }
+.section > h2 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+.section > .hint,
+.section > .sub,
+.sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+/* ── Сообщения-баннеры ──────────────────────────────────────────────────── */
+.msg {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: 14px;
+  border: 1px solid transparent;
+}
+.msg.err  { background: rgba(239,68,68,.1);  border-color: rgba(239,68,68,.3); }
+.msg.info { background: rgba(37,99,235,.1);  border-color: rgba(37,99,235,.3); }
+.msg.ok   { background: rgba(34,197,94,.1);  border-color: rgba(34,197,94,.3); }
+
+/* ── Блок логов ─────────────────────────────────────────────────────────── */
+.logs {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  max-height: 340px;
+  overflow: auto;
+  margin-top: 8px;
+  white-space: pre-wrap;
+}
+
+/* ── Каналы пульта ──────────────────────────────────────────────────────── */
+.channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.channel h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Кнопка действия в таблице пульта */
+button.act {
+  font-size: 11px;
+  padding: 4px 10px;
+  margin-right: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+button.act:hover:not(:disabled) { background: var(--card-soft); }
+button.act:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ── Прочее ─────────────────────────────────────────────────────────────── */
+.auto-refresh,
+.loading {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.field { margin-bottom: 14px; }
+.field > label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.vuln-preview {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  overflow-x: auto;
+}
+
+.compact { gap: 8px; }
+.optional-port { opacity: .7; }
+.nav-links { display: flex; gap: 16px; flex-wrap: wrap; }
+
+/* Классы-маркеры страниц на <body> — служат якорем для правил вида
+   .page-setup .dashboard { ... }. Собственного оформления не требуют,
+   но объявлены, чтобы проверка их не считала потерянными. */
+.page-monitor, .page-nodes, .page-audit, .page-operator,
+.page-setup, .page-storage, .page-enrollment, .page-form { }
+
+/* Переключатель площадки в мониторинге */
+.cluster-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.cluster-toggle:hover  { background: var(--card-soft); }
+.cluster-toggle.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* Кнопка управления сервисом (старт/стоп/рестарт) */
+.svc-btn {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+}
+.svc-btn:hover:not(:disabled) { background: var(--card-soft); }
+.svc-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Иконки ролей нод — класс собирается в JS как role-icon-<роль> */
+.role-icon-home, .role-icon-media, .role-icon-relay,
+.role-icon-storage, .role-icon-turn, .role-icon-discovery {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--card-soft);
+  font-size: 12px;
+}

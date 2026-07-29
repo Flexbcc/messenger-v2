@@ -13,7 +13,7 @@ class ThemeSettings extends ChangeNotifier {
   }
 
   final _store = LocalSettingsStore();
-  ThemeMode _mode = ThemeMode.system;
+  ThemeMode _mode = ThemeMode.dark;
   bool _loaded = false;
 
   ThemeMode get mode => _mode;

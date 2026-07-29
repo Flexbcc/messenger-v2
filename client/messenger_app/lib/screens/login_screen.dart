@@ -28,8 +28,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _loading = true;
       _error = null;
     });
+    final controller = ref.read(appControllerProvider);
+    controller.homeMovedMessage = null;
     try {
-      await ref.read(appControllerProvider).loginWithPassword(identifier, password);
+      await controller.loginWithPassword(identifier, password);
+      if (mounted && controller.isNewIdentity) {
+        await _showNewIdentityWarning();
+        controller.isNewIdentity = false;
+      }
     } catch (e) {
       setState(() => _error = 'Не удалось войти: $e');
     } finally {
@@ -37,10 +43,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _showNewIdentityWarning() async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Новые ключи шифрования'),
+        content: const Text(
+          'Ключи шифрования созданы заново (переустановка приложения или новое устройство).\n\n'
+          'Сообщения из предыдущей установки зашифрованы старыми ключами и недоступны — '
+          'это нормальная защита E2EE. Новые сообщения будут работать в обычном режиме.\n\n'
+          'Другие ваши устройства увидят это устройство как новое и попросят верифицировать его.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Понятно'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = context.textStyles;
+    // Post-R5 client failover (docs/reality/R4-routing.md Gaps): set when
+    // failover switched Home but couldn't recover the session there — shown
+    // once, then cleared so it doesn't linger across unrelated login errors.
+    final homeMovedMessage = ref.watch(appControllerProvider).homeMovedMessage;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Вход')),
@@ -55,6 +87,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 Icon(Icons.lock_outline, size: 48, color: colors.primary.withValues(alpha: 0.7)),
                 const SizedBox(height: AppSpacing.lg),
+                if (homeMovedMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: colors.warning.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline, color: colors.warning, size: 20),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(child: Text(homeMovedMessage, style: text.caption)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
                 Text('Телефон, логин или email', style: text.secondary),
                 const SizedBox(height: AppSpacing.sm),
                 Text('Первый вход может занять 10–20 сек — генерируются криптоключи.', style: text.caption),

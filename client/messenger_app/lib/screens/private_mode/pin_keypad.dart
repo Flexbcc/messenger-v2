@@ -75,10 +75,14 @@ class PinKeypad extends StatelessWidget {
     super.key,
     required this.onDigit,
     required this.onBackspace,
+    this.onBiometric,
+    this.biometricIcon = Icons.fingerprint,
   });
 
   final ValueChanged<String> onDigit;
   final VoidCallback onBackspace;
+  final VoidCallback? onBiometric;
+  final IconData biometricIcon;
 
   static const _rows = [
     ['1', '2', '3'],
@@ -102,7 +106,10 @@ class PinKeypad extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(width: 72),
+            if (onBiometric != null)
+              _KeypadButton(icon: biometricIcon, onTap: onBiometric)
+            else
+              const SizedBox(width: 72),
             _KeypadButton(label: '0', onTap: () => onDigit('0')),
             _KeypadButton(icon: Icons.backspace_outlined, onTap: onBackspace),
           ],

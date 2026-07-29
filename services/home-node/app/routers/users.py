@@ -14,6 +14,7 @@ from app.db import get_db
 from app.deps import get_current_device
 from app.discovery_publish import republish_user_to_discovery
 from app.profile_helpers import normalize_login
+from app.key_transparency import append_key_event, get_key_log, verify_log_chain
 from app.models import Device, User
 from app.schemas import (
     ChangePasswordRequest,
@@ -79,7 +80,7 @@ async def update_me(
 
     device = await _device_for_user(db, user_id, device_id)
     if device:
-        await republish_user_to_discovery(user, device)
+        await republish_user_to_discovery(db, user, device)
 
     return _me_response(user)
 
@@ -144,7 +145,7 @@ async def update_profile(
 
     device = await _device_for_user(db, user_id, device_id)
     if device:
-        await republish_user_to_discovery(user, device)
+        await republish_user_to_discovery(db, user, device)
 
     return _me_response(user)
 
@@ -176,7 +177,7 @@ async def put_profile_settings(
 
     device = await _device_for_user(db, user_id, device_id)
     if device:
-        await republish_user_to_discovery(user, device)
+        await republish_user_to_discovery(db, user, device)
 
     return {"ok": True}
 
@@ -238,9 +239,40 @@ async def revoke_device(
     device = await db.get(Device, device_id)
     if device is None or device.user_id != user_id:
         raise HTTPException(status_code=404, detail="Device not found")
+    # Key Transparency Log (Task #67): отзыв устройства
+    await append_key_event(
+        db,
+        user_id=user_id,
+        device_id=device_id,
+        event_type="device_revoked",
+        identity_key_bundle=device.identity_key_bundle,
+    )
     await db.delete(device)
     await db.commit()
     return {"ok": True}
+
+
+@router.get("/{user_id}/devices")
+async def get_user_devices(
+    user_id: str,
+    current: tuple[str, str] = Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Возвращает список устройств пользователя с их identity_key_bundle для
+    per-device E2EE шифрования (Task #57 / spec/0102_DATA_FLOW.md).
+    Только аутентифицированные пользователи могут запрашивать чужие устройства.
+    """
+    devices = (await db.execute(select(Device).where(Device.user_id == user_id))).scalars().all()
+    return [
+        {
+            "device_id": d.id,
+            "device_name": d.device_name,
+            "device_type": d.device_type,
+            "identity_key_bundle": d.identity_key_bundle,
+        }
+        for d in devices
+    ]
 
 
 @router.delete("/me/devices/others")
@@ -255,3 +287,43 @@ async def revoke_other_devices(
     )
     await db.commit()
     return {"ok": True}
+
+
+@router.get("/{user_id}/key-log")
+async def get_user_key_log(
+    user_id: str,
+    limit: int = 50,
+    since_id: str | None = None,
+    current: tuple[str, str] = Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """Key Transparency Log (Task #67) — append-only история смены ключей.
+
+    Возвращает список событий: регистрация устройства, смена ключа, отзыв.
+    Каждая запись содержит fingerprint identity key и хэш предыдущей записи
+    для верификации целостности цепочки.
+
+    Клиент сравнивает fingerprint текущего ключа с последним в логе.
+    Расхождение = признак неожиданной смены ключа (MITM / компрометация).
+    """
+    entries = await get_key_log(db, user_id, limit=limit, since_id=since_id)
+    errors = verify_log_chain(entries)
+
+    return {
+        "user_id": user_id,
+        "entries": [
+            {
+                "id": e.id,
+                "device_id": e.device_id,
+                "event_type": e.event_type,
+                "identity_key_fingerprint": e.identity_key_fingerprint,
+                "prev_fingerprint": e.prev_fingerprint,
+                "created_at": e.created_at.isoformat(),
+                "entry_hash": e.entry_hash,
+                "prev_entry_hash": e.prev_entry_hash,
+            }
+            for e in entries
+        ],
+        "chain_errors": errors,  # пусто если цепочка целостна
+        "has_more": len(entries) == limit,
+    }

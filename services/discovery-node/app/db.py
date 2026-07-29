@@ -36,6 +36,11 @@ def init_db():
         _add_column_if_missing(conn, "user_records", "cluster_id", "TEXT NOT NULL DEFAULT 'default'")
         _add_column_if_missing(conn, "user_records", "login", "TEXT")
         _add_column_if_missing(conn, "user_records", "username_search_enabled", "INTEGER NOT NULL DEFAULT 1")
+        # Post-R5 minimal "home changed" notify path (R4-routing.md gap):
+        # track when home_node_url actually moved so peers/homes can detect
+        # it via Discovery response instead of a full CONTROL notify.
+        _add_column_if_missing(conn, "user_records", "home_updated_at", "TEXT")
+        _add_column_if_missing(conn, "user_records", "previous_home_node_url", "TEXT")
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_user_records_login ON user_records(login)"
         )
@@ -88,6 +93,50 @@ def init_db():
             ("quarantine_action", "TEXT NOT NULL DEFAULT 'off'"),
         ):
             _add_column_if_missing(conn, "node_capabilities", col, defn)
+
+        # Trust level columns (0=local-only, 1=relay-eligible, 2=hub)
+        for col, defn in (
+            ("trust_level", "INTEGER NOT NULL DEFAULT 0"),
+            ("trust_level_updated_at", "TEXT"),
+            # Runtime metrics — updated on every heartbeat
+            ("cpu_load_1m", "REAL"),
+            ("cpu_cores", "INTEGER"),
+            ("cpu_percent_est", "INTEGER"),
+            ("ram_total_bytes", "INTEGER"),
+            ("ram_used_bytes", "INTEGER"),
+            ("ram_percent", "INTEGER"),
+            ("disk_used_bytes", "INTEGER"),
+            ("disk_total_bytes", "INTEGER"),
+            ("disk_percent", "INTEGER"),
+            ("uptime_sec", "INTEGER"),
+            ("ws_connections", "INTEGER"),
+            # Message/call counters (rolling 24h, reported by node)
+            ("messages_24h", "INTEGER"),
+            ("calls_24h", "INTEGER"),
+            ("error_rate_pct", "REAL"),
+            ("messages_total", "INTEGER NOT NULL DEFAULT 0"),
+            # Network speed (ms RTT measured by discovery health-check)
+            ("latency_ms", "INTEGER"),
+        ):
+            _add_column_if_missing(conn, "node_capabilities", col, defn)
+
+        # Promotion history table
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS trust_level_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                node_id TEXT NOT NULL,
+                from_level INTEGER NOT NULL,
+                to_level INTEGER NOT NULL,
+                reason TEXT,
+                actor TEXT NOT NULL DEFAULT 'operator',
+                changed_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tlh_node ON trust_level_history(node_id)"
+        )
 
         # Vulnerability response: blocked (vulnerable) software versions.
         conn.execute(

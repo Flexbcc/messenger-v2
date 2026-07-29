@@ -40,12 +40,9 @@ class RealtimeService {
     final token = _token;
     if (token == null) return;
 
-    // Token is sent as the first WebSocket message (not in the URL) to avoid
-    // it appearing in server logs, proxies, or browser history.
-    final uri = Uri.parse(AppConfig.wsUrl);
+    final uri = Uri.parse('${AppConfig.wsUrl}?token=$token');
     try {
       _channel = WebSocketChannel.connect(uri);
-      _channel!.sink.add(jsonEncode({'type': 'auth', 'token': token}));
       _socketSub = _channel!.stream.listen(
         (raw) {
           _attempt = 0;
@@ -78,18 +75,6 @@ class RealtimeService {
       }
       _open();
     });
-  }
-
-  /// Send a control message to the server over the open WebSocket.
-  /// Safe to call when disconnected — message is silently dropped.
-  void send(Map<String, dynamic> payload) {
-    final ch = _channel;
-    if (ch == null) return;
-    try {
-      ch.sink.add(jsonEncode(payload));
-    } catch (e) {
-      debugPrint('RealtimeService.send failed: $e');
-    }
   }
 
   void disconnect() {

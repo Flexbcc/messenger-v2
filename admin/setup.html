@@ -8,8 +8,8 @@ document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Operator Admin — Настройка</title>
-<link rel="stylesheet" href="static/theme.css">
-<link rel="stylesheet" href="static/style.css">
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body class="page-form page-setup">
   <div class="app-shell">
@@ -25,10 +25,11 @@ document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
       <nav class="site-nav">
         <a href="./">Мониторинг</a>
         <a href="nodes">Узлы</a>
-        <a href="setup">Настройка</a>
+        <a href="setup" class="active">Настройка</a>
         <a href="storage">Хранилище</a>
         <a href="enrollment">Доверие</a>
         <a href="vuln">Безопасность</a>
+        <a href="audit">Аудит</a>
       </nav>
       <div class="topbar-actions">
         <button type="button" id="refreshBtn" class="btn-icon" title="Обновить">↻</button>
@@ -142,9 +143,9 @@ document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
       </form>
     </main>
   </div>
-  <script src="static/shared.js"></script>
-  <script src="static/services.js"></script>
-  <script src="static/clusters.js"></script>
-  <script src="static/setup.js"></script>
+  <script src="/static/shared.js"></script>
+  <script src="/static/services.js"></script>
+  <script src="/static/clusters.js"></script>
+  <script src="/static/setup.js"></script>
 </body>
 </html>

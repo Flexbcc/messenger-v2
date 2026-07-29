@@ -52,6 +52,10 @@ class NodeEnvConfig(BaseModel):
     media_node_public_url: str = "http://localhost:8004"
     relay_node_public_url: str = "http://localhost:8005"
     jwt_secret: Optional[str] = None
+    # Секрет admin API discovery. Нужен для операций реестра:
+    # список нод, approve/suspend, trust level, журнал аудита.
+    # Discovery ждёт его в заголовке X-Discovery-Admin-Secret.
+    discovery_admin_secret: Optional[str] = None
     lan_ip: str = "127.0.0.1"
     deploy_role: Literal["discovery", "home", "storage", "media", "relay", "turn", "all"] = "all"
     # Owner-first capacity split (rest goes to network help).

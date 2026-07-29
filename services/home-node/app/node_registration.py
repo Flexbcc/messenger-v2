@@ -6,13 +6,17 @@ keeps working if Discovery is temporarily unreachable.
 import asyncio
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
 import httpx
 
 from app.config import settings
+from app.runtime_metrics import collect_host_metrics
+from app.ws import manager as ws_manager
 from shared.security.runtime import federation_registration_fields
+from shared.mesh.sync import update_mesh_from_heartbeat_response
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +84,51 @@ def _attestation_payload() -> dict:
     if settings.release_signature:
         payload["release_signature"] = settings.release_signature
     payload.update(federation_registration_fields(settings.signing_key_path))
+    return payload
+
+
+async def _counters_24h() -> dict:
+    """Read rolling 24h message/call counters from local DB."""
+    try:
+        from app.db import async_session
+        from app.models import Message, ConversationParticipant
+        from sqlalchemy import select, func
+
+        since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        async with async_session() as db:
+            msg_row = await db.execute(
+                select(func.count()).select_from(Message).where(Message.created_at >= since)
+            )
+            messages_24h = msg_row.scalar() or 0
+
+            total_row = await db.execute(select(func.count()).select_from(Message))
+            messages_total = total_row.scalar() or 0
+        return {
+            "messages_24h": messages_24h,
+            "messages_total": messages_total,
+            "calls_24h": 0,  # TODO: add Call model counter when call history table exists
+        }
+    except Exception:
+        return {}
+
+
+async def _build_heartbeat_payload() -> dict:
+    """Combine attestation fields + host metrics + 24h counters."""
+    payload = _attestation_payload()
+    try:
+        host = collect_host_metrics()
+        payload.update(host)
+    except Exception:
+        pass
+    try:
+        payload["ws_connections"] = ws_manager.connection_count()
+    except Exception:
+        pass
+    try:
+        counters = await _counters_24h()
+        payload.update(counters)
+    except Exception:
+        pass
     return payload
 
 
@@ -157,10 +206,11 @@ async def _register_with_retry() -> None:
 
 
 async def _heartbeat_once() -> None:
+    payload = await _build_heartbeat_payload()
     async with httpx.AsyncClient(timeout=5.0) as client:
         resp = await client.post(
             f"{settings.discovery_url}/registry/nodes/{settings.node_id}/heartbeat",
-            json=_attestation_payload(),
+            json=payload,
             headers=_auth_headers(),
         )
         if resp.status_code == 404:
@@ -173,6 +223,15 @@ async def _heartbeat_once() -> None:
             logger.warning("Heartbeat rejected — invalid or missing node_token")
             return
         resp.raise_for_status()
+        # Фаза 3.3: обновляем mesh-кэш из peer-списка в ответе heartbeat.
+        try:
+            update_mesh_from_heartbeat_response(
+                resp.json(),
+                self_node_id=settings.node_id,
+                cluster_id=settings.cluster_id,
+            )
+        except Exception as mesh_err:
+            logger.debug("Mesh update from heartbeat failed (non-fatal): %s", mesh_err)
 
 
 async def _heartbeat_loop() -> None:

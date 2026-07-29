@@ -55,6 +55,10 @@ async def get_prekey_bundle(
     db: AsyncSession = Depends(get_db),
 ):
     api_version = _validate_api_version(v)
+    # TODO(multi-device, spec/0405_MULTI_DEVICE.md): picks an arbitrary Device
+    # of user_id, not the one a sender may actually want to reach — out of
+    # scope for continuity v0 (docs/reality/R6-multi-device.md Gaps
+    # "Prekey = Device.first()"); needs a device picker / per-device bundle.
     result = await db.execute(select(Device).where(Device.user_id == user_id))
     device = result.scalars().first()
     if device:

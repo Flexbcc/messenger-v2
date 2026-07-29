@@ -43,16 +43,21 @@ def derive_health_status(heartbeat_reachability: str, ping_ok: bool) -> str:
     return REACHABILITY_ONLINE if ping_ok else REACHABILITY_UNREACHABLE
 
 
-async def _ping(client: httpx.AsyncClient, node_url: str) -> bool:
+async def _ping(client: httpx.AsyncClient, node_url: str) -> tuple[bool, int | None]:
+    """Probe node_url/health. Returns (ok, latency_ms) — latency is None on failure."""
+    import time
+    t0 = time.monotonic()
     try:
         resp = await client.get(node_url.rstrip("/") + "/health", timeout=HEALTHCHECK_TIMEOUT_SECONDS)
-        return resp.status_code == 200
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        ok = resp.status_code == 200
+        return ok, latency_ms if ok else None
     except Exception:
-        return False
+        return False, None
 
 
 async def run_health_check_once(client: httpx.AsyncClient | None = None) -> list[dict]:
-    """Probe every registered node once; persist health_status. Returns results."""
+    """Probe every registered node once; persist health_status and latency_ms. Returns results."""
     with get_conn() as conn:
         rows = conn.execute("SELECT node_id, node_url, last_heartbeat FROM node_capabilities").fetchall()
         nodes = [(r["node_id"], r["node_url"], r["last_heartbeat"]) for r in rows]
@@ -65,14 +70,17 @@ async def run_health_check_once(client: httpx.AsyncClient | None = None) -> list
         for node_id, node_url, last_heartbeat in nodes:
             heartbeat_reach = reachability_for(last_heartbeat)
             ping_ok = False
+            latency_ms: int | None = None
             if heartbeat_reach != REACHABILITY_OFFLINE:
-                ping_ok = await _ping(client, node_url)
+                ping_ok, latency_ms = await _ping(client, node_url)
             health_status = derive_health_status(heartbeat_reach, ping_ok)
             checked_at = now_iso()
             with get_conn() as conn:
                 conn.execute(
-                    "UPDATE node_capabilities SET health_status = ?, last_health_check = ? WHERE node_id = ?",
-                    (health_status, checked_at, node_id),
+                    """UPDATE node_capabilities
+                       SET health_status = ?, last_health_check = ?, latency_ms = ?
+                       WHERE node_id = ?""",
+                    (health_status, checked_at, latency_ms, node_id),
                 )
                 conn.commit()
             results.append(
@@ -81,6 +89,7 @@ async def run_health_check_once(client: httpx.AsyncClient | None = None) -> list
                     "reachability": heartbeat_reach,
                     "health_status": health_status,
                     "last_health_check": checked_at,
+                    "latency_ms": latency_ms,
                 }
             )
     finally:

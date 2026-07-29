@@ -39,7 +39,6 @@ class HiddenVaultSession extends ChangeNotifier {
 
   void lock() {
     _pin = null;
-    _sessionPin = null;
     _data = null;
     _unlocked = false;
     notifyListeners();

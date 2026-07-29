@@ -23,6 +23,7 @@ import '../models/login_approval_request.dart';
 import '../models/message_delivery_info.dart';
 import '../models/message.dart';
 import '../services/api_client.dart';
+import '../services/bootstrap_service.dart';
 import '../services/call_history_store.dart';
 import '../services/chat_preferences_store.dart';
 import '../services/contact_store.dart';
@@ -44,11 +45,13 @@ import '../services/media_quality.dart';
 import '../services/ppc/personal_pc_media_store.dart';
 import '../services/message_cache_store.dart';
 import '../services/message_delivery_store.dart';
-import '../services/outbox_queue.dart';
 import '../services/message_local_actions_store.dart';
 import '../services/in_app_notification_service.dart';
+import '../services/node_config_resolver.dart';
 import '../services/os_notification_service.dart';
 import '../services/network_usage_store.dart';
+import '../models/peer_home_entry.dart';
+import '../services/peer_home_cache.dart';
 import '../services/secret_chat_preferences_store.dart';
 import '../security/secret_chat_security.dart';
 import '../security/pin_security.dart';
@@ -63,6 +66,8 @@ import '../services/duress_runtime_store.dart';
 import '../services/security_signal_client.dart';
 import '../services/security_log_service.dart';
 import '../services/security_meta_store.dart';
+import '../services/push_token_service.dart';
+import '../services/key_transparency_service.dart';
 import '../state/notification_settings.dart';
 import '../models/favorite_item.dart';
 import '../models/message_reminder.dart';
@@ -119,6 +124,33 @@ class AppController extends ChangeNotifier {
   CryptoService? crypto;
   AuthKeyPair? authKeyPair;
 
+  /// true если при этом запуске был создан новый identity key (переустановка
+  /// или первый запуск). UI должен показать предупреждение об утере доступа
+  /// к старым сообщениям на других устройствах.
+  bool isNewIdentity = false;
+
+  /// Post-R5 client failover (docs/reality/R4-routing.md Gaps — "Нет client
+  /// backup routes") state — see [_maybeFailoverHome]. [homeMovedMessage] is
+  /// set when failover switched Home but the session couldn't be recovered
+  /// there, so the user landed back on the login screen; the login screen
+  /// shows it once, then callers should clear it.
+  String? homeMovedMessage;
+  String? lastFailoverFromUrl;
+  String? lastFailoverToUrl;
+  DateTime? lastFailoverAt;
+  DateTime? _lastFailoverAttemptAt;
+  bool _failoverInFlight = false;
+  static const _failoverCooldown = Duration(minutes: 3);
+
+  /// Most recent `home_changed` notify this session, if any — diagnostics/
+  /// connection status display only (see PeerHomeCache, [_onRealtimeEvent]).
+  String? get lastHomeChangedUserId => PeerHomeCache.instance.lastUserId;
+  PeerHomeEntry? get lastHomeChangedEntry => PeerHomeCache.instance.lastEntry;
+
+  /// Cached Home node URL for [userId] from the last `home_changed` notify
+  /// we received about them, if any.
+  Future<PeerHomeEntry?> peerHomeFor(String userId) => PeerHomeCache.instance.get(userId);
+
   // Populated on demand by loadMyProfile() (see account_screen.dart) — not
   // fetched at boot/login to avoid slowing those down; phone/login/email
   // aren't needed until the user opens "Аккаунт".
@@ -144,32 +176,6 @@ class AppController extends ChangeNotifier {
   /// Cached per-chat prefs for synchronous UI reads.
   final Map<String, bool> chatMuted = {};
   final Map<String, int?> disappearingSeconds = {};
-
-  /// userId → Set of conversationIds where that user is currently typing.
-  /// Populated by incoming WS `typing` events and auto-cleared after timeout.
-  final Map<String, Set<String>> _typingByUser = {};
-  final Map<String, Timer> _typingTimers = {};
-
-  /// Returns true if any peer (not us) is typing in [conversationId].
-  bool anyoneTypingIn(String conversationId) {
-    final myId = session?.userId;
-    return _typingByUser.entries.any(
-      (e) => e.key != myId && e.value.contains(conversationId),
-    );
-  }
-
-  void _setTyping(String userId, String conversationId) {
-    _typingByUser.putIfAbsent(userId, () => {}).add(conversationId);
-    // Auto-clear after 6 s (server should re-send every ~4 s while typing).
-    final key = '$userId:$conversationId';
-    _typingTimers[key]?.cancel();
-    _typingTimers[key] = Timer(const Duration(seconds: 6), () {
-      _typingByUser[userId]?.remove(conversationId);
-      _typingTimers.remove(key);
-      notifyListeners();
-    });
-    notifyListeners();
-  }
 
   /// Active secret-chat sessions per conversation (device-local).
   final Set<String> _secretSessionActive = {};
@@ -284,8 +290,9 @@ class AppController extends ChangeNotifier {
   Future<void> boot() async {
     try {
       authKeyPair = await AuthKeyPair.loadOrCreate();
-      crypto = await CryptoService.loadOrCreate();
-      await OutboxQueue.instance.load();
+      final (cs, isNew) = await CryptoService.loadOrCreate();
+      crypto = cs;
+      isNewIdentity = isNew;
 
       final existing = await _sessionStore.load();
       knownDisplayNames.clear();
@@ -323,7 +330,6 @@ class AppController extends ChangeNotifier {
           }
           _startTimeTasksTimer();
           unawaited(processTimeBasedTasks());
-          unawaited(_replenishPrekeysIfNeeded());
         } on ApiException catch (e) {
           DebugLog.instance.warn('auth', 'stale session ${e.statusCode}, clearing local login');
           await _sessionStore.clear();
@@ -357,6 +363,45 @@ class AppController extends ChangeNotifier {
 
   bool isMessagePinned(String messageId) => _pinnedMessageIds.contains(messageId);
 
+  /// Task #71: Редактировать отправленное сообщение.
+  /// Шифрует новый текст тем же способом и вызывает PATCH API.
+  /// После успеха обновляет локальный список и уведомляет UI.
+  Future<void> editMessage(
+    Conversation conversation,
+    ChatMessage original,
+    String newText,
+  ) async {
+    final wireBody = MessagePayload.encodeText(
+      body: newText,
+      secret: original.isSecret,
+    );
+    final (newCiphertext, _) = await _prepareMessageCrypto(
+      conversation,
+      Uint8List.fromList(utf8.encode(wireBody)),
+    );
+
+    final resp = await _api.editMessage(
+      conversation.id,
+      original.id,
+      newCiphertext,
+    );
+
+    // Обновляем локально
+    final list = messagesByConversation[conversation.id];
+    if (list != null) {
+      final idx = list.indexWhere((m) => m.id == original.id);
+      if (idx >= 0) {
+        final updated = ChatMessage.fromJson(resp)
+          ..plaintext = newText
+          ..isSecret = original.isSecret
+          ..replyToMessageId = original.replyToMessageId
+          ..replyPreview = original.replyPreview;
+        list[idx] = updated;
+      }
+    }
+    notifyListeners();
+  }
+
   Future<void> hideMessageLocally(String messageId) async {
     final userId = session?.userId;
     if (userId == null) return;
@@ -387,20 +432,122 @@ class AppController extends ChangeNotifier {
   Future<void> _relogin() async {
     if (session == null || authKeyPair == null) return;
     try {
-      final challenge = await _api.challenge(session!.deviceId);
-      final nonceBytes = base64Decode(challenge['nonce'] as String);
-      final signature = await authKeyPair!.signBase64(nonceBytes);
-      final verified = await _api.verify(
-        deviceId: session!.deviceId,
-        nonce: challenge['nonce'] as String,
-        signature: signature,
-      );
-      session!.accessToken = verified['access_token'] as String;
-      _api.accessToken = session!.accessToken;
-      await _sessionStore.saveToken(session!.accessToken);
+      await _challengeVerify();
+    } on ApiException catch (_) {
+      // Home reachable but rejected re-auth — token from storage might
+      // still be valid; if not, requests will 401 and the UI can prompt a
+      // fresh register. Acceptable for MVP.
     } catch (_) {
-      // Token from storage might still be valid; if not, requests will 401
-      // and the UI can prompt a fresh register. Acceptable for MVP.
+      // Network-level failure (timeout/socket) — primary Home is likely
+      // unreachable rather than just rejecting us. Give client failover
+      // (Post-R5, docs/reality/R4-routing.md Gaps) a chance before giving
+      // up on this refresh cycle.
+      await _maybeFailoverHome();
+    }
+  }
+
+  /// Challenge/verify against the current [AppConfig.homeNodeUrl]. Throws
+  /// [ApiException] when Home is reachable but rejects re-auth (unknown
+  /// device/account on that node), or the underlying `http` exception
+  /// (timeout/socket) when it isn't reachable at all — callers use that
+  /// distinction to decide whether to attempt failover.
+  Future<void> _challengeVerify() async {
+    final challenge = await _api.challenge(session!.deviceId);
+    final nonceBytes = base64Decode(challenge['nonce'] as String);
+    final signature = await authKeyPair!.signBase64(nonceBytes);
+    final verified = await _api.verify(
+      deviceId: session!.deviceId,
+      nonce: challenge['nonce'] as String,
+      signature: signature,
+    );
+    session!.accessToken = verified['access_token'] as String;
+    _api.accessToken = session!.accessToken;
+    await _sessionStore.saveToken(session!.accessToken);
+  }
+
+  /// Post-R5 client failover (docs/reality/R4-routing.md Gaps — "Нет client
+  /// backup routes"): [NodeConfigResolver] already probed backups' `/health`
+  /// (R4 gap), but never switched the active Home or re-authenticated
+  /// against it. This does both: swap the persisted primary `home_url` to
+  /// the first reachable backup, point [AppConfig] at it, then try normal
+  /// challenge/verify session recovery there. If recovery fails too (new
+  /// Home doesn't know this device/account), fall back to the login screen
+  /// with an explanation instead of looping on 401s.
+  ///
+  /// At most one attempt per outage episode: [_failoverInFlight] blocks
+  /// concurrent callers (app resume + WS reconnect + relogin can all race
+  /// each other onto this same path), and [_failoverCooldown] blocks repeat
+  /// attempts for a while after one, whether it succeeded or not, so a
+  /// hard-down cluster isn't hammered with `/health` probes on every retry.
+  Future<bool> _maybeFailoverHome() async {
+    if (session == null || _failoverInFlight) return false;
+    final now = DateTime.now();
+    final last = _lastFailoverAttemptAt;
+    if (last != null && now.difference(last) < _failoverCooldown) return false;
+
+    _failoverInFlight = true;
+    _lastFailoverAttemptAt = now;
+    try {
+      final oldPrimary = BootstrapStore.current?.homeUrl;
+      final newPrimary = await NodeConfigResolver().failoverToBackupHome();
+      if (newPrimary == null || newPrimary == oldPrimary) return false;
+      await AppConfig.refreshFromCatalog();
+      DebugLog.instance.warn('routing', 'client failover: $oldPrimary -> $newPrimary');
+      lastFailoverFromUrl = oldPrimary;
+      lastFailoverToUrl = newPrimary;
+      lastFailoverAt = now;
+
+      var recovered = false;
+      if (authKeyPair != null) {
+        try {
+          await _challengeVerify();
+          recovered = true;
+        } catch (e) {
+          DebugLog.instance.warn('routing', 'session recovery on new home failed: $e');
+        }
+      }
+      if (!recovered) {
+        await _forceLoginAfterFailedFailover(newPrimary);
+      }
+      notifyListeners();
+      return recovered;
+    } finally {
+      _failoverInFlight = false;
+    }
+  }
+
+  /// New Home doesn't recognize this device/account — rather than spinning
+  /// on 401s against it, drop back to the login screen with an explanation
+  /// (see [homeMovedMessage]) so the user can re-auth or pick another
+  /// network/invite instead of staring at a stuck spinner.
+  Future<void> _forceLoginAfterFailedFailover(String newHomeUrl) async {
+    homeMovedMessage = 'Домашний узел изменился на $newHomeUrl, и текущий сеанс там не найден. '
+        'Войдите снова.';
+    await _sessionStore.clear();
+    session = null;
+    _api.accessToken = null;
+    _realtime.disconnect();
+    await AccountSettingsScope.deactivate();
+  }
+
+  /// Best-effort pre-flight for [register]/[loginWithPassword]: if the
+  /// persisted primary Home is unreachable and we have backups, swap to one
+  /// *before* spending a login request against a dead node. This is a
+  /// one-off opportunistic swap (no session to recover yet, so it doesn't
+  /// share [_maybeFailoverHome]'s cooldown/in-flight guards) — failure here
+  /// is never fatal, the login call below just fails normally and the
+  /// screen surfaces that as its usual error.
+  Future<void> _failoverBeforeLoginIfNeeded() async {
+    try {
+      final resolver = NodeConfigResolver();
+      if (await resolver.isPrimaryReachable()) return;
+      final newPrimary = await resolver.failoverToBackupHome();
+      if (newPrimary != null) {
+        await AppConfig.refreshFromCatalog();
+        DebugLog.instance.warn('routing', 'client failover (pre-login) -> $newPrimary');
+      }
+    } catch (_) {
+      // Ignore — login call below surfaces any remaining connectivity issue.
     }
   }
 
@@ -414,8 +561,11 @@ class AppController extends ChangeNotifier {
     if (await EmergencyLockService.instance.isRecoveryLockActive()) {
       throw StateError('Аккаунт заблокирован. Требуется ключ восстановления.');
     }
+    await _failoverBeforeLoginIfNeeded();
     authKeyPair = await AuthKeyPair.loadOrCreate();
-    crypto = await CryptoService.loadOrCreate();
+    final (csReg, isNewReg) = await CryptoService.loadOrCreate();
+    crypto = csReg;
+    isNewIdentity = isNewReg;
     final bundle = await crypto!.generatePublishableBundle();
 
     final result = await _api.register(
@@ -441,8 +591,11 @@ class AppController extends ChangeNotifier {
     if (await EmergencyLockService.instance.areNewLoginsBlocked()) {
       throw StateError('Новые входы заблокированы после экстренной блокировки.');
     }
+    await _failoverBeforeLoginIfNeeded();
     authKeyPair = await AuthKeyPair.loadOrCreate();
-    crypto = await CryptoService.loadOrCreate();
+    final (csLogin, isNewLogin) = await CryptoService.loadOrCreate();
+    crypto = csLogin;
+    isNewIdentity = isNewLogin;
     final bundle = await crypto!.generatePublishableBundle();
 
     final result = await _api.loginWithPassword(
@@ -475,6 +628,7 @@ class AppController extends ChangeNotifier {
       displayName: displayNameFallback,
     );
     knownDisplayNames[session!.userId] = displayNameFallback;
+    homeMovedMessage = null;
 
     await AccountSettingsScope.activate(session!.userId);
 
@@ -498,6 +652,8 @@ class AppController extends ChangeNotifier {
     await refreshDevices();
     await _recordCurrentDeviceSessionMeta();
     await refreshConversations();
+    // Push token registration (Task #17) — best effort, non-fatal
+    unawaited(PushTokenService.instance.registerToken(_api, session!.deviceId));
 
     if (checkLoginApproval && await LoginApprovalService.instance.isEnabled()) {
       await LoginApprovalService.instance.markDeviceAwaitingApproval(session!.deviceId);
@@ -530,8 +686,17 @@ class AppController extends ChangeNotifier {
     _realtime.connect(
       session!.accessToken,
       tokenProvider: () async {
+        // `_relogin()` can trigger `_maybeFailoverHome()` on a hard WS
+        // reconnect failure, which may clear `session` entirely (new Home
+        // doesn't know this device) — bail out instead of a null-check
+        // crash; the `token == null` guard in RealtimeService then stops
+        // it from reopening with a stale token.
         await _relogin();
-        return session!.accessToken;
+        final token = session?.accessToken;
+        if (token == null) {
+          throw StateError('session cleared during reconnect');
+        }
+        return token;
       },
     );
     _realtimeSub?.cancel();
@@ -547,26 +712,107 @@ class AppController extends ChangeNotifier {
   /// Refresh token, WS, and conversation list after returning from background.
   Future<void> onAppResumed() async {
     if (session == null) return;
+    // Post-R5 phase C (lite): re-bootstrap retry point. Refreshing backup
+    // Home/Discovery candidates here is fire-and-forget and never blocks
+    // the reachability check/relogin below.
+    unawaited(BootstrapStore.refreshBackups());
+    // Post-R5 full failover (docs/reality/R4-routing.md Gaps): check the
+    // primary directly (cheap single probe) rather than waiting for
+    // `_relogin()` to hit a network error, so resuming from background on a
+    // dead primary switches Home before the first request even fires.
+    if (!await NodeConfigResolver().isPrimaryReachable()) {
+      await _maybeFailoverHome();
+    }
+    if (session == null) return; // failover moved Home but couldn't recover the session
     await _relogin();
     _connectRealtime();
     await refreshConversations();
-    unawaited(_replenishPrekeysIfNeeded());
-    if (OutboxQueue.instance.isNotEmpty && websocketConnected) {
-      unawaited(_drainOutboxQueue());
-    }
+    unawaited(_catchUpMessagesAfterResume());
     await _recordCurrentDeviceSessionMeta();
     await processTimeBasedTasks();
   }
 
-  bool _outboxDrainPending = false;
+  /// Multi-device v0 (0405): pull messages newer than local watermark for
+  /// conversations we already have in memory / recent list.
+  Future<void> _catchUpMessagesAfterResume() async {
+    if (session == null) return;
+    final ids = <String>{
+      ...messagesByConversation.keys,
+      ...conversations.take(20).map((c) => c.id),
+    };
+    for (final conversationId in ids) {
+      try {
+        await _catchUpConversation(conversationId);
+      } catch (e) {
+        DebugLog.instance.error('sync', 'catch-up failed for $conversationId: $e');
+      }
+    }
+  }
 
-  Future<void> _onRealtimeEvent(Map<String, dynamic> event) async {
-    // On first realtime event after reconnect, drain the outbox queue.
-    if (!_outboxDrainPending && OutboxQueue.instance.isNotEmpty) {
-      _outboxDrainPending = true;
-      unawaited(_drainOutboxQueue());
+  Future<void> _catchUpConversation(String conversationId) async {
+    if (FavoritesChat.isId(conversationId)) return;
+    final userId = session?.userId;
+    final local = List<ChatMessage>.from(messagesByConversation[conversationId] ?? const []);
+    DateTime? newest;
+    for (final m in local) {
+      if (newest == null || m.createdAt.isAfter(newest)) newest = m.createdAt;
+    }
+    if (newest == null) return;
+
+    final catchUp = await _api.getMessages(
+      conversationId,
+      limit: 100,
+      after: newest.toUtc().toIso8601String(),
+    );
+    if (catchUp.items.isEmpty) return;
+
+    final plaintextIndex = _plaintextIndexFor(conversationId, local);
+    final mergedById = <String, ChatMessage>{for (final m in local) m.id: m};
+    var added = false;
+
+    for (final row in catchUp.items) {
+      final m = ChatMessage.fromJson(row as Map<String, dynamic>);
+      if (mergedById.containsKey(m.id)) continue;
+      if (_isNonChatEnvelope(m)) {
+        await _processHistoryControlMessage(m);
+        continue;
+      }
+      final indexed = plaintextIndex[m.id];
+      if (indexed != null) {
+        _applyPlaintextFrom(m, indexed);
+      } else {
+        await _decryptInPlace(m, plaintextIndex: plaintextIndex);
+      }
+      if (_absorbOutgoingEcho(local, m)) {
+        mergedById[m.id] = m;
+        added = true;
+        continue;
+      }
+      mergedById[m.id] = m;
+      added = true;
     }
 
+    if (!added) return;
+    final merged = mergedById.values.toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    messagesByConversation[conversationId] = merged;
+    if (userId != null) {
+      await _loadDeliveryInfoForOwnMessages(merged, userId);
+      try {
+        final persistable = merged
+            .where((m) => m.plaintext != null && m.plaintext!.isNotEmpty && !m.decryptFailed)
+            .toList();
+        if (persistable.isNotEmpty) {
+          await _messageCache.upsertMessages(userId, persistable);
+        }
+      } catch (e) {
+        debugPrint('Message cache catch-up persist failed: $e');
+      }
+    }
+    await recomputeUnread(conversationId);
+    notifyListeners();
+  }
+
+  Future<void> _onRealtimeEvent(Map<String, dynamic> event) async {
     final type = event['type'] as String?;
     if (type == 'security_signal') {
       final fromUserId = event['from_user_id'] as String?;
@@ -576,11 +822,95 @@ class AppController extends ChangeNotifier {
       }
       return;
     }
-    if (type == 'typing') {
-      final fromUserId = event['from_user_id'] as String?;
+    if (type == 'delivery_ack') {
+      // Post-R5 e2e delivery ACK (sender side) — a recipient confirmed it
+      // absorbed our message into its local list; see spec/0202_DELIVERY.md.
+      final packetId = event['packet_id'] as String?;
+      if (packetId != null) {
+        await MessageDeliveryStore.instance.setStatus(packetId, MessageDeliveryStatus.delivered);
+        notifyListeners();
+      }
+      return;
+    }
+    if (type == 'home_changed') {
+      // Post-R5 CONTROL notify (docs/reality/R4-routing.md Gaps "Нет notify
+      // смены Home"): our Home tells us a contact's home_node_url moved.
+      // Routing itself stays fully server-side (R4-routing.md "Client не
+      // ведёт таблицу маршрутов пиров"), so we just cache it for
+      // diagnostics/UI via PeerHomeCache and nudge the open conversation
+      // with that peer (if any) to re-check reachability.
+      final changedUserId = event['user_id'] as String?;
+      final newHomeUrl = event['home_node_url'] as String?;
+      final updatedAtRaw = event['home_updated_at'] as String?;
+      DebugLog.instance.info(
+        'routing',
+        'home_changed received for contact=$changedUserId new_home=$newHomeUrl',
+      );
+      if (changedUserId != null && newHomeUrl != null && newHomeUrl.isNotEmpty) {
+        await PeerHomeCache.instance.set(
+          changedUserId,
+          homeUrl: newHomeUrl,
+          updatedAt: updatedAtRaw != null ? DateTime.tryParse(updatedAtRaw) : null,
+        );
+        // No Discovery-derived per-peer resolve cache exists yet (searchUserByLogin
+        // / getPreKeyBundle always hit the server directly — see ApiClient); if one
+        // is added later it should be invalidated for changedUserId here too.
+        final existing = findDirectConversationWith(changedUserId);
+        if (existing != null) {
+          await validateConversationReachability(existing);
+        }
+        notifyListeners();
+      }
+      return;
+    }
+    // Task #70 — партнёр изменил TTL разговора
+    if (type == 'disappearing_ttl_changed') {
       final convId = event['conversation_id'] as String?;
-      if (fromUserId != null && convId != null && fromUserId != session?.userId) {
-        _setTyping(fromUserId, convId);
+      final ttl = event['ttl_seconds'] as int?;
+      if (convId != null) {
+        await _chatPrefs.setDisappearingSeconds(convId, ttl);
+        disappearingSeconds[convId] = ttl;
+        notifyListeners();
+      }
+      return;
+    }
+    // Task #70 — Исчезающие сообщения: сервер удалил истёкшее сообщение
+    if (type == 'message_deleted') {
+      final msgId = event['message_id'] as String?;
+      final convId = event['conversation_id'] as String?;
+      if (msgId != null && convId != null) {
+        _messages[convId]?.removeWhere((m) => m.id == msgId);
+        notifyListeners();
+      }
+      return;
+    }
+    // Task #71 — Редактирование: сообщение отредактировано
+    if (type == 'message_edited') {
+      final msgId = event['message_id'] as String?;
+      final convId = event['conversation_id'] as String?;
+      final newCiphertext = event['new_ciphertext'] as String?;
+      final editedAtRaw = event['edited_at'] as String?;
+      if (msgId != null && convId != null && newCiphertext != null) {
+        final list = _messages[convId];
+        if (list != null) {
+          final idx = list.indexWhere((m) => m.id == msgId);
+          if (idx != -1) {
+            final old = list[idx];
+            list[idx] = ChatMessage(
+              id: old.id,
+              conversationId: old.conversationId,
+              senderUserId: old.senderUserId,
+              senderDeviceId: old.senderDeviceId,
+              ciphertext: newCiphertext,
+              contentType: old.contentType,
+              cryptoVersion: old.cryptoVersion,
+              createdAt: old.createdAt,
+              deliveryStatus: old.deliveryStatus,
+              editedAt: editedAtRaw != null ? DateTime.tryParse(editedAtRaw) : DateTime.now(),
+            );
+            notifyListeners();
+          }
+        }
       }
       return;
     }
@@ -639,6 +969,13 @@ class AppController extends ChangeNotifier {
 
     list.add(msg);
     await _persistMessage(msg);
+    if (msg.senderUserId != session?.userId) {
+      // Post-R5 e2e delivery ACK (recipient side) — fire-and-forget, once
+      // the message is accepted into the local list; see spec/0202_DELIVERY.md.
+      // Sent even if decrypt is deferred/failed — "accepted" means absorbed,
+      // not necessarily readable yet.
+      unawaited(_sendDeliveryAck(convId, msg.id));
+    }
     if (activeConversationId == convId) {
       await markConversationRead(convId);
     } else {
@@ -647,6 +984,14 @@ class AppController extends ChangeNotifier {
     _maybeNotifyMessage(msg, convId);
     await refreshConversations();
     notifyListeners();
+  }
+
+  Future<void> _sendDeliveryAck(String conversationId, String packetId) async {
+    try {
+      await _api.ackMessage(conversationId, packetId);
+    } catch (e) {
+      DebugLog.instance.error('delivery', 'delivery ack send failed: $e');
+    }
   }
 
   void _maybeNotifyMessage(ChatMessage msg, String convId) {
@@ -719,6 +1064,14 @@ class AppController extends ChangeNotifier {
       title: labelFor(peerUserId),
       body: 'Входящий звонок',
     );
+    // Local call notification (flutter_local_notifications) — foreground wakeup
+    final callId = currentCall?.callId;
+    if (callId != null) {
+      unawaited(PushTokenService.instance.showIncomingCallNotification(
+        callerName: labelFor(peerUserId),
+        callId: callId,
+      ));
+    }
   }
 
   /// A sender-key distribution arrives pairwise-encrypted (1:1 session,
@@ -794,6 +1147,7 @@ class AppController extends ChangeNotifier {
           outgoing: false,
           remoteSdp: signal.sdp,
         );
+        callUiMinimized = false; // ensure incoming call screen shows even if previous call was minimized
         if (trustLevelFor(msg.senderUserId) == TrustLevel.unknown) {
           unawaited(SecurityLogService.instance.append(
             SecurityEvent(
@@ -916,88 +1270,8 @@ class AppController extends ChangeNotifier {
   /// Reconnect WebSocket and refresh session data (for Connection Status UI).
   Future<void> reconnectConnection() => onAppResumed();
 
-  /// Drain the outbox queue — send queued messages in order once online.
-  Future<void> _drainOutboxQueue() async {
-    final entries = List<OutboxEntry>.from(OutboxQueue.instance.entries);
-    for (final entry in entries) {
-      if (!websocketConnected) break; // Stop if we go offline again
-      try {
-        final conversation = _findConversation(entry.conversationId);
-        if (conversation == null) {
-          // Conversation not found — drop the entry
-          await OutboxQueue.instance.remove(entry.id);
-          await MessageDeliveryStore.instance.setStatus(entry.id, MessageDeliveryStatus.failed, error: 'Conversation not found');
-          continue;
-        }
-        // Update UI status to sending
-        await MessageDeliveryStore.instance.setStatus(entry.id, MessageDeliveryStatus.sending);
-        notifyListeners();
-
-        final wireBody = MessagePayload.encodeText(
-          body: entry.text,
-          secret: entry.secret,
-          replyToMessageId: entry.replyToMessageId,
-          replyPreview: entry.replyPreview,
-          ttlSeconds: entry.ttlSeconds,
-        );
-        final ciphertext = await _encryptForConversation(conversation, Uint8List.fromList(utf8.encode(wireBody)));
-        final resp = await _api.sendMessage(
-          conversationId: conversation.id,
-          ciphertext: ciphertext,
-          contentType: 'text',
-          clientMsgId: entry.id,
-        );
-
-        await OutboxQueue.instance.remove(entry.id);
-        final msg = ChatMessage.fromJson(resp)
-          ..plaintext = entry.text
-          ..replyToMessageId = entry.replyToMessageId
-          ..replyPreview = entry.replyPreview
-          ..isSecret = entry.secret
-          ..ttlSeconds = entry.ttlSeconds;
-        final list = messagesByConversation[conversation.id]!;
-        final idx = list.indexWhere((m) => m.id == entry.id);
-        if (idx >= 0) {
-          list[idx] = msg;
-        }
-        await MessageDeliveryStore.instance.setStatus(msg.id, MessageDeliveryStatus.sent);
-        await _persistMessage(msg);
-        notifyListeners();
-      } catch (e) {
-        DebugLog.instance.warn('outbox', 'Failed to send queued message ${entry.id}: $e');
-        await MessageDeliveryStore.instance.setStatus(entry.id, MessageDeliveryStatus.failed, error: e.toString());
-        await OutboxQueue.instance.remove(entry.id);
-        notifyListeners();
-      }
-    }
-    _outboxDrainPending = false;
-  }
-
-  /// Replenish one-time prekeys on the server if the local count is low.
-  /// Called at boot and after app resumes. Silent failure is intentional —
-  /// the next replenishment attempt will happen on next startup.
-  Future<void> _replenishPrekeysIfNeeded() async {
-    final c = crypto;
-    final s = session;
-    if (c == null || s == null) return;
-    try {
-      final local = c.countLocalPreKeys();
-      if (local >= CryptoService.prekeyLowWatermark) return;
-      final needed = CryptoService.prekeyReplenishTarget - local;
-      DebugLog.instance.info('prekey', 'Low prekeys ($local), replenishing $needed...');
-      final batch = await c.generateReplenishmentBatch(count: needed);
-      final result = await _api.uploadPrekeys(s.deviceId, batch);
-      DebugLog.instance.info('prekey', 'Replenished: server now has ${result['unused_prekeys']} prekeys');
-    } catch (e) {
-      DebugLog.instance.warn('prekey', 'Replenishment failed: $e');
-    }
-  }
-
-  /// Returns true when messages can be sent immediately or queued for later.
-  bool get canSendMessages => session != null;
-
-  /// Returns true when there is an active realtime channel for immediate delivery.
-  bool get canSendImmediately => session != null && websocketConnected;
+  /// Send is blocked when offline — messages need an active realtime channel in MVP.
+  bool get canSendMessages => session != null && websocketConnected;
 
   int get failedOutboundCount {
     var count = 0;
@@ -1304,26 +1578,17 @@ class AppController extends ChangeNotifier {
     return _visibilityAllowsSync(privacyLastSeenPolicy, privacyLastSeenList, peerUserId);
   }
 
-  /// Sends typing indicator to server over WebSocket.
+  /// Typing indicator wire is not implemented yet — this only honors the privacy gate.
   Future<void> notifyTyping(String conversationId) async {
     if (!privacyTypingEnabled) return;
     if (!await SettingsRuntime.instance.typingEnabled()) return;
-    if (!websocketConnected) return;
-    _realtime.send({
-      'type': 'typing',
-      'conversation_id': conversationId,
-    });
+    // No typing content-type on the wire yet.
   }
 
   /// Voice-recording status to peers — gated by privacy.voice_record_status.
   Future<void> notifyVoiceRecording(String conversationId) async {
     if (!await SettingsRuntime.instance.voiceRecordStatusEnabled()) return;
-    if (!websocketConnected) return;
-    _realtime.send({
-      'type': 'typing', // reuse typing channel, UI shows "recording…" separately
-      'conversation_id': conversationId,
-      'kind': 'voice',
-    });
+    // No voice-recording content-type on the wire yet.
   }
 
   /// Whether the UI may show "recording…" to the local user / peers.
@@ -1807,6 +2072,12 @@ class AppController extends ChangeNotifier {
       if (ttl == null || ttl <= 0) return true;
       return m.createdAt.add(Duration(seconds: ttl)).isAfter(now);
     });
+    // Task #70: серверный expires_at — клиент убирает локально до sweep
+    visible = visible.where((m) {
+      final exp = m.expiresAt;
+      if (exp == null) return true;
+      return exp.isAfter(now);
+    });
     return visible.toList();
   }
 
@@ -1844,6 +2115,13 @@ class AppController extends ChangeNotifier {
   Future<void> setDisappearingSeconds(String conversationId, int? seconds) async {
     await _chatPrefs.setDisappearingSeconds(conversationId, seconds);
     disappearingSeconds[conversationId] = seconds;
+    // Task #70: также сообщаем серверу — он будет применять TTL ко всем новым сообщениям
+    // и удалять истёкшие. Ошибка не критична (сервер может быть недоступен).
+    try {
+      await _api.setDisappearingTtl(conversationId, ttlSeconds: seconds ?? 0);
+    } catch (_) {
+      // best-effort — локальное TTL работает независимо от сервера
+    }
     notifyListeners();
   }
 
@@ -2027,6 +2305,7 @@ class AppController extends ChangeNotifier {
         }
         messagesByConversation[conversationId] = diskCached;
         prior.addAll(diskCached);
+        await _loadDeliveryInfoForOwnMessages(diskCached, userId);
         await recomputeUnread(conversationId);
         notifyListeners();
       }
@@ -2047,8 +2326,8 @@ class AppController extends ChangeNotifier {
       return;
     }
 
-    final raw = await _api.getMessages(conversationId, limit: 100);
-    var all = raw.map((j) => ChatMessage.fromJson(j as Map<String, dynamic>)).toList();
+    final page = await _api.getMessages(conversationId, limit: 100);
+    var all = page.items.map((j) => ChatMessage.fromJson(j as Map<String, dynamic>)).toList();
     if (maxAge != null) {
       final cutoff = DateTime.now().subtract(maxAge);
       all = all.where((m) => !m.createdAt.isBefore(cutoff)).toList();
@@ -2086,6 +2365,7 @@ class AppController extends ChangeNotifier {
     final merged = mergedById.values.toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     messagesByConversation[conversationId] = merged;
     if (userId != null) {
+      await _loadDeliveryInfoForOwnMessages(merged, userId);
       try {
         // Never persist decrypt-failed shells — that used to overwrite good local plaintext
         // after a device-key rotation and made history permanently unreadable.
@@ -2144,6 +2424,19 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  /// Hydrates [MessageDeliveryStore]'s in-memory cache for our own outbound
+  /// messages so a persisted `delivered`/`read`/`failed` status (e.g. from a
+  /// delivery ACK received before the app was last closed) survives restart
+  /// — `deliveryStatusFor` reads the store synchronously, so this must run
+  /// before the chat is rendered.
+  Future<void> _loadDeliveryInfoForOwnMessages(List<ChatMessage> messages, String userId) async {
+    for (final m in messages) {
+      if (m.senderUserId == userId) {
+        await MessageDeliveryStore.instance.loadForMessage(m.id);
+      }
+    }
+  }
+
   Future<void> _ensureSessionWith(String otherUserId) async {
     if (await crypto!.hasSessionWith(otherUserId)) return;
     DebugLog.instance.info('crypto', 'establish session with $otherUserId');
@@ -2155,6 +2448,77 @@ class AppController extends ChangeNotifier {
         await _handleIdentityKeyChange(otherUserId);
       }
       rethrow;
+    }
+    // Key Transparency Log (Task #67): проверяем историю ключей после установки сессии.
+    // Best-effort — не блокируем основной поток, предупреждение через SecurityLog.
+    unawaited(_checkKeyTransparency(otherUserId));
+  }
+
+  Future<void> _checkKeyTransparency(String userId) async {
+    try {
+      final warning = await KeyTransparencyService.instance.checkForKeyChange(_api, userId);
+      if (warning == null) return;
+      final label = labelFor(userId);
+      DebugLog.instance.warn(
+        'key_transparency',
+        'Key change detected for $userId: ${warning.oldFingerprint.substring(0, 8)}… → ${warning.newFingerprint.substring(0, 8)}…',
+      );
+      unawaited(SecurityLogService.instance.append(SecurityEvent(
+        title: 'Ключ безопасности изменён',
+        subtitle: '$label — ключ ${warning.eventType == "device_revoked" ? "устройства отозван" : "был изменён"}',
+        at: warning.at,
+        icon: 'key_change',
+      )));
+    } catch (_) {
+      // Non-fatal
+    }
+  }
+
+  /// Per-device E2EE (Task #57): устанавливает Signal сессию с конкретным
+  /// устройством пользователя. Кешируем device bundles по userId.
+  final _deviceBundlesCache = <String, List<Map<String, dynamic>>>{};
+
+  Future<List<Map<String, dynamic>>> _getDeviceBundles(String userId) async {
+    if (_deviceBundlesCache.containsKey(userId)) return _deviceBundlesCache[userId]!;
+    final devices = await _api.getUserDevices(userId);
+    _deviceBundlesCache[userId] = devices;
+    return devices;
+  }
+
+  Future<void> _ensureSessionWithDevice(String userId, String deviceId, Map<String, dynamic> bundle) async {
+    if (await crypto!.hasSessionWith(userId, deviceId: deviceId)) return;
+    DebugLog.instance.info('crypto', 'establish session with $userId device $deviceId');
+    try {
+      await crypto!.establishSessionFromBundle(userId, bundle, deviceId: deviceId);
+    } catch (e) {
+      if (_isUntrustedIdentityError(e)) {
+        await _handleIdentityKeyChange(userId);
+      }
+      rethrow;
+    }
+  }
+
+  /// Строит список [{device_id, ciphertext}] для прямого чата.
+  /// Шифрует plaintext отдельно для каждого устройства получателя.
+  /// Возвращает null если устройств нет или произошла ошибка — тогда
+  /// caller должен использовать legacy шифрование.
+  Future<List<Map<String, String>>?> _buildDeviceEnvelopes(String recipientUserId, Uint8List plaintext) async {
+    try {
+      final devices = await _getDeviceBundles(recipientUserId);
+      if (devices.isEmpty) return null;
+      final envelopes = <Map<String, String>>[];
+      for (final device in devices) {
+        final deviceId = device['device_id'] as String;
+        final bundle = device['identity_key_bundle'] as Map<String, dynamic>?;
+        if (bundle == null) continue;
+        await _ensureSessionWithDevice(recipientUserId, deviceId, bundle);
+        final ciphertext = await crypto!.encrypt(recipientUserId, plaintext, deviceId: deviceId);
+        envelopes.add({'device_id': deviceId, 'ciphertext': ciphertext});
+      }
+      return envelopes.isEmpty ? null : envelopes;
+    } catch (e) {
+      DebugLog.instance.error('crypto', 'per-device encrypt failed, falling back to legacy: $e');
+      return null;
     }
   }
 
@@ -2262,9 +2626,23 @@ class AppController extends ChangeNotifier {
     await _cryptoDecryptQueue.run(queueKey, () async {
       if (m.plaintext != null) return;
       try {
-        final plaintextBytes = conversation?.isGroup == true
-            ? await crypto!.decryptGroup(m.conversationId, m.senderUserId, m.ciphertext)
-            : await crypto!.decrypt(m.senderUserId, m.ciphertext);
+        // Per-device E2EE (Task #57): сервер уже отфильтровал нужный ciphertext
+        // для нашего device_id. Пробуем расшифровать с device-адресом (userId:deviceHash),
+        // при неудаче — legacy адрес (userId:1).
+        final senderDeviceId = m.senderDeviceId;
+        late Uint8List plaintextBytes;
+        if (conversation?.isGroup == true) {
+          plaintextBytes = await crypto!.decryptGroup(m.conversationId, m.senderUserId, m.ciphertext);
+        } else if (senderDeviceId != null) {
+          try {
+            plaintextBytes = await crypto!.decrypt(m.senderUserId, m.ciphertext, deviceId: senderDeviceId);
+          } catch (_) {
+            // Fallback: legacy session (userId:1) — для обратной совместимости
+            plaintextBytes = await crypto!.decrypt(m.senderUserId, m.ciphertext);
+          }
+        } else {
+          plaintextBytes = await crypto!.decrypt(m.senderUserId, m.ciphertext);
+        }
         m.plaintext = utf8.decode(plaintextBytes);
         m.decryptFailed = false;
         MessagePayload.applyTo(m);
@@ -2316,58 +2694,6 @@ class AppController extends ChangeNotifier {
     }
 
     _groupKeysDistributed.add(conversation.id);
-  }
-
-  /// Adds members to a group conversation and distributes the sender key to new members.
-  Future<void> addGroupMembers(Conversation conversation, List<String> userIds) async {
-    if (crypto == null || session == null) return;
-    final updatedJson = await _api.addGroupMembers(conversation.id, userIds);
-    final updated = Conversation.fromJson(updatedJson);
-
-    // Update local state
-    final idx = conversations.indexWhere((c) => c.id == conversation.id);
-    if (idx >= 0) conversations[idx] = updated;
-
-    // Send sender key distribution to new members
-    final distributionB64 = await crypto!.createGroupSenderKeyDistribution(conversation.id, session!.userId);
-    final payload = jsonEncode({'group_id': conversation.id, 'distribution': distributionB64});
-    for (final memberId in userIds) {
-      if (memberId == session!.userId) continue;
-      try {
-        await _ensureSessionWith(memberId);
-        final ciphertext = await crypto!.encrypt(memberId, Uint8List.fromList(utf8.encode(payload)));
-        final directConv = await _findOrCreateDirectConversation(memberId);
-        await _api.sendMessage(
-          conversationId: directConv.id,
-          ciphertext: ciphertext,
-          contentType: 'sender_key_distribution',
-        );
-      } catch (e) {
-        DebugLog.instance.warn('group', 'Failed to distribute sender key to $memberId: $e');
-      }
-    }
-    notifyListeners();
-  }
-
-  /// Removes a member from a group and rotates the sender key (forward secrecy).
-  Future<void> removeGroupMember(Conversation conversation, String userId) async {
-    if (crypto == null || session == null) return;
-    await _api.removeGroupMember(conversation.id, userId);
-
-    // Rotate sender key — invalidate current key so removed member can't decrypt future messages
-    _groupKeysDistributed.remove(conversation.id);
-
-    // Update local conversation state
-    final idx = conversations.indexWhere((c) => c.id == conversation.id);
-    if (idx >= 0) {
-      // Refresh from server to get accurate participant list
-      await refreshConversations();
-      final refreshed = conversations.firstWhere((c) => c.id == conversation.id, orElse: () => conversation);
-
-      // Distribute new sender key to remaining members
-      await _distributeGroupKeyIfNeeded(refreshed);
-    }
-    notifyListeners();
   }
 
   /// Reuses an existing direct Conversation with [otherUserId] if we
@@ -2698,6 +3024,8 @@ class AppController extends ChangeNotifier {
     if (callHistory.length > 200) {
       callHistory.removeRange(200, callHistory.length);
     }
+    // Cancel local call notification (incoming call ring) when call ends/answered/rejected
+    unawaited(PushTokenService.instance.cancelCallNotification(call.callId));
     await _clearCall(call);
     _showCallEndedOverlay(peerLabel);
   }
@@ -2765,23 +3093,6 @@ class AppController extends ChangeNotifier {
       ttlSeconds: ttlSeconds,
     );
     messagesByConversation.putIfAbsent(conversation.id, () => []).add(pending);
-
-    // If offline, enqueue for later and return without error.
-    if (!websocketConnected) {
-      await OutboxQueue.instance.enqueue(OutboxEntry(
-        id: clientMsgId,
-        conversationId: conversation.id,
-        text: text,
-        replyToMessageId: replyToMessageId,
-        replyPreview: replyPreview,
-        secret: secret,
-        ttlSeconds: ttlSeconds,
-      ));
-      await MessageDeliveryStore.instance.setStatus(clientMsgId, MessageDeliveryStatus.queued);
-      notifyListeners();
-      return;
-    }
-
     await MessageDeliveryStore.instance.setStatus(clientMsgId, MessageDeliveryStatus.sending);
     notifyListeners();
 
@@ -2793,12 +3104,13 @@ class AppController extends ChangeNotifier {
         replyPreview: replyPreview,
         ttlSeconds: ttlSeconds,
       );
-      final ciphertext = await _encryptForConversation(conversation, Uint8List.fromList(utf8.encode(wireBody)));
+      final (ciphertext, deviceEnvelopes) = await _prepareMessageCrypto(conversation, Uint8List.fromList(utf8.encode(wireBody)));
       final resp = await _api.sendMessage(
         conversationId: conversation.id,
         ciphertext: ciphertext,
         contentType: 'text',
         clientMsgId: clientMsgId,
+        deviceEnvelopes: deviceEnvelopes,
       );
 
       final msg = ChatMessage.fromJson(resp)
@@ -2906,13 +3218,18 @@ class AppController extends ChangeNotifier {
         ttlSeconds: ttlSeconds,
       );
 
-      final ciphertext =
-          await _encryptForConversation(conversation, Uint8List.fromList(utf8.encode(pointerJson)));
+      final (ciphertext, deviceEnvelopes) =
+          await _prepareMessageCrypto(conversation, Uint8List.fromList(utf8.encode(pointerJson)));
       final resp = await _api.sendMessage(
         conversationId: conversation.id,
         ciphertext: ciphertext,
         contentType: contentType,
         clientMsgId: clientMsgId,
+        deviceEnvelopes: deviceEnvelopes,
+        // Storage federation (Task #63): передаём наш Media-node URL и media_id
+        // чтобы получатели на других Home-node могли скачать файл через federation.
+        mediaNodeUrl: AppConfig.mediaNodeUrl,
+        mediaIds: [mediaId],
       );
 
       final msg = ChatMessage.fromJson(resp)
@@ -2952,9 +3269,21 @@ class AppController extends ChangeNotifier {
   /// Group → sender-key encryption (0301_GROUP_MESSAGING.md), distributing
   /// the key first if needed. Direct → existing pairwise Double Ratchet.
   Future<String> _encryptForConversation(Conversation conversation, Uint8List plaintext) async {
+    final (ciphertext, _) = await _prepareMessageCrypto(conversation, plaintext);
+    return ciphertext;
+  }
+
+  /// Returns (ciphertext, deviceEnvelopes?).
+  /// For direct chats: also builds per-device envelopes (Task #57).
+  /// For groups / fallback: deviceEnvelopes is null.
+  Future<(String, List<Map<String, String>>?)> _prepareMessageCrypto(
+    Conversation conversation,
+    Uint8List plaintext,
+  ) async {
     if (conversation.isGroup) {
       await _distributeGroupKeyIfNeeded(conversation);
-      return crypto!.encryptGroup(conversation.id, session!.userId, plaintext);
+      final ct = await crypto!.encryptGroup(conversation.id, session!.userId, plaintext);
+      return (ct, null);
     }
     final other = directPeerUserId(conversation);
     if (other == null) {
@@ -2965,8 +3294,12 @@ class AppController extends ChangeNotifier {
       DebugLog.instance.error('send', detail);
       throw StateError(detail);
     }
+    // Legacy session (userId:1) as fallback ciphertext
     await _ensureSessionWith(other);
-    return crypto!.encrypt(other, plaintext);
+    final legacyCt = await crypto!.encrypt(other, plaintext);
+    // Per-device envelopes (Task #57) — best effort
+    final deviceEnvelopes = await _buildDeviceEnvelopes(other, plaintext);
+    return (legacyCt, deviceEnvelopes);
   }
 
   void _configurePpcMediaStore() {
@@ -3441,6 +3774,15 @@ class AppController extends ChangeNotifier {
     _realtimeSub?.cancel();
     _realtimeSub = null;
     _realtime.disconnect();
+    // Инвалидируем JWT на сервере (best-effort, не блокируем на ошибке)
+    try { await api.logout(); } catch (_) {}
+    // Снимаем регистрацию push token
+    final deviceId = session?.deviceId;
+    if (deviceId != null) {
+      unawaited(PushTokenService.instance.unregisterToken(_api, deviceId));
+    }
+    // Сбрасываем key transparency cache
+    unawaited(KeyTransparencyService.instance.clearAll());
     if (userId != null) {
       await _messageCache.clearUser(userId);
       // Clear in-scope list while still namespaced to this user.

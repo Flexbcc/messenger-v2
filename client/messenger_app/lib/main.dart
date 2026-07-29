@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +14,7 @@ import 'services/app_lock_service.dart';
 import 'services/database_init.dart';
 import 'services/message_format_prefs.dart';
 import 'services/os_notification_service.dart';
+import 'services/push_token_service.dart';
 import 'services/settings_runtime.dart';
 import 'state/app_controller.dart';
 import 'state/notification_settings.dart';
@@ -57,8 +60,15 @@ class _MessengerAppState extends ConsumerState<MessengerApp> with WidgetsBinding
       try {
         await DatabaseInit.ensureInitialized();
         await BootstrapStore.load();
+        // Post-R5 phase C (lite): best-effort refresh of backup Home/Discovery
+        // candidates via /gateway/routing. Fire-and-forget — must never block
+        // or fail boot/login if the Gateway is unreachable.
+        unawaited(BootstrapStore.refreshBackups());
         try {
           await OsNotificationService.instance.init();
+        } catch (_) {}
+        try {
+          await PushTokenService.instance.init();
         } catch (_) {}
         try {
           await AppLockService.instance.init();

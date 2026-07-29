@@ -256,6 +256,8 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> with Sing
     }
 
     final timeLabel = formatMessageTime(widget.message.createdAt);
+    // Task #71: показываем "(изм.)" если сообщение было отредактировано
+    final isEdited = widget.message.editedAt != null;
 
     final bubble = Container(
       margin: EdgeInsets.only(top: layout.isFirstInGroup ? 4 : verticalMargin, bottom: verticalMargin),
@@ -275,6 +277,15 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble> with Sing
                       if (widget.isPinned) ...[
                         Icon(Icons.push_pin, size: 12, color: textColor.withValues(alpha: 0.7)),
                         const SizedBox(width: 3),
+                      ],
+                      if (isEdited) ...[
+                        Text(
+                          '(изм.) ',
+                          style: AppTypography.micro.copyWith(
+                            color: (isMine ? AppColors.textMain : AppColors.textMuted).withValues(alpha: 0.6),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
                       ],
                       Text(
                         timeLabel,

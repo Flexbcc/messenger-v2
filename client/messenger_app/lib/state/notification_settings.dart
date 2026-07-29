@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/conversation.dart';
-import '../services/app_privacy_session.dart';
 import '../models/message.dart';
 import '../services/catalog_list_store.dart';
 import '../services/catalog_sync.dart';
@@ -220,11 +219,6 @@ class NotificationSettings extends ChangeNotifier {
     if (activeConversationId == conversation.id && !inChat) return false;
 
     if (_isInDndWindow() && !_isDndException(conversation, message.senderUserId)) {
-      return false;
-    }
-
-    // In decoy mode, ALL hidden/secret chat notifications must be suppressed.
-    if (AppPrivacySession.instance.isInDecoyMode && (isHiddenChat || isPrivateHiddenChat)) {
       return false;
     }
 

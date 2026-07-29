@@ -10,7 +10,6 @@ import '../core/ui/app_card.dart';
 import '../core/ui/app_switch_tile.dart';
 import '../core/ui/app_tile.dart';
 import '../models/conversation.dart';
-import '../services/api_client.dart';
 import '../state/app_controller.dart';
 import 'chat_media_screen.dart';
 import 'chat_search_screen.dart';
@@ -100,123 +99,6 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     await controller.setDisappearingSeconds(widget.conversation.id, selected == 0 ? null : selected);
   }
 
-  Future<void> _addGroupMember() async {
-    final colors = context.colors;
-    final controller = ref.read(appControllerProvider);
-    final loginController = TextEditingController();
-    String? error;
-
-    final userId = await showDialog<String>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
-          title: const Text('Добавить участника'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: loginController,
-                decoration: InputDecoration(
-                  labelText: 'Username',
-                  hintText: 'login пользователя',
-                  errorText: error,
-                ),
-                autofocus: true,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Отмена')),
-            TextButton(
-              child: const Text('Найти и добавить'),
-              onPressed: () async {
-                final login = loginController.text.trim();
-                if (login.isEmpty) return;
-                try {
-                  final api = ApiClient(accessToken: controller.session?.accessToken);
-                  final found = await api.searchUserByLogin(login);
-                  final uid = found['user_id'] as String;
-                  if (ctx.mounted) Navigator.of(ctx).pop(uid);
-                } catch (e) {
-                  setS(() => error = 'Пользователь не найден');
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (userId == null || !mounted) return;
-
-    // Check if already a member (use live state from controller)
-    final liveConv = ref.read(appControllerProvider).conversations.firstWhere(
-      (c) => c.id == widget.conversation.id,
-      orElse: () => widget.conversation,
-    );
-    if (liveConv.participantUserIds.contains(userId)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Пользователь уже в группе')),
-      );
-      return;
-    }
-
-    try {
-      await controller.addGroupMembers(widget.conversation, [userId]);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Участник добавлен')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e'), backgroundColor: colors.danger));
-      }
-    }
-  }
-
-  Future<void> _confirmRemoveMember(String userId, String displayName) async {
-    final colors = context.colors;
-    final controller = ref.read(appControllerProvider);
-    final myUserId = controller.session?.userId;
-    final isMe = userId == myUserId;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isMe ? 'Покинуть группу?' : 'Удалить из группы?'),
-        content: Text(
-          isMe
-              ? 'Вы покинете группу «${controller.conversationTitle(widget.conversation)}».'
-              : 'Удалить $displayName из группы?',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Отмена')),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(isMe ? 'Покинуть' : 'Удалить', style: TextStyle(color: colors.danger)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    try {
-      await controller.removeGroupMember(widget.conversation, userId);
-      if (mounted) {
-        if (isMe) {
-          // Pop back to conversations list
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$displayName удалён из группы')));
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e'), backgroundColor: colors.danger));
-      }
-    }
-  }
-
   Future<void> _confirmHideAsSecret() async {
     final colors = context.colors;
     final controller = ref.read(appControllerProvider);
@@ -260,17 +142,11 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     final colors = context.colors;
     final text = context.textStyles;
     final controller = ref.watch(appControllerProvider);
-    // Use the live conversation from the controller (updated after add/remove)
-    final liveConversation = controller.conversations.firstWhere(
-      (c) => c.id == widget.conversation.id,
-      orElse: () => widget.conversation,
-    );
-    final title = controller.conversationTitle(liveConversation);
-    final isGroup = liveConversation.isGroup;
-    final isMuted = controller.chatMuted[liveConversation.id] ?? false;
-    final isSecret = controller.isSecretHidden(liveConversation.id);
-    final imageCount = controller.imageMessagesFor(liveConversation.id).length;
-    final myUserId = controller.session?.userId;
+    final title = controller.conversationTitle(widget.conversation);
+    final isGroup = widget.conversation.isGroup;
+    final isMuted = controller.chatMuted[widget.conversation.id] ?? false;
+    final isSecret = controller.isSecretHidden(widget.conversation.id);
+    final imageCount = controller.imageMessagesFor(widget.conversation.id).length;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Информация о чате')),
@@ -286,66 +162,12 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                 Text(title, style: text.title),
                 if (isGroup) ...[
                   const SizedBox(height: 2),
-                  Text('${liveConversation.participantUserIds.length} участников', style: text.caption),
+                  Text('${widget.conversation.participantUserIds.length} участников', style: text.caption),
                 ],
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-
-          // ── Group members section ──────────────────────────────────────
-          if (isGroup) ...[
-            AppSettingsGroup(
-              children: [
-                AppTile(
-                  leading: Icon(Icons.person_add_outlined, color: colors.primary),
-                  title: 'Добавить участника',
-                  showDivider: liveConversation.participantUserIds.isNotEmpty,
-                  onTap: _addGroupMember,
-                ),
-                for (int i = 0; i < liveConversation.participantUserIds.length; i++) ...[
-                  Builder(builder: (context) {
-                    final uid = liveConversation.participantUserIds[i];
-                    final displayName = liveConversation.participantDisplayNames?[uid]?.isNotEmpty == true
-                        ? liveConversation.participantDisplayNames![uid]!
-                        : uid;
-                    final isMe = uid == myUserId;
-                    final isLast = i == liveConversation.participantUserIds.length - 1;
-                    return AppTile(
-                      leading: AppAvatar(label: displayName, size: AppAvatarSize.small),
-                      title: displayName,
-                      subtitle: isMe ? 'Вы' : null,
-                      trailing: isMe
-                          ? null
-                          : IconButton(
-                              icon: Icon(Icons.remove_circle_outline, color: colors.danger, size: 20),
-                              tooltip: 'Удалить из группы',
-                              onPressed: () => _confirmRemoveMember(uid, displayName),
-                            ),
-                      showDivider: !isLast,
-                    );
-                  }),
-                ],
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            // Leave group
-            if (myUserId != null && liveConversation.participantUserIds.contains(myUserId))
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-                child: OutlinedButton.icon(
-                  icon: Icon(Icons.exit_to_app, color: colors.danger),
-                  label: Text('Покинуть группу', style: TextStyle(color: colors.danger)),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: colors.danger),
-                    minimumSize: const Size.fromHeight(44),
-                  ),
-                  onPressed: () => _confirmRemoveMember(myUserId, 'Вы'),
-                ),
-              ),
-            const SizedBox(height: AppSpacing.lg),
-          ],
-
           AppSettingsGroup(
             children: [
               AppTile(
@@ -353,7 +175,7 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                 title: 'Поиск в чате',
                 trailing: AppTile.chevron(context),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => ChatSearchScreen(conversation: liveConversation)),
+                  MaterialPageRoute(builder: (_) => ChatSearchScreen(conversation: widget.conversation)),
                 ),
               ),
               AppSwitchTile(
@@ -361,7 +183,7 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                 title: 'Уведомления',
                 subtitle: 'Для этого чата на этом устройстве',
                 value: !isMuted,
-                onChanged: (v) => controller.setChatMuted(liveConversation.id, !v),
+                onChanged: (v) => controller.setChatMuted(widget.conversation.id, !v),
               ),
               AppTile(
                 leading: Icon(Icons.perm_media_outlined, color: colors.textSecondary),
@@ -369,7 +191,7 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                 trailingText: imageCount > 0 ? '$imageCount фото' : null,
                 trailing: AppTile.chevron(context),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => ChatMediaScreen(conversation: liveConversation)),
+                  MaterialPageRoute(builder: (_) => ChatMediaScreen(conversation: widget.conversation)),
                 ),
               ),
               AppTile(
@@ -394,7 +216,7 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
               AppTile(
                 leading: Icon(Icons.timer_outlined, color: colors.textSecondary),
                 title: 'Исчезающие сообщения',
-                trailingText: controller.disappearingLabel(liveConversation.id),
+                trailingText: controller.disappearingLabel(widget.conversation.id),
                 trailing: AppTile.chevron(context),
                 showDivider: false,
                 onTap: _pickDisappearing,

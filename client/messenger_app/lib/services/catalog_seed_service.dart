@@ -174,7 +174,6 @@ class CatalogSeedService {
       'notifications.types',
       'notifications.dnd_enabled',
       'notifications.hidden_chat_policy',
-      'security.pin_enabled',
       'security.lock_on_background',
       'security.autolock',
       'security.fake_pin_enabled',

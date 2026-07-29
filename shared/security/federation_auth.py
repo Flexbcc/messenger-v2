@@ -42,10 +42,26 @@ async def verify_federation_request(
 ) -> str:
     """
     Verify federation headers. Returns origin node_id.
-    In legacy mode returns header node_id or 'legacy'.
+
+    Legacy mode: подпись не требуется, но origin_node_id обязан быть
+    зарегистрирован в Discovery (trust_status=trusted). Это закрывает
+    анонимный инжект от случайных хостов в LAN без ломки совместимости.
+    Signed mode: полная проверка подписи + nonce + capability.
     """
     if _mode_legacy():
-        return request.headers.get(HDR_NODE_ID, "legacy")
+        node_id = request.headers.get(HDR_NODE_ID)
+        if not node_id:
+            raise HTTPException(
+                status_code=401,
+                detail=f"Missing {HDR_NODE_ID} header (legacy federation mode requires node_id)"
+            )
+        if not await trust_cache.is_trusted(node_id):
+            metrics().untrusted_node += 1
+            raise HTTPException(
+                status_code=403,
+                detail=f"Unknown or untrusted origin node '{node_id}' (not registered in Discovery)"
+            )
+        return node_id
 
     node_id = request.headers.get(HDR_NODE_ID)
     timestamp = request.headers.get(HDR_TIMESTAMP)

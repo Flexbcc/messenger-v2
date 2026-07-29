@@ -149,6 +149,10 @@
       }
       if (trust === "suspended") {
         actions.push(`<button type="button" class="btn-secondary btn-xs" data-action="reinstate" data-id="${AdminUi.escapeHtml(n.node_id)}">Включить снова</button>`);
+        actions.push(`<button type="button" class="btn-primary btn-xs" data-action="re-enroll" data-id="${AdminUi.escapeHtml(n.node_id)}" title="Полный сброс: pending + новый enrollment_secret">Ре-энролл</button>`);
+      }
+      if (trust === "compromised") {
+        actions.push(`<button type="button" class="btn-primary btn-xs" data-action="re-enroll" data-id="${AdminUi.escapeHtml(n.node_id)}" title="Сброс в pending + новый enrollment_secret, старый node_token отозван">Ре-энролл</button>`);
       }
       return `
         <tr>
@@ -200,12 +204,14 @@
       suspend: `/admin/registry/nodes/${id}/suspend`,
       reinstate: `/admin/registry/nodes/${id}/reinstate`,
       compromise: `/admin/registry/nodes/${id}/compromise`,
+      "re-enroll": `/admin/registry/nodes/${id}/re-enroll`,
     };
     const labels = {
       approve: "Принять ноду в сеть?",
       suspend: "Отключить ноду от инфраструктуры? Пользователи на своих Home Node не пострадают.",
       reinstate: "Снова доверить этой ноде?",
       compromise: "Отозвать доступ (compromise)? Нода потребует повторного approve.",
+      "re-enroll": "Сбросить ноду в pending и выдать новый enrollment_secret? Старый node_token будет отозван — нода должна пройти enrollment заново.",
     };
     if (labels[act] && !window.confirm(labels[act])) return;
 
@@ -215,6 +221,12 @@
     action(paths[act], "POST", bodies[act])
       .then((res) => {
         AdminApi.showStatus(status, res.message || "Готово");
+        if (act === "re-enroll" && res.enrollment_secret) {
+          window.prompt(
+            `enrollment_secret для ${id} (показывается один раз, передайте владельцу ноды):`,
+            res.enrollment_secret,
+          );
+        }
         return refresh();
       })
       .catch((e) => AdminApi.showStatus(status, e.message, false));

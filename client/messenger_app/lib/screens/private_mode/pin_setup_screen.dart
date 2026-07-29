@@ -12,7 +12,7 @@ import 'decoy_pin_setup_screen.dart';
 import 'pin_keypad.dart';
 import 'private_mode_state.dart';
 
-enum _Step { enterPin, confirmPin }
+enum _Step { enterPin, confirmPin, biometric }
 
 /// "Создать PIN" — mock PIN setup flow for Private Mode.
 ///
@@ -31,6 +31,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
   _Step _step = _Step.enterPin;
   String _input = '';
   String? _pendingRealPin;
+  bool _biometricEnabled = false;
   bool _saving = false;
   String? _error;
   int _pinLength = kPinLength;
@@ -90,10 +91,15 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
         });
       case _Step.confirmPin:
         if (_input == _pendingRealPin) {
-          _finish();
+          setState(() {
+            _input = '';
+            _step = _Step.biometric;
+          });
         } else {
           _fail(resetTo: _Step.enterPin, clearPending: true);
         }
+      case _Step.biometric:
+        break;
     }
   }
 
@@ -113,6 +119,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
     try {
       final state = ref.read(privateModeStateProvider);
       await state.configurePins(realPin: _pendingRealPin!);
+      await state.setBiometricEnabled(_biometricEnabled);
       await DuressPolicySession.instance.unlock(_pendingRealPin!);
       if (!mounted) return;
       final decoyDone = await Navigator.of(context).push<bool>(
@@ -137,6 +144,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
   String get _title => switch (_step) {
         _Step.enterPin => 'Создать PIN',
         _Step.confirmPin => 'Повторите PIN',
+        _Step.biometric => 'Готово',
       };
 
   String get _explanation => switch (_step) {
@@ -144,6 +152,12 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
             ? 'Пароль ($_pinLength+ символов, буквы и цифры) защищает доступ к приложению.'
             : 'PIN из $_pinLength цифр защищает доступ к приложению и приватным настройкам.',
         _Step.confirmPin => 'Введите ${_alphanumeric ? 'пароль' : 'PIN'} ещё раз для подтверждения.',
+        _Step.biometric => 'На десктопе Face ID — заглушка. Переключатель сохраняет настройку для будущей интеграции.',
+      };
+
+  bool get _isPinStep => switch (_step) {
+        _Step.enterPin || _Step.confirmPin => true,
+        _ => false,
       };
 
   @override
@@ -183,7 +197,8 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
   }
 
   Widget _buildStepBody() {
-    if (_alphanumeric) {
+    if (_isPinStep) {
+      if (_alphanumeric) {
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -248,5 +263,39 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> with SingleTick
         ],
       );
     }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.cardPadding),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(AppRadii.medium),
+          ),
+          child: SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('Включить Face ID / Touch ID', style: AppTypography.body),
+            subtitle: Text('Пока mock — на Mac не используется', style: AppTypography.caption),
+            value: _biometricEnabled,
+            activeThumbColor: AppColors.accentBlue,
+            onChanged: _saving ? null : (v) => setState(() => _biometricEnabled = v),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sectionGap),
+        AppButton(label: 'Готово', loading: _saving, onPressed: _saving ? null : _finish),
+        const SizedBox(height: AppSpacing.mediumGap),
+        AppButton(
+          label: 'Пропустить',
+          variant: AppButtonVariant.secondary,
+          onPressed: _saving
+              ? null
+              : () {
+                  setState(() => _biometricEnabled = false);
+                  _finish();
+                },
+        ),
+      ],
+    );
   }
 }

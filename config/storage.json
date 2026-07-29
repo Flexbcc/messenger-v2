@@ -20,7 +20,7 @@
     "users": {}
   },
   "backup": {
-    "enabled": false,
+    "enabled": true,
     "backend": "local",
     "local_path": "/data/backups",
     "schedule_hours": 24,

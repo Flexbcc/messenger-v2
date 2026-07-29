@@ -21,6 +21,10 @@ class AppConfig {
     'GATEWAY_NODE_URL',
     defaultValue: 'http://localhost:8007',
   );
+  static const String _defaultPushProxy = String.fromEnvironment(
+    'PUSH_PROXY_URL',
+    defaultValue: 'http://localhost:8008',
+  );
 
   static String _resolvedHome = '';
 
@@ -33,6 +37,7 @@ class AppConfig {
   static String get gatewayNodeUrl =>
       BootstrapStore.current?.gatewayUrl ?? _defaultGateway;
   static String get clusterId => BootstrapStore.current?.clusterId ?? 'default';
+  static String get pushProxyUrl => BootstrapStore.current?.pushProxyUrl ?? _defaultPushProxy;
 
   static String get wsUrl => '${homeNodeUrl.replaceFirst('http', 'ws')}/ws';
 

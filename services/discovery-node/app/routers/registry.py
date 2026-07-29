@@ -7,10 +7,13 @@ from app.db import get_conn
 from app.schemas import (
     RegisterUserRecord,
     UserRecordResponse,
+    UserHomeRouteResponse,
     RegisterNodeCapability,
     HeartbeatRequest,
+    MeshPeerEntry,
     NodeCapabilityResponse,
     NodeCapabilityListResponse,
+    NodeMetrics,
     RegisterNodeResponse,
 )
 from app.security import generate_enrollment_secret, hash_value, verify_hash
@@ -18,6 +21,7 @@ from app.attestation_flow import apply_attestation
 from app.trust import enrollment_required, initial_trust_status_for_register, now_iso, reachability_for
 from app.policy import blocked_version_set, get_quarantine_mode, evaluate_version
 from app.mesh_notify import schedule_mesh_peer_notify, should_notify_on_register
+from app.record_signer import sign_user_record, discovery_public_key_b64
 
 router = APIRouter()
 
@@ -70,6 +74,56 @@ def _row_field(row, name, default=None):
         return default
 
 
+def _metrics_from_row(row) -> Optional[NodeMetrics]:
+    """Extract runtime metrics from a DB row; returns None if no metrics yet."""
+    fields = (
+        "cpu_load_1m", "cpu_cores", "cpu_percent_est",
+        "ram_total_bytes", "ram_used_bytes", "ram_percent",
+        "disk_used_bytes", "disk_total_bytes", "disk_percent",
+        "uptime_sec", "ws_connections",
+        "messages_24h", "calls_24h", "error_rate_pct",
+        "messages_total", "latency_ms",
+    )
+    data = {f: _row_field(row, f) for f in fields}
+    if all(v is None for v in data.values()):
+        return None
+    return NodeMetrics(**data)
+
+
+def _build_peer_list(exclude_node_id: str) -> list[MeshPeerEntry]:
+    """Возвращает компактный список trusted+online нод (кроме самой себя) для
+    включения в heartbeat-ответ. Ноды используют его для обновления mesh-кэша
+    без отдельного запроса к Discovery (Фаза 3.3)."""
+    from app.config import OFFLINE_THRESHOLD_SECONDS
+    from datetime import datetime, timedelta, timezone
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=OFFLINE_THRESHOLD_SECONDS)).isoformat()
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT node_id, node_url, capabilities, cluster_id, trust_level
+               FROM node_capabilities
+               WHERE trust_status = 'trusted'
+                 AND last_heartbeat >= ?
+                 AND node_id != ?""",
+            (cutoff, exclude_node_id),
+        ).fetchall()
+
+    peers = []
+    for r in rows:
+        try:
+            caps = json.loads(r["capabilities"]) if r["capabilities"] else []
+        except (ValueError, TypeError):
+            caps = []
+        peers.append(MeshPeerEntry(
+            node_id=r["node_id"],
+            node_url=r["node_url"],
+            capabilities=caps,
+            cluster_id=r["cluster_id"] or "default",
+            trust_level=r["trust_level"] or 0,
+        ))
+    return peers
+
+
 def _node_response(row, *, last_heartbeat: str) -> NodeCapabilityResponse:
     reachability = reachability_for(last_heartbeat)
     trust_status = _trust_from_row(row)
@@ -81,6 +135,7 @@ def _node_response(row, *, last_heartbeat: str) -> NodeCapabilityResponse:
         software_version=row["software_version"],
         cluster_id=_cluster_id_from_row(row),
         trust_status=trust_status,
+        trust_level=_row_field(row, "trust_level", 0),
         reachability=reachability,
         last_heartbeat=last_heartbeat,
         status=reachability,
@@ -88,6 +143,7 @@ def _node_response(row, *, last_heartbeat: str) -> NodeCapabilityResponse:
         last_health_check=_row_field(row, "last_health_check"),
         version_status=_row_field(row, "version_status", "ok"),
         quarantine_action=_row_field(row, "quarantine_action", "off"),
+        metrics=_metrics_from_row(row),
         **att,
     )
 
@@ -108,6 +164,23 @@ def _apply_version_policy(conn, node_id: str, software_version: str) -> None:
     )
 
 
+def _sign_user_response(data: dict) -> dict:
+    """Attach Ed25519 signature and discovery public key to a user record dict."""
+    try:
+        data["record_signature"] = sign_user_record(
+            data["user_id"],
+            data["home_node_url"],
+            data["updated_at"],
+        )
+        data["discovery_public_key"] = discovery_public_key_b64()
+    except Exception:
+        # Signing is best-effort: fail open so resolve still works if key is
+        # temporarily unavailable. Home-node will treat missing sig as unverified.
+        data.setdefault("record_signature", None)
+        data.setdefault("discovery_public_key", None)
+    return data
+
+
 def _bearer_token(authorization: Optional[str]) -> Optional[str]:
     if not authorization:
         return None
@@ -121,10 +194,16 @@ def _bearer_token(authorization: Optional[str]) -> Optional[str]:
 def register_user(payload: RegisterUserRecord):
     now = now_iso()
     with get_conn() as conn:
+        # home_updated_at/previous_home_node_url only move when home_node_url
+        # actually changes — first upsert counts as a change too (home_updated_at
+        # gets set, previous_home_node_url stays NULL since there was none).
         conn.execute(
             """
-            INSERT INTO user_records (user_id, home_node_url, display_name, auth_public_key, cluster_id, login, username_search_enabled, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO user_records (
+                user_id, home_node_url, display_name, auth_public_key, cluster_id,
+                login, username_search_enabled, updated_at, home_updated_at, previous_home_node_url
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
             ON CONFLICT(user_id) DO UPDATE SET
                 home_node_url=excluded.home_node_url,
                 display_name=excluded.display_name,
@@ -132,7 +211,17 @@ def register_user(payload: RegisterUserRecord):
                 cluster_id=excluded.cluster_id,
                 login=COALESCE(excluded.login, user_records.login),
                 username_search_enabled=excluded.username_search_enabled,
-                updated_at=excluded.updated_at
+                updated_at=excluded.updated_at,
+                previous_home_node_url=CASE
+                    WHEN user_records.home_node_url != excluded.home_node_url
+                    THEN user_records.home_node_url
+                    ELSE user_records.previous_home_node_url
+                END,
+                home_updated_at=CASE
+                    WHEN user_records.home_node_url != excluded.home_node_url
+                    THEN excluded.updated_at
+                    ELSE user_records.home_updated_at
+                END
             """,
             (
                 payload.user_id,
@@ -143,19 +232,16 @@ def register_user(payload: RegisterUserRecord):
                 payload.login,
                 1 if payload.username_search_enabled else 0,
                 now,
+                now,
             ),
         )
         conn.commit()
-    return UserRecordResponse(
-        user_id=payload.user_id,
-        home_node_url=payload.home_node_url,
-        display_name=payload.display_name,
-        auth_public_key=payload.auth_public_key,
-        cluster_id=payload.cluster_id,
-        login=payload.login,
-        username_search_enabled=payload.username_search_enabled,
-        updated_at=now,
-    )
+        row = conn.execute(
+            "SELECT * FROM user_records WHERE user_id = ?", (payload.user_id,)
+        ).fetchone()
+    data = dict(row)
+    data.setdefault("cluster_id", "default")
+    return UserRecordResponse(**_sign_user_response(data))
 
 
 @router.get("/registry/users/search", response_model=UserRecordResponse)
@@ -174,7 +260,7 @@ def search_user_by_login(login: str = Query(..., min_length=3)):
         raise HTTPException(status_code=403, detail="Username search disabled for this user")
     if not data.get("login"):
         raise HTTPException(status_code=404, detail="User not found")
-    return UserRecordResponse(**data)
+    return UserRecordResponse(**_sign_user_response(data))
 
 
 @router.get("/registry/users/{user_id}", response_model=UserRecordResponse)
@@ -187,7 +273,20 @@ def resolve_user(user_id: str):
         raise HTTPException(status_code=404, detail="Unknown user_id")
     data = dict(row)
     data.setdefault("cluster_id", "default")
-    return UserRecordResponse(**data)
+    return UserRecordResponse(**_sign_user_response(data))
+
+
+@router.get("/registry/users/{user_id}/home-route", response_model=UserHomeRouteResponse)
+def resolve_user_home_route(user_id: str):
+    """Minimal Post-R5 "home changed" signal — lets a client/home detect a
+    Home move without a full CONTROL notify (see R4-routing.md Gaps)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM user_records WHERE user_id = ?", (user_id,)
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Unknown user_id")
+    return UserHomeRouteResponse(**dict(row))
 
 
 @router.post("/registry/nodes", response_model=RegisterNodeResponse)
@@ -312,8 +411,19 @@ def heartbeat(
             release_signature=payload.release_signature,
             existing_row=row,
         )
+        # Accumulate messages_total: add delta from 24h counter if provided
+        # and the counter increased since last heartbeat (simple monotonic check).
+        msg_total_expr = "messages_total"
+        msg_total_params: list = []
+        if payload.messages_24h is not None:
+            prev_24h = _row_field(row, "messages_24h") or 0
+            delta = max(0, payload.messages_24h - prev_24h)
+            if delta > 0:
+                msg_total_expr = "messages_total + ?"
+                msg_total_params = [delta]
+
         conn.execute(
-            """
+            f"""
             UPDATE node_capabilities SET
                 last_heartbeat = ?,
                 software_version = ?,
@@ -322,7 +432,22 @@ def heartbeat(
                 release_signature = COALESCE(?, release_signature),
                 attestation_status = ?,
                 attestation_detail = ?,
-                signing_public_key = COALESCE(?, signing_public_key)
+                signing_public_key = COALESCE(?, signing_public_key),
+                cpu_load_1m       = COALESCE(?, cpu_load_1m),
+                cpu_cores         = COALESCE(?, cpu_cores),
+                cpu_percent_est   = COALESCE(?, cpu_percent_est),
+                ram_total_bytes   = COALESCE(?, ram_total_bytes),
+                ram_used_bytes    = COALESCE(?, ram_used_bytes),
+                ram_percent       = COALESCE(?, ram_percent),
+                disk_used_bytes   = COALESCE(?, disk_used_bytes),
+                disk_total_bytes  = COALESCE(?, disk_total_bytes),
+                disk_percent      = COALESCE(?, disk_percent),
+                uptime_sec        = COALESCE(?, uptime_sec),
+                ws_connections    = COALESCE(?, ws_connections),
+                messages_24h      = COALESCE(?, messages_24h),
+                calls_24h         = COALESCE(?, calls_24h),
+                error_rate_pct    = COALESCE(?, error_rate_pct),
+                messages_total    = {msg_total_expr}
             WHERE node_id = ?
             """,
             (
@@ -334,6 +459,21 @@ def heartbeat(
                 att_status,
                 att_detail,
                 payload.signing_public_key,
+                payload.cpu_load_1m,
+                payload.cpu_cores,
+                payload.cpu_percent_est,
+                payload.ram_total_bytes,
+                payload.ram_used_bytes,
+                payload.ram_percent,
+                payload.disk_used_bytes,
+                payload.disk_total_bytes,
+                payload.disk_percent,
+                payload.uptime_sec,
+                payload.ws_connections,
+                payload.messages_24h,
+                payload.calls_24h,
+                payload.error_rate_pct,
+                *msg_total_params,
                 node_id,
             ),
         )
@@ -341,7 +481,11 @@ def heartbeat(
         conn.commit()
         row = conn.execute("SELECT * FROM node_capabilities WHERE node_id = ?", (node_id,)).fetchone()
 
-    return _node_response(row, last_heartbeat=now)
+    response = _node_response(row, last_heartbeat=now)
+    # Фаза 3.3: включаем актуальный peer-список в heartbeat-ответ.
+    # Нода обновит свой mesh-кэш из этого списка — меньше запросов к Discovery.
+    response.peers = _build_peer_list(exclude_node_id=node_id)
+    return response
 
 
 @router.get("/registry/nodes", response_model=NodeCapabilityListResponse)

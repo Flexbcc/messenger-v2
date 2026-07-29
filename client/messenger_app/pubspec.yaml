@@ -60,6 +60,9 @@ dependencies:
   # Signal identity key above — see shared/README.md Single Responsibility).
   cryptography: ^2.7.0
 
+  # SHA-256 для PoW (Task #69) — стандартная pure-Dart реализация.
+  crypto: ^3.0.3
+
   uuid: ^4.5.1
 
   # Cross-platform (incl. web) file picking for image/file attachments
@@ -68,7 +71,6 @@ dependencies:
   video_player: ^2.9.2
   flutter_webrtc: ^1.5.2
   mobile_scanner: ^6.0.2
-  qr_flutter: ^4.1.0
 
   # mDNS browse for PPC pairing (LAN discovery of storage-app)
   bonsoir: ^5.1.0

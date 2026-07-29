@@ -20,9 +20,6 @@ class ClientUpdateService extends ChangeNotifier {
 
   bool pwaReloadReady = false;
   bool manifestUpdateAvailable = false;
-  /// True when the running version is below min_version in the manifest —
-  /// the app must be updated before the user can continue.
-  bool forceUpgrade = false;
   String? releaseNotes;
   String? downloadUrl;
   String? remoteVersion;
@@ -85,29 +82,12 @@ class ClientUpdateService extends ChangeNotifier {
       downloadUrl = plat.downloadUrl;
       updateKind = plat.updateKind;
 
-      final localBuild = int.tryParse(AppInfo.buildNumber) ?? 0;
-
       manifestUpdateAvailable = isRemoteNewer(
         localVersion: AppInfo.version,
-        localBuild: localBuild,
+        localBuild: int.tryParse(AppInfo.buildNumber) ?? 0,
         remoteVersion: plat.version,
         remoteBuild: plat.build,
       );
-
-      // force_upgrade: block the app if running version is below min_version
-      final minVer = plat.minVersion;
-      if (minVer != null && minVer.isNotEmpty) {
-        // min_version has no build component — compare semver only
-        final belowMin = compareSemverBuild(
-          AppInfo.version, localBuild, minVer, 0,
-        ) < 0;
-        if (belowMin != forceUpgrade) {
-          forceUpgrade = belowMin;
-        }
-      } else {
-        forceUpgrade = false;
-      }
-
       notifyListeners();
     } catch (e) {
       lastError = e.toString();

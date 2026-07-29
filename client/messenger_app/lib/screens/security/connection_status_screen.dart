@@ -161,6 +161,36 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
                         : AppStatus.warning,
                     subtitle: 'Текущий API endpoint',
                   ),
+                  Builder(builder: (context) {
+                    final backups = NodeConfigResolver().backupHomeUrls();
+                    return _LiveRow(
+                      label: 'Запасные Home-узлы',
+                      value: backups.isEmpty ? 'нет' : '${backups.length}',
+                      status: backups.isEmpty ? AppStatus.warning : AppStatus.online,
+                      subtitle: backups.isEmpty
+                          ? 'Re-bootstrap упадёт на дефолт, если primary Gateway/Home down'
+                          : backups.join(', '),
+                    );
+                  }),
+                  if (controller.lastFailoverAt != null)
+                    _LiveRow(
+                      label: 'Failover',
+                      value: formatCallHistoryTime(controller.lastFailoverAt!),
+                      status: AppStatus.warning,
+                      subtitle: 'Переключились с ${controller.lastFailoverFromUrl} '
+                          'на ${controller.lastFailoverToUrl}',
+                    ),
+                  if (controller.lastHomeChangedEntry != null)
+                    _LiveRow(
+                      label: 'Home контакта сменился',
+                      value: formatCallHistoryTime(
+                        controller.lastHomeChangedEntry!.updatedAt ??
+                            controller.lastHomeChangedEntry!.cachedAt,
+                      ),
+                      status: AppStatus.warning,
+                      subtitle: '${controller.lastHomeChangedUserId} → '
+                          '${controller.lastHomeChangedEntry!.homeUrl}',
+                    ),
                   FutureBuilder<String>(
                     future: NodeConfigResolver().connectionSummary(),
                     builder: (context, snap) {

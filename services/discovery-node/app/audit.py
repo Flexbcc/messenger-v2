@@ -34,14 +34,19 @@ def log_admin_action(
     node_id: str,
     cluster_id: str | None = None,
     detail: str | None = None,
+    client_ip: str | None = None,
 ) -> None:
     ensure_audit_table(conn)
+    # Добавляем client_ip в detail если передан
+    full_detail = detail or ""
+    if client_ip:
+        full_detail = f"ip={client_ip}" + (f" {full_detail}" if full_detail else "")
     conn.execute(
         """
         INSERT INTO admin_audit_log (created_at, actor, action, node_id, cluster_id, detail)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (now_iso(), actor or "operator", action, node_id, cluster_id, detail),
+        (now_iso(), actor or "operator", action, node_id, cluster_id, full_detail or None),
     )
 
 

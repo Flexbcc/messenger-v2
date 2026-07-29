@@ -4,22 +4,6 @@ import 'local_settings_store.dart';
 class PrivacyPreferencesStore {
   final _store = LocalSettingsStore();
 
-  /// One-time migration from the legacy single `pm_app_lock` key to the new
-  /// independent `pm_pin_enabled` + `pm_lock_on_background` keys.
-  /// Safe to call repeatedly — is a no-op after first run.
-  Future<void> migrateAppLockIfNeeded() async {
-    // If new keys already exist, nothing to do.
-    final pinKeyExists = (await _store.getBool('pm_pin_enabled_migrated', false));
-    if (pinKeyExists) return;
-
-    final legacyValue = await _store.getBool('pm_app_lock', false);
-    if (legacyValue) {
-      await _store.setBool('pm_pin_enabled', true);
-      await _store.setBool('pm_lock_on_background', true);
-    }
-    await _store.setBool('pm_pin_enabled_migrated', true);
-  }
-
   Future<bool> fakePinEnabled() async => _store.getBool('pm_fake_pin', false);
   Future<void> setFakePinEnabled(bool v) async => _store.setBool('pm_fake_pin', v);
 
@@ -37,27 +21,11 @@ class PrivacyPreferencesStore {
   Future<bool> maskNotifications() async => _store.getBool('pm_mask_notifications', false);
   Future<void> setMaskNotifications(bool v) async => _store.setBool('pm_mask_notifications', v);
 
-  /// Hides online status / last-seen from all peers (catalog: privacy.invisible_mode).
-  Future<bool> invisibleMode() async => _store.getBool('pm_invisible_mode', false);
-  Future<void> setInvisibleMode(bool v) async => _store.setBool('pm_invisible_mode', v);
-
   Future<bool> hidePreviews() async => _store.getBool('pm_hide_previews', false);
   Future<void> setHidePreviews(bool v) async => _store.setBool('pm_hide_previews', v);
 
-  /// Whether PIN lock is configured / enabled (catalog: security.pin_enabled).
-  Future<bool> pinEnabled() async => _store.getBool('pm_pin_enabled', false);
-  Future<void> setPinEnabled(bool v) async => _store.setBool('pm_pin_enabled', v);
-
-  /// Whether to lock the app when it goes to the background (catalog: security.lock_on_background).
-  Future<bool> lockOnBackground() async => _store.getBool('pm_lock_on_background', false);
-  Future<void> setLockOnBackground(bool v) async => _store.setBool('pm_lock_on_background', v);
-
-  /// True when PIN lock is active. Equivalent to [pinEnabled].
-  /// Use [lockOnBackground] separately to check the background-lock behaviour.
-  Future<bool> appLockEnabled() async => pinEnabled();
-
-  /// Legacy setter — kept for callers that haven't migrated; sets only pin_enabled.
-  Future<void> setAppLockEnabled(bool v) async => setPinEnabled(v);
+  Future<bool> appLockEnabled() async => _store.getBool('pm_app_lock', false);
+  Future<void> setAppLockEnabled(bool v) async => _store.setBool('pm_app_lock', v);
 
   Future<int> autoLockSeconds() async => _store.getInt('pm_auto_lock_sec', 60);
   Future<void> setAutoLockSeconds(int seconds) async => _store.setInt('pm_auto_lock_sec', seconds);

@@ -716,7 +716,6 @@ class SettingsRuntime {
     'hidden.autolock',
     'contacts.import_enabled',
     'contacts.hash_lookup',
-    'contacts.auto_add_mutual',
     'contacts.trusted_enabled',
     'contacts.trusted_list',
     'contacts.trust_levels_enabled',

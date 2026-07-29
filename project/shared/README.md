@@ -35,26 +35,29 @@
 
 ## Identity / Device / Auth
 
-Аутентификация — challenge-response на Ed25519-ключе устройства (Zero
-Trust, см. [0300_CRYPTO.md](../spec/0300_CRYPTO.md)), **не пароль**. Это
-отдельный ключ от Signal identity key внутри `libsignal_protocol_dart` —
-один отвечает только за то, что устройство — то самое устройство,
-зарегистрированное в Home Node; второй — только за E2EE-сессии. Смешивать
-их не нужно (Single Responsibility).
+Аутентификация устройства (целевая модель) — challenge-response на
+Ed25519-ключе устройства (Zero Trust, см. [0300_CRYPTO.md](../spec/0300_CRYPTO.md)).
+Это отдельный ключ от Signal identity key внутри `libsignal_protocol_dart`.
+
+**LIVE (`mvp-json`, R2):** primary onboarding — password register/login
+([ADR-0007](../spec/ADR/0007-password-identifier-login-bridge.md));
+`/auth/challenge` + `/auth/verify` используются для обновления JWT.
+Полный mapping handshake ↔ REST/WS: [0200_PROTOCOL.md](../spec/0200_PROTOCOL.md),
+reality [`docs/reality/R2-wire-today.md`](../../docs/reality/R2-wire-today.md).
 
 ```
-POST /auth/register
-  { display_name, auth_public_key (base64 Ed25519), device_name, device_type,
-    identity_key_bundle: { identity_key, signed_prekey, one_time_prekeys[] } }
-  -> { user_id, device_id }
+POST /auth/register | /auth/login   (password bridge + auth_public_key + bundle)
+  -> { user_id, device_id, access_token }
 
 POST /auth/challenge
-  { auth_public_key }
-  -> { nonce (base64), expires_at }
+  { device_id }
+  -> { nonce, expires_at }
 
 POST /auth/verify
-  { auth_public_key, nonce, signature (base64 Ed25519 signature over nonce) }
+  { device_id, nonce, signature }
   -> { access_token (JWT), user_id, device_id }
+
+WS /ws?token=<jwt>   (push new_message; не Packet-multiplex send)
 ```
 
 ## Crypto API (контракт клиента, реализация — `libsignal_protocol_dart`)

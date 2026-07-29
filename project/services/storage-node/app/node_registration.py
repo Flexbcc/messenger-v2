@@ -9,6 +9,7 @@ import httpx
 
 from app.config import settings
 from shared.security.runtime import federation_registration_fields
+from shared.mesh.sync import update_mesh_from_heartbeat_response
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +170,14 @@ async def _heartbeat_once() -> None:
             logger.warning("Heartbeat rejected — invalid or missing node_token")
             return
         resp.raise_for_status()
+        try:
+            update_mesh_from_heartbeat_response(
+                resp.json(),
+                self_node_id=settings.node_id,
+                cluster_id=settings.cluster_id,
+            )
+        except Exception as mesh_err:
+            logger.debug("Mesh update from heartbeat failed (non-fatal): %s", mesh_err)
 
 
 async def _heartbeat_loop() -> None:

@@ -11,7 +11,9 @@ import '../models/message.dart';
 import '../models/chat_draft.dart';
 import '../services/chat_draft_store.dart';
 import '../services/message_delivery_store.dart';
+import '../services/settings_runtime.dart';
 import '../state/app_controller.dart';
+import '../state/settings_catalog_controller.dart';
 import '../theme/app_decorations.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
@@ -27,12 +29,11 @@ import '../utils/message_delivery_status.dart';
 import '../utils/message_grouping.dart';
 import '../core/ui/typing_indicator.dart';
 import '../core/platform/platform_capabilities.dart';
-import '../widgets/chat/chat_feedback.dart';
 import '../widgets/chat/chat_message_bubble.dart';
-import '../widgets/chat/pinned_messages_sheet.dart';
 import '../widgets/chat/time_action_sheets.dart';
 import '../widgets/avatar.dart';
 import 'chat_info_screen.dart';
+import 'chat_search_screen.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
@@ -49,21 +50,45 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _textController = TextEditingController();
+  final _textFocusNode = FocusNode();
   final _scrollController = ScrollController();
   bool _loadingHistory = true;
   bool _sending = false;
-  final bool _showTyping = false;
+  bool _showTyping = false;
+  bool _typingEnabled = true;
   ChatMessage? _replyTo;
+  // Task #71: сообщение которое сейчас редактируется
+  ChatMessage? _editingMessage;
   AppController? _controller;
   Timer? _draftTimer;
+  Timer? _typingNotifyTimer;
   String? _draftAttachmentName;
   String? _highlightMessageId;
   final _messageKeys = <String, GlobalKey>{};
+  /// Cached [SettingsRuntime.sendKey]: `enter` | `ctrl_enter` | `button_only`.
+  String _sendKey = 'enter';
+  bool _videoCallsEnabled = true;
+  bool _voiceRecordStatusEnabled = true;
 
   GlobalKey _keyForMessage(String messageId) =>
       _messageKeys.putIfAbsent(messageId, GlobalKey.new);
 
   bool get _isFavoritesChat => FavoritesChat.isId(widget.conversation.id);
+
+  Future<void> _reloadSendKey() async {
+    final key = await SettingsRuntime.instance.sendKey();
+    final typing = await SettingsRuntime.instance.typingEnabled();
+    final video = await SettingsRuntime.instance.callsVideo();
+    final voiceStatus = await SettingsRuntime.instance.voiceRecordStatusEnabled();
+    if (!mounted) return;
+    setState(() {
+      _sendKey = key;
+      _typingEnabled = typing;
+      _videoCallsEnabled = video;
+      _voiceRecordStatusEnabled = voiceStatus;
+      if (!_typingEnabled) _showTyping = false;
+    });
+  }
 
   @override
   void initState() {
@@ -73,6 +98,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _controller!.loadChatPreferences(widget.conversation.id);
     _textController.addListener(_onDraftChanged);
     Future.microtask(() async {
+      await _reloadSendKey();
       await _loadDraft();
       await _controller!.loadHistory(widget.conversation.id);
       await MessageDeliveryStore.instance.loadPeerRead(widget.conversation.id);
@@ -92,12 +118,82 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void dispose() {
     _draftTimer?.cancel();
+    _typingNotifyTimer?.cancel();
     _persistDraft();
     _controller?.setActiveConversation(null);
     _textController.removeListener(_onDraftChanged);
     _textController.dispose();
+    _textFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  KeyEventResult _onComposerKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey != LogicalKeyboardKey.enter &&
+        event.logicalKey != LogicalKeyboardKey.numpadEnter) {
+      return KeyEventResult.ignored;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    switch (_sendKey) {
+      case 'button_only':
+        // Enter inserts newline; only the send button sends.
+        return KeyEventResult.ignored;
+      case 'ctrl_enter':
+        // Enter → newline; Ctrl/Cmd+Enter → send.
+        if (keyboard.isControlPressed || keyboard.isMetaPressed) {
+          _sendText();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      case 'enter':
+      default:
+        // Shift+Enter → newline; Enter → send.
+        if (keyboard.isShiftPressed) {
+          return KeyEventResult.ignored;
+        }
+        _sendText();
+        return KeyEventResult.handled;
+    }
+  }
+
+  Future<void> _showAttachMenu() async {
+    if (!_canSend || _sending) return;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.image_outlined),
+              title: const Text('Фото'),
+              onTap: () => Navigator.pop(context, 'image'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam_outlined),
+              title: const Text('Видео'),
+              onTap: () => Navigator.pop(context, 'video'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.attach_file),
+              title: const Text('Файл'),
+              onTap: () => Navigator.pop(context, 'file'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'image':
+        await _pickAndSendImage();
+      case 'video':
+        await _pickAndSendVideo();
+      case 'file':
+        await _pickAndSendFile();
+    }
   }
 
   Future<void> _loadDraft() async {
@@ -126,6 +222,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _controller?.touchSecretSession(widget.conversation.id);
     _draftTimer?.cancel();
     _draftTimer = Timer(const Duration(milliseconds: 400), _persistDraft);
+    if (_typingEnabled && _textController.text.trim().isNotEmpty) {
+      _typingNotifyTimer?.cancel();
+      _typingNotifyTimer = Timer(const Duration(milliseconds: 600), () {
+        unawaited(_controller?.notifyTyping(widget.conversation.id) ?? Future<void>.value());
+      });
+    }
   }
 
   Future<void> _persistDraft() async {
@@ -219,7 +321,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 Navigator.pop(context);
                 final body = messageDisplayBody(message);
                 Clipboard.setData(ClipboardData(text: body));
-                ChatFeedback.copied(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Текст скопирован')),
+                );
               },
             ),
             ListTile(
@@ -296,19 +400,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       onReply: () => setState(() => _replyTo = message),
       onFavorite: () async {
         await controller.addFavoriteMessage(widget.conversation, message);
-        if (mounted) ChatFeedback.addedToFavorites(context);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Добавлено в чат «Избранное»')),
+          );
+        }
       },
-      onReminder: (when) async {
-        await controller.addMessageReminder(
-          conversation: widget.conversation,
-          message: message,
-          remindAt: when,
-        );
-        if (mounted) ChatFeedback.reminderSet(context, when);
-      },
+      onReminder: (when) => controller.addMessageReminder(
+        conversation: widget.conversation,
+        message: message,
+        remindAt: when,
+      ),
       onDelete: () async {
+        if (await SettingsRuntime.instance.confirmDelete()) {
+          if (!mounted) return;
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Удалить сообщение?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Отмена'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Удалить'),
+                ),
+              ],
+            ),
+          );
+          if (confirmed != true) return;
+        }
         await controller.hideMessageLocally(message.id);
-        if (mounted) ChatFeedback.hidden(context);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Сообщение скрыто на этом устройстве')),
+          );
+        }
       },
       onForward: () async {
         final target = await showForwardTargetPicker(
@@ -320,7 +449,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         if (target == null || !mounted) return;
         try {
           await controller.forwardMessage(message, target);
-          if (mounted) ChatFeedback.forwarded(context);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Переслано в «${controller.conversationTitle(target)}»')),
+            );
+          }
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -330,15 +463,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         }
       },
       onTogglePin: () async {
-        final wasPinned = controller.isMessagePinned(message.id);
         await controller.toggleMessagePinned(message.id);
-        if (mounted) ChatFeedback.pinned(context, pinned: !wasPinned);
       },
       onEdit: isMine && message.contentType == 'text'
           ? () {
               _textController.text = message.plaintext ?? '';
               _textController.selection = TextSelection.collapsed(offset: _textController.text.length);
-              setState(() => _replyTo = null);
+              setState(() {
+                _replyTo = null;
+                _editingMessage = message;
+              });
             }
           : null,
     );
@@ -378,6 +512,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final text = raw.trim();
     if (text.isEmpty || _sending) return;
+
+    // Task #71: если редактируем существующее сообщение — вызываем edit API
+    final editTarget = _editingMessage;
+    if (editTarget != null) {
+      setState(() => _sending = true);
+      try {
+        await ref.read(appControllerProvider).editMessage(
+              widget.conversation,
+              editTarget,
+              text,
+            );
+        _textController.clear();
+        setState(() => _editingMessage = null);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Не удалось изменить: ${friendlyApiError(e)}')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _sending = false);
+      }
+      return;
+    }
+
     ref.read(appControllerProvider).touchSecretSession(widget.conversation.id);
     setState(() => _sending = true);
     try {
@@ -419,6 +578,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _startCall(CallKind kind) async {
     if (widget.conversation.isGroup) return;
+    if (kind == CallKind.video && !_videoCallsEnabled) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Видеозвонки отключены в настройках')),
+        );
+      }
+      return;
+    }
     if (PlatformCapabilities.callsNeedSecureContext && Uri.base.scheme != 'https') {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -441,14 +608,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _pickAndSendImage() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
-    final file = result?.files.single;
-    if (file?.bytes == null) return;
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+      allowMultiple: false,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось прочитать файл. Разрешите доступ к выбранным файлам.')),
+        );
+      }
+      return;
+    }
+    if (!await _confirmLargeAttachmentIfNeeded(bytes.length, file.name)) return;
     setState(() => _sending = true);
     try {
       await ref.read(appControllerProvider).sendImage(
             widget.conversation,
-            file!.bytes!,
+            bytes,
             file.name,
             'image/${file.extension ?? 'jpeg'}',
           );
@@ -462,12 +643,118 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  void _openPinnedMessages() {
-    showPinnedMessagesSheet(
-      context: context,
-      conversation: widget.conversation,
-      onOpenMessage: _scrollToMessageId,
+  Future<void> _pickAndSendFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      withData: true,
+      allowMultiple: false,
     );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось прочитать файл. Разрешите доступ к выбранным файлам.')),
+        );
+      }
+      return;
+    }
+    if (!await _confirmLargeAttachmentIfNeeded(bytes.length, file.name)) return;
+    setState(() => _sending = true);
+    try {
+      await ref.read(appControllerProvider).sendAttachment(
+            widget.conversation,
+            bytes,
+            file.name,
+            _mimeForFilename(file.name),
+            'file',
+          );
+      _scrollToBottom();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Не удалось отправить файл: ${friendlyApiError(e)}')));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _pickAndSendVideo() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.video,
+      withData: true,
+      allowMultiple: false,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось прочитать файл. Разрешите доступ к выбранным файлам.')),
+        );
+      }
+      return;
+    }
+    if (!await _confirmLargeAttachmentIfNeeded(bytes.length, file.name)) return;
+    setState(() => _sending = true);
+    try {
+      await ref.read(appControllerProvider).sendAttachment(
+            widget.conversation,
+            bytes,
+            file.name,
+            'video/${file.extension ?? 'mp4'}',
+            'video',
+          );
+      _scrollToBottom();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Не удалось отправить видео: ${friendlyApiError(e)}')));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<bool> _confirmLargeAttachmentIfNeeded(int bytesLength, String filename) async {
+    if (!await SettingsRuntime.instance.shouldConfirmLargeFile(bytesLength)) return true;
+    if (!mounted) return false;
+    final thresholdMb = await SettingsRuntime.instance.largeFileConfirmMb();
+    if (!mounted) return false;
+    final sizeMb = (bytesLength / (1024 * 1024)).toStringAsFixed(1);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Большой файл'),
+        content: Text(
+          '«$filename» — $sizeMb МБ (порог $thresholdMb МБ). Отправить?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Отмена')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Отправить')),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  String _mimeForFilename(String name) {
+    final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
+    return switch (ext) {
+      'pdf' => 'application/pdf',
+      'txt' => 'text/plain',
+      'doc' => 'application/msword',
+      'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'zip' => 'application/zip',
+      'json' => 'application/json',
+      'png' => 'image/png',
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'gif' => 'image/gif',
+      'mp4' => 'video/mp4',
+      'mp3' => 'audio/mpeg',
+      _ => 'application/octet-stream',
+    };
   }
 
   void _showChatGesturesHelp() {
@@ -486,10 +773,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               const Text('• Долгое нажатие или правый клик — полное меню'),
               const Text('• Свайп влево/вправо — ответить'),
               const SizedBox(height: AppSpacing.sm),
-              const Text('• Пароль секретного режима + два пробела — включить секретный чат'),
-              const Text('• Закреплённые — иконка 📌 в шапке или «Информация о чате»'),
-              const SizedBox(height: AppSpacing.sm),
-              const Text('Напоминание: в указанное время чат получит непрочитанное и уведомление в приложении.'),
+              const Text('В меню: избранное, переслать, закрепить, напомнить, удалить у меня.'),
               const SizedBox(height: AppSpacing.md),
             ],
           ),
@@ -502,7 +786,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final controller = ref.watch(appControllerProvider);
     final title = controller.conversationTitle(widget.conversation);
-    final pinnedCount = controller.pinnedCountFor(widget.conversation.id);
     final secretActive = controller.isSecretSessionActive(widget.conversation.id);
     final messages = controller.visibleMessagesFor(widget.conversation.id);
     final layouts = buildMessageLayouts(messages);
@@ -520,6 +803,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     }
     final peerOnline = peerId != null && controller.isContactOnline(peerId);
+    final peerStatus = peerId != null ? controller.contactStatusLabel(peerId) : '';
+
+    ref.listen(settingsCatalogValuesProvider, (_, __) {
+      _reloadSendKey();
+      unawaited(controller.refreshPrivacyRuntime());
+    });
 
     // Scroll when new messages arrive while this chat is open.
     ref.listen(appControllerProvider, (prev, next) {
@@ -546,6 +835,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 label: _isFavoritesChat ? '★' : title,
                 isGroup: widget.conversation.isGroup,
                 size: AppAvatarSize.small,
+                showOnline: peerOnline,
               ),
               const SizedBox(width: AppSpacing.smallGap),
               Flexible(
@@ -559,7 +849,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     else if (secretActive)
                       Text('Секретный режим', style: AppTypography.caption.copyWith(fontSize: 11, color: AppColors.accentBlue))
                     else if (isMuted)
-                      Text('Уведомления выключены', style: AppTypography.caption.copyWith(fontSize: 11)),
+                      Text('Уведомления выключены', style: AppTypography.caption.copyWith(fontSize: 11))
+                    else if (peerStatus.isNotEmpty)
+                      Text(peerStatus, style: AppTypography.caption.copyWith(fontSize: 11)),
                   ],
                 ),
               ),
@@ -573,18 +865,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               tooltip: 'Выйти из секретного режима',
               onPressed: () {
                 controller.deactivateSecretSession(widget.conversation.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Секретный режим выключен')),
+                );
               },
             ),
-          if (pinnedCount > 0 && !_isFavoritesChat)
-            IconButton(
-              icon: Badge(
-                label: Text('$pinnedCount'),
-                child: const Icon(Icons.push_pin_outlined),
-              ),
-              tooltip: 'Закреплённые сообщения',
-              onPressed: _openPinnedMessages,
-            ),
           if (!_isFavoritesChat) ...[
+            IconButton(
+              icon: const Icon(Icons.search_outlined),
+              tooltip: 'Поиск в чате',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChatSearchScreen(conversation: widget.conversation),
+                ),
+              ),
+            ),
             IconButton(
               icon: const Icon(Icons.touch_app_outlined),
               tooltip: 'Действия с сообщениями',
@@ -595,10 +890,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 icon: const Icon(Icons.call_outlined),
                 onPressed: controller.currentCall != null ? null : () => _startCall(CallKind.audio),
               ),
-              IconButton(
-                icon: const Icon(Icons.videocam_outlined),
-                onPressed: controller.currentCall != null ? null : () => _startCall(CallKind.video),
-              ),
+              if (_videoCallsEnabled)
+                IconButton(
+                  icon: const Icon(Icons.videocam_outlined),
+                  onPressed: controller.currentCall != null ? null : () => _startCall(CallKind.video),
+                ),
             ],
           ],
         ],
@@ -701,6 +997,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               isLastOutgoingInChat: isLastOutgoing,
                               messageCreatedAt: message.createdAt,
                               peerOnline: peerOnline,
+                              showReadReceipts: controller.privacyReadReceiptsVisible,
                             );
                             return KeyedSubtree(
                               key: _keyForMessage(message.id),
@@ -734,13 +1031,52 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ),
             ),
           ),
-          if (_showTyping) const TypingIndicator(),
+          if (_showTyping && _typingEnabled) const TypingIndicator(),
+          if (!_voiceRecordStatusEnabled)
+            Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 4),
+              child: Text(
+                'Статус записи голоса скрыт (privacy.voice_record_status)',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
           if (!_isFavoritesChat)
             SafeArea(
             top: false,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Task #71: баннер режима редактирования
+                if (_editingMessage != null)
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      border: Border(top: BorderSide(color: AppColors.divider)),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding, vertical: AppSpacing.smallGap),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                        const SizedBox(width: AppSpacing.smallGap),
+                        Expanded(
+                          child: Text(
+                            'Редактирование: ${messageDisplayBody(_editingMessage!)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.caption,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18, color: AppColors.textMuted),
+                          onPressed: () => setState(() {
+                            _editingMessage = null;
+                            _textController.clear();
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (_replyTo != null)
                   Container(
                     width: double.infinity,
@@ -778,22 +1114,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     vertical: AppSpacing.smallGap,
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       IconButton(
                         icon: const Icon(Icons.schedule_outlined, color: AppColors.textSecondary),
+                        tooltip: 'Отложить',
                         onPressed: !_canSend || _sending ? null : _scheduleText,
                       ),
                       IconButton(
-                        icon: const Icon(Icons.attach_file, color: AppColors.textSecondary),
-                        onPressed: !_canSend || _sending ? null : _pickAndSendImage,
+                        icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
+                        tooltip: 'Вложение',
+                        onPressed: !_canSend || _sending ? null : _showAttachMenu,
                       ),
                       Expanded(
-                        child: SizedBox(
-                          height: AppSpacing.inputHeight,
+                        child: Focus(
+                          onKeyEvent: _onComposerKey,
                           child: TextField(
                             controller: _textController,
+                            focusNode: _textFocusNode,
                             enabled: _canSend && !_sending,
                             style: AppTypography.body,
+                            minLines: 1,
+                            maxLines: 6,
+                            keyboardType: TextInputType.multiline,
+                            textInputAction: TextInputAction.newline,
                             decoration: InputDecoration(
                               hintText: !reachable
                                   ? 'Чат недоступен'
@@ -803,7 +1147,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               hintStyle: AppTypography.body.copyWith(color: AppColors.textMuted),
                               filled: true,
                               fillColor: AppColors.card,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.mediumGap),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.mediumGap,
+                                vertical: 12,
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(AppRadii.large),
                                 borderSide: BorderSide.none,
@@ -813,8 +1160,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 borderSide: const BorderSide(color: AppColors.divider),
                               ),
                             ),
-                            onSubmitted: (_) => _sendText(),
-                            textInputAction: TextInputAction.send,
                           ),
                         ),
                       ),

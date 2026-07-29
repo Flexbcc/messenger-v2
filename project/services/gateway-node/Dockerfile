@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY shared /app/shared
 COPY services/gateway-node/app ./app
+COPY releases/clients/manifest.json /app/releases/clients/manifest.json
 COPY services/gateway-node/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 

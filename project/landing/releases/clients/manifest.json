@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "channel": "beta",
+  "updated_at": "2026-07-20T12:16:15Z",
+  "landing_url": "https://194.67.92.147",
+  "products": {
+    "messenger": {
+      "display_name": "Messenger",
+      "version": "0.1.0",
+      "build": 1,
+      "channel": "beta",
+      "release_notes": "Первая бета: E2EE-чаты, звонки WebRTC, private mode, каталог настроек, pairing по QR.",
+      "platforms": {
+        "web": {
+          "version": "0.1.0",
+          "build": 1,
+          "available": true,
+          "update_kind": "reload",
+          "min_version": "0.1.0"
+        },
+        "macos": {
+          "version": "0.1.0",
+          "build": 1,
+          "available": true,
+          "update_kind": "download",
+          "download_url": "https://194.67.92.147/downloads/Messenger-macos-arm64.zip",
+          "min_version": "0.1.0"
+        },
+        "android": {
+          "version": "0.1.0",
+          "build": 1,
+          "available": false,
+          "update_kind": "download",
+          "download_url": null,
+          "min_version": "0.1.0"
+        },
+        "windows": {
+          "version": "0.1.0",
+          "build": 1,
+          "available": false,
+          "update_kind": "download",
+          "download_url": null,
+          "min_version": "0.1.0"
+        },
+        "ios": {
+          "version": "0.1.0",
+          "build": 1,
+          "available": false,
+          "update_kind": "store",
+          "download_url": null,
+          "min_version": "0.1.0"
+        },
+        "linux": {
+          "version": "0.1.0",
+          "build": 1,
+          "available": false,
+          "update_kind": "download",
+          "download_url": null,
+          "min_version": "0.1.0"
+        }
+      }
+    },
+    "storage": {
+      "display_name": "Storage App",
+      "version": "0.1.0",
+      "build": 1,
+      "channel": "beta",
+      "release_notes": "Личное хранилище на ПК: content-addressed blobs, tray, Bonjour, Ed25519.",
+      "platforms": {
+        "macos": {
+          "version": "0.1.0",
+          "build": 1,
+          "available": true,
+          "update_kind": "download",
+          "download_url": "https://194.67.92.147/downloads/StorageApp-macos-arm64.zip",
+          "min_version": "0.1.0"
+        },
+        "windows": {
+          "version": "0.1.0",
+          "build": 1,
+          "available": false,
+          "update_kind": "download",
+          "download_url": null,
+          "min_version": "0.1.0"
+        },
+        "linux": {
+          "version": "0.1.0",
+          "build": 1,
+          "available": false,
+          "update_kind": "download",
+          "download_url": null,
+          "min_version": "0.1.0"
+        }
+      }
+    }
+  }
+}

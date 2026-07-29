@@ -1,5 +1,36 @@
 #!/usr/bin/env python3
 """
+УСТАРЕЛО — заменено пультом в operator-console/
+
+Эта консоль работала только через SSH и обслуживала два жёстко заданных
+сервера. Её функции перенесены в operator-console/, где к SSH-каналу
+добавлен mTLS: телеметрия всей федерации, управление членством нод
+и журнал аудита — то, для чего SSH не годится.
+
+Новый пульт:
+
+    cd operator-console
+    cp .env.example .env && nano .env
+    ./up.sh
+    open http://127.0.0.1:9300
+
+Что перенесено:
+    состояние контейнеров   → GET  /api/operator/services
+    перезапуск сервиса      → POST /api/operator/services/<имя>/restart
+    логи сервиса            → GET  /api/operator/services/<имя>/logs
+    состояние деплоя        → GET  /api/operator/deploy/status
+    раскатка на сервер      → POST /api/operator/deploy/pull
+
+Что появилось нового:
+    телеметрия федерации    → GET  /api/operator/nodes
+    управление членством    → POST /api/operator/registry/<нода>/<действие>
+    журнал аудита           → GET  /api/operator/audit
+
+Оба занимают порт 9300 — одновременно не запускать.
+
+────────────────────────────────────────────────────────────────────────────
+Исходное описание:
+
 Messenger Operator Console — local control panel (127.0.0.1 only).
 
 - Runs ONLY on your Mac; nodes never expose this UI.
@@ -7,6 +38,24 @@ Messenger Operator Console — local control panel (127.0.0.1 only).
 - Server admin/enrollment secrets stay on servers; accessed via SSH from here.
 """
 from __future__ import annotations
+
+import os as _os
+import sys as _sys
+
+# Защита от случайного запуска: оба пульта слушают 9300.
+if _os.environ.get("OPERATOR_CONSOLE_ALLOW_LEGACY") != "1":
+    _sys.stderr.write(
+        "\n"
+        "  Эта консоль устарела — используйте operator-console/\n"
+        "\n"
+        "      cd operator-console && ./up.sh\n"
+        "\n"
+        "  Оба пульта занимают порт 9300, одновременно не запускаются.\n"
+        "  Запустить старую всё равно:  OPERATOR_CONSOLE_ALLOW_LEGACY=1 "
+        "python3 scripts/operator-console.py\n"
+        "\n"
+    )
+    raise SystemExit(1)
 
 import hashlib
 import hmac

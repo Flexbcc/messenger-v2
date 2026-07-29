@@ -4,13 +4,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../security/pin_security.dart';
 import '../../services/hidden_vault_session.dart';
+import '../../services/local_settings_store.dart';
 
 /// State for the Private Mode / Secret Room module.
 ///
 /// PIN hashes live in [PinSecurity] (Argon2id). Hidden chat content is
 /// encrypted at rest via [HiddenVaultStore] once the vault is unlocked.
 class PrivateModeState extends ChangeNotifier {
-  static const _biometricKey = 'private_mode_biometric_enabled';
+  static const _biometricBase = 'private_mode_biometric_enabled';
+
+  String get _biometricKey {
+    final uid = LocalSettingsStore.activeUserId;
+    if (uid == null) return _biometricBase;
+    return '${_biometricBase}_u_$uid';
+  }
 
   bool biometricEnabled = false;
   bool loaded = false;
@@ -54,6 +61,7 @@ class PrivateModeState extends ChangeNotifier {
     await HiddenVaultSession.instance.wipe();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_biometricKey);
+    await prefs.remove(_biometricBase);
     biometricEnabled = false;
     isConfigured = false;
     notifyListeners();

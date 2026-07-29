@@ -9,6 +9,7 @@ class AppTile extends StatelessWidget {
     super.key,
     this.leading,
     required this.title,
+    this.titleWidget,
     this.subtitle,
     this.trailingText,
     this.trailing,
@@ -21,6 +22,7 @@ class AppTile extends StatelessWidget {
 
   final Widget? leading;
   final String title;
+  final Widget? titleWidget;
   final String? subtitle;
   final String? trailingText;
   final Widget? trailing;
@@ -37,6 +39,9 @@ class AppTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = context.textStyles;
+    final themeDense = Theme.of(context).listTileTheme.dense == true ||
+        Theme.of(context).visualDensity.vertical < 0;
+    final effectiveDense = dense || themeDense;
 
     return Material(
       color: Colors.transparent,
@@ -45,8 +50,11 @@ class AppTile extends StatelessWidget {
         child: Opacity(
           opacity: enabled ? 1 : 0.45,
           child: Container(
-            constraints: BoxConstraints(minHeight: dense ? 48 : AppSpacing.rowHeight),
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.cardPadding, vertical: dense ? 10 : 12),
+            constraints: BoxConstraints(minHeight: effectiveDense ? 44 : AppSpacing.rowHeight),
+            padding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.cardPadding,
+              vertical: effectiveDense ? 8 : 12,
+            ),
             decoration: showDivider
                 ? BoxDecoration(border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)))
                 : null,
@@ -58,7 +66,8 @@ class AppTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
+                      titleWidget ??
+                          Text(
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

@@ -7,11 +7,8 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../calls/active_call.dart';
 import '../calls/call_signal.dart';
 import '../state/app_controller.dart';
-import '../theme/colors.dart';
 import '../theme/spacing.dart';
-import '../theme/typography.dart';
-import '../utils/call_format.dart';
-import '../widgets/avatar.dart';
+import '../widgets/call_stage.dart';
 
 /// Full-screen call UI, shown by MessengerApp whenever
 /// `AppController.currentCall` is non-null and not minimized.
@@ -39,8 +36,12 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   }
 
   Future<void> _initRenderers() async {
-    await _localRenderer.initialize();
-    await _remoteRenderer.initialize();
+    try {
+      await _localRenderer.initialize();
+      await _remoteRenderer.initialize();
+    } catch (_) {
+      return;
+    }
     if (!mounted) return;
     setState(() => _renderersReady = true);
     _attachIfNeeded();
@@ -64,6 +65,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     if (media == null) return;
     media.setMuted(!media.isMuted);
     setState(() {});
+  }
+
+  Future<void> _toggleSpeaker() async {
+    final media = ref.read(appControllerProvider).currentCall?.media;
+    if (media == null) return;
+    await media.setSpeaker(!media.isSpeakerOn);
+    if (mounted) setState(() {});
   }
 
   void _toggleHold() {
@@ -98,110 +106,32 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     _attachIfNeeded();
 
     final peerName = controller.labelFor(call.peerUserId);
-    final showVideo = call.kind == CallKind.video && call.media != null;
     final media = call.media;
+    final liveVideo = call.kind == CallKind.video && call.answered && media != null && _renderersReady;
 
-    return Material(
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.callBackdropTop, AppColors.callBackdropBottom],
-          ),
-        ),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: showVideo
-                    ? _VideoLayer(localRenderer: _localRenderer, remoteRenderer: _remoteRenderer)
-                    : _AudioLayer(peerName: peerName),
-              ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: _StatusHeader(peerName: peerName, call: call, elapsed: _elapsed(call)),
-              ),
-              if (call.answered)
-                Positioned(
-                  top: AppSpacing.sectionGap,
-                  right: AppSpacing.screenPadding,
-                  child: IconButton(
-                    icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textInverse, size: 32),
-                    tooltip: 'Свернуть звонок',
-                    onPressed: _minimize,
-                  ),
-                ),
-              Positioned(
-                bottom: AppSpacing.sectionGap * 2,
-                left: 0,
-                right: 0,
-                child: _Controls(
-                  controller: controller,
-                  call: call,
-                  muted: media?.isMuted ?? false,
-                  onHold: media?.onHold ?? false,
-                  onToggleMute: _toggleMute,
-                  onToggleHold: _toggleHold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return CallStage(
+      peerName: peerName,
+      kind: call.kind,
+      outgoing: call.outgoing,
+      answered: call.answered,
+      elapsed: _elapsed(call),
+      waitingForNetwork: call.waitingForNetwork,
+      muted: media?.isMuted ?? false,
+      speakerOn: media?.isSpeakerOn ?? false,
+      onHold: media?.onHold ?? false,
+      showVideoPlaceholder: call.kind == CallKind.video && call.answered && !liveVideo,
+      background: liveVideo
+          ? _VideoLayer(localRenderer: _localRenderer, remoteRenderer: _remoteRenderer)
+          : null,
+      onToggleMute: _toggleMute,
+      onToggleSpeaker: _toggleSpeaker,
+      onToggleHold: _toggleHold,
+      onReject: controller.rejectCall,
+      onAnswer: controller.answerCall,
+      onCancel: controller.cancelCall,
+      onEnd: controller.endCall,
+      onMinimize: _minimize,
     );
-  }
-}
-
-class _StatusHeader extends StatelessWidget {
-  const _StatusHeader({required this.peerName, required this.call, required this.elapsed});
-  final String peerName;
-  final ActiveCall call;
-  final Duration elapsed;
-
-  String get _statusText {
-    if (!call.answered) return call.outgoing ? 'Звоним…' : 'Входящий звонок';
-    if (call.waitingForNetwork) return 'Ожидание сети…';
-    if (call.media?.onHold == true) return 'На удержании';
-    return call.kind == CallKind.video ? 'Видеозвонок' : 'Разговор';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.sectionGap),
-      child: Column(
-        children: [
-          Text(peerName, style: AppTypography.title.copyWith(color: AppColors.textInverse)),
-          const SizedBox(height: 4),
-          Text(
-            _statusText,
-            style: AppTypography.secondary.copyWith(
-              color: call.waitingForNetwork ? AppColors.warningYellow : AppColors.textMuted,
-            ),
-          ),
-          if (call.answered) ...[
-            const SizedBox(height: 8),
-            Text(
-              formatCallDuration(elapsed),
-              style: AppTypography.largeTitle.copyWith(color: AppColors.textInverse, fontSize: 28),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _AudioLayer extends StatelessWidget {
-  const _AudioLayer({required this.peerName});
-  final String peerName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: AppAvatar(label: peerName, size: AppAvatarSize.large));
   }
 }
 
@@ -226,96 +156,10 @@ class _VideoLayer extends StatelessWidget {
           width: 110,
           height: 150,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadii.medium),
+            borderRadius: BorderRadius.circular(12),
             child: RTCVideoView(localRenderer, mirror: true, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _Controls extends StatelessWidget {
-  const _Controls({
-    required this.controller,
-    required this.call,
-    required this.muted,
-    required this.onHold,
-    required this.onToggleMute,
-    required this.onToggleHold,
-  });
-
-  final AppController controller;
-  final ActiveCall call;
-  final bool muted;
-  final bool onHold;
-  final VoidCallback onToggleMute;
-  final VoidCallback onToggleHold;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!call.answered && !call.outgoing) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _RoundButton(icon: Icons.call_end, color: AppColors.dangerRed, label: 'Отклонить', onTap: controller.rejectCall),
-          _RoundButton(icon: Icons.call, color: AppColors.successGreen, label: 'Ответить', onTap: controller.answerCall),
-        ],
-      );
-    }
-    if (!call.answered) {
-      return Center(
-        child: _RoundButton(icon: Icons.call_end, color: AppColors.dangerRed, label: 'Отменить', onTap: controller.cancelCall),
-      );
-    }
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _RoundButton(
-          icon: muted ? Icons.mic_off : Icons.mic,
-          color: muted ? AppColors.warningYellow.withValues(alpha: 0.25) : AppColors.surfaceDark,
-          label: muted ? 'Вкл. звук' : 'Микрофон',
-          onTap: onToggleMute,
-        ),
-        _RoundButton(
-          icon: onHold ? Icons.play_arrow : Icons.pause,
-          color: onHold ? AppColors.accentBlue.withValues(alpha: 0.35) : AppColors.surfaceDark,
-          label: onHold ? 'Продолжить' : 'Удержание',
-          onTap: onToggleHold,
-        ),
-        _RoundButton(icon: Icons.call_end, color: AppColors.dangerRed, label: 'Завершить', onTap: controller.endCall),
-      ],
-    );
-  }
-}
-
-class _RoundButton extends StatelessWidget {
-  const _RoundButton({
-    required this.icon,
-    required this.color,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          iconSize: 28,
-          padding: const EdgeInsets.all(18),
-          style: IconButton.styleFrom(backgroundColor: color, shape: const CircleBorder()),
-          icon: Icon(icon, color: AppColors.textInverse),
-          onPressed: onTap,
-        ),
-        const SizedBox(height: 6),
-        Text(label, style: AppTypography.caption.copyWith(color: AppColors.textMuted, fontSize: 11)),
       ],
     );
   }

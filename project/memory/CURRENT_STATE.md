@@ -1,6 +1,6 @@
 # CURRENT_STATE
 
-_Обновлено: 2026-07-05. Источник истины — файлы, не эта заметка. Проверяй перед доверием._
+_Обновлено: 2026-07-23 (сессия 3). Источник истины — файлы, не эта заметка. Проверяй перед доверием._
 
 ## Реализовано и проверено
 
@@ -52,7 +52,48 @@ _Обновлено: 2026-07-05. Источник истины — файлы, �
 - Групповые чаты: создаются, отправка отключена в UI (нет групповой крипто-схемы).
 - Private Mode / Secret Room (`lib/screens/private_mode/`) — UI мок, но PIN теперь персистентный: Argon2id-хэш в SharedPreferences (не plaintext), переживает перезапуск. Хранилище скрытых чатов/сообщений по-прежнему НЕ зашифровано отдельно — это большая отдельная задача с обязательным security review (см. spec/0402 → Требования к реализации), не сделана.
 
+## Федерация (Фазы 2.1–2.4, реализовано 2026-07-23)
+
+Полный статус — см. `docs/FEDERATION.md`. Кратко:
+
+- **Фаза 2.1 — Подписанные User Records**: Discovery подписывает запись `user_id→home_node_url` Ed25519 (PyNaCl). Home-node проверяет подпись перед использованием записи — атакующий, скомпрометировавший Discovery, не может молча перенаправить трафик. Файлы: `services/discovery-node/app/record_signer.py`, `shared/security/record_verifier.py`, `GET /discovery-pubkey`. Fail-open: нет подписи → предупреждение + принять (совместимость со старым Discovery), неверная подпись → отказ.
+
+- **Фаза 2.2 — Multi-hop Relay**: цепочка `direct → L1 relay → L2 hub`. `hop_count` передаётся в relay-payload; relay-node при неудаче прямой доставки (hop=1) запрашивает L2-хабы у Discovery (trust_level≥2) и пересылает с hop=2. Хаб не эскалирует дальше (MAX_HOPS=2, защита от петель). Файлы: `services/relay-node/app/main.py`, `shared/security/payload_builder.py`.
+
+- **Фаза 2.3 — Latency-aware routing**: Discovery измеряет RTT при каждом health-check и сохраняет в `latency_ms`. Home-node сортирует relay-кандидатов по `latency_ms` перед ping-гонкой — быстрый relay выигрывает детерминированнее. Файлы: `services/discovery-node/app/health.py`, `services/home-node/app/federation.py`.
+
+- **Фаза 2.4 — Backup routes + notify при смене Home**: если все пути доставки (direct + relay + hub) упали — сообщение немедленно буферизуется в Storage Node (`_buffer_envelope_for_recipients`), а durable outbox ретраит асинхронно. При ретрае outbox: если Discovery вернул новый home_node_url — WS `home_changed` пушится локальным контактам. Файлы: `services/home-node/app/federation.py`, `services/home-node/app/outbox.py`.
+
+- **Trust levels (Фаза 1, реализована ранее)**: L0=local-only (нет транзита), L1=relay-eligible, L2=hub. Продвижение — вручную через admin UI после статистики. Пороги: L0→L1: 1000 сообщений + 3 дня + <5% ошибок; L1→L2: 5000 + 14 дней + <2%. Метрики CPU/RAM/диск/uptime/ws-соединений в heartbeat. История продвижений в `trust_level_history`.
+
+- **Биометрия удалена**: из всех экранов и состояния (`pin_setup_screen.dart`, `unlock_screen.dart`, `privacy_settings_screen.dart`, `privacy_pin_section_screen.dart`, `private_mode_state.dart`, `pin_keypad.dart`).
+
+## Тесты (2026-07-23)
+
+- **`tests/test_federation_chain.py`** — интеграционный тест цепочки федерации (Task #37, завершён). Без Docker/сети, чистый unit-уровень:
+  - `TestSignedUserRecords` (5 тестов) — Ed25519 sign+verify: корректная подпись, подмена URL, чужой ключ, изменённая подпись, base64url без padding.
+  - `TestHopCountGuard` (3 теста) — `build_relay_forward_payload`: hop_count в payload, default=1, кастомное значение.
+  - `TestTrustDegradation` (4 теста) — порог офлайн-деградации: L2≥7д, L2<7д, L1≥14д, L0 не деградирует.
+  - `TestRateLimit` (4 теста) — скользящее окно: в лимите, за лимитом, истечение окна, разные origins независимы.
+  - `TestMeshHeartbeatUpdate` (3 теста) — `update_mesh_from_heartbeat_response`: пиры добавляются, пустой ответ=0, self_node_id исключается.
+  - `TestLatencySort` (2 теста) — сортировка relay по latency_ms, None → inf (последний).
+  - `TestBufferFallback` (1 тест) — buffer_for_offline_user вызван для каждого получателя кроме отправителя.
+
+## Реализовано в сессии 3 (2026-07-23)
+
+- **#40 Nonce cleanup** — `shared/security/nonce_cleanup.py`: фоновый asyncio-loop, purge каждые 5 мин (настраивается `NONCE_CLEANUP_INTERVAL_SECONDS`). Подключён в `on_startup` всех нод.
+- **#41 Buffer eviction** — `BUFFER_EVICTION_POLICY=reject|fifo` (env). FIFO удаляет старейшее сообщение при переполнении; reject возвращает 429. Лимит `BUFFER_MAX_ENTRIES_PER_RECIPIENT`.
+- **#42 Federation counters** — `_fed_counters` (direct_ok/relay_ok/buffer_ok/failed) в `home-node/app/federation.py`, отдаются в `/health` → `load.federation`. Виджет в `admin/nodes.html`.
+- **#43 Audit log** — `discovery-node/app/audit.py`: таблица `admin_audit_log`, IP-трекинг (X-Forwarded-For) всех admin-действий. Страница `admin/audit.html`.
+- **#44 Key rotation** — `discovery-node/app/key_rotation.py`: rotating/retiring ключи с grace period (3 дня). `GET /discovery-pubkeys` возвращает все действующие. `POST /admin/discovery/rotate-key`.
+- **#45 Delivery status** — `Message.delivery_status` (sent/delivered/read) + `delivered_at`/`read_at`. `PATCH /{conv}/messages/{id}/status` — идемпотентный (статус только растёт), WS-событие `message_status_update` → отправителю. SQLite migration в `db.py`.
+- **#46 Pagination** — `GET /conversations/{id}/messages` теперь возвращает `MessagePage { items, has_more, next_cursor }`. `next_cursor` — ISO datetime для `before=`. Лимит 1–200 (default 50).
+- **#47 Search** — `ChatSearchScreen` полностью реализован (клиентский поиск по расшифрованному тексту, подсветка вхождений `_HighlightText`). Кнопка `search` добавлена прямо в AppBar `chat_screen.dart`.
+- **#48 check-deploy.sh** — `scripts/check-deploy.sh`: читает URL из `.env`, пингует `/health` всех нод, печатает статус/build/federation counters. Exit code = число недоступных нод.
+- **#49 Health dashboard** — `admin/health.html`: статичный HTML без сервера, URLs в localStorage, авто-опрос 10/30/60 с, fed counters, индикаторы.
+
 ## Не сделано
 - Миграция SQLite → PostgreSQL (ждёт решения).
 - Android-сборка не проверена на устройстве (permissions, cleartext HTTP).
 - Offline-детект нод не протестирован живьём (логика простая, риск низкий).
+- Push-уведомления о входящем звонке в background (Task #17, бэклог).

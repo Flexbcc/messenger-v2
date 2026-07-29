@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.models import Device
-from app.security import verify_token
+from app.security import is_token_revoked, verify_token
 
 
 async def get_current_device(
@@ -19,6 +19,11 @@ async def get_current_device(
     payload = verify_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    # Проверяем отзыв по jti (logout делает токен недействительным немедленно)
+    jti = payload.get("jti")
+    if jti and await is_token_revoked(db, jti):
+        raise HTTPException(status_code=401, detail="Token has been revoked (logged out)")
 
     device_id = payload["device_id"]
     device = await db.get(Device, device_id)

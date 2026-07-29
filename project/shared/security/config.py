@@ -16,3 +16,7 @@ HDR_SIGNATURE = "X-Federation-Signature"
 # Storage buffer limits (P4)
 BUFFER_MAX_ENVELOPE_BYTES = int(os.environ.get("BUFFER_MAX_ENVELOPE_BYTES", str(256 * 1024)))
 BUFFER_MAX_ENTRIES_PER_RECIPIENT = int(os.environ.get("BUFFER_MAX_ENTRIES_PER_RECIPIENT", "500"))
+# Политика при переполнении буфера:
+#   reject — вернуть 429 (по умолчанию, безопасно)
+#   fifo   — удалить самое старое сообщение и принять новое
+BUFFER_EVICTION_POLICY = os.environ.get("BUFFER_EVICTION_POLICY", "reject").lower()

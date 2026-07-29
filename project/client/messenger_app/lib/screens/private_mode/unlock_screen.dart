@@ -12,7 +12,9 @@ import '../../services/hidden_vault_session.dart';
 import '../../services/app_privacy_session.dart';
 import '../../services/duress_policy_engine.dart';
 import '../../services/duress_policy_session.dart';
+import '../../services/duress_rate_limiter.dart';
 import '../../services/privacy_preferences_store.dart';
+import '../../services/settings_catalog_bridge.dart';
 import '../../security/pin_security.dart';
 import '../../models/duress_policy.dart';
 import 'fake_mode_screen.dart';
@@ -20,7 +22,6 @@ import 'pin_keypad.dart';
 import 'pin_setup_screen.dart';
 import 'private_mode_state.dart';
 import 'private_home_screen.dart';
-import 'private_mode_navigation.dart';
 import '../../state/app_controller.dart';
 
 /// PIN entry screen for the Private Mode module.
@@ -34,6 +35,7 @@ class UnlockScreen extends ConsumerStatefulWidget {
 class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerProviderStateMixin {
   String _input = '';
   String? _error;
+  int _wrongAttempts = 0;
   bool _lockedOut = false;
   Duration? _lockoutRemaining;
   Timer? _lockoutTimer;
@@ -100,6 +102,24 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
     if (!mounted) return;
 
     if (result == UnlockResult.invalid) {
+      if (await prefs.wipeOnWrongAttempts()) {
+        _wrongAttempts++;
+        final wipeRaw = await CatalogSettingsReader().getString('security.wipe_after', '15');
+        final wipeAfter = int.tryParse(wipeRaw) ?? 15;
+        // pin_attempt_policy: delays via DuressRateLimiter.lockoutForAttempt (consumed by policy engine).
+        DuressRateLimiter.lockoutForAttempt(_wrongAttempts);
+        if (_wrongAttempts >= wipeAfter) {
+          await pm.reset();
+          await HiddenVaultSession.instance.wipe();
+          await DuressPolicySession.instance.wipe();
+          _wrongAttempts = 0;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Данные Private Mode удалены')),
+            );
+          }
+        }
+      }
       final hr = await DuressPolicyEngine.instance.handle(
         DuressTrigger.pinUnlockFail,
         controller: controller,
@@ -128,6 +148,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
       }
       AppPrivacySession.instance.enterDecoyMode();
       controller.deactivateSecretSessionForAll();
+      await controller.reloadFakeProfileChats();
       await DuressPolicyEngine.instance.handle(DuressTrigger.decoyPinStreak, controller: controller);
       if (!mounted) return;
       _openFakeMode();
@@ -168,11 +189,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
     SecurityLogService.instance.append(
       SecurityEvent(title: 'Secret Room открыт', subtitle: 'Успешный PIN', at: DateTime.now(), icon: 'room'),
     );
-    final dest = PrivateModeNavigation.consumePending();
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const PrivateHomeScreen()),
-    );
-    PrivateModeNavigation.openAfterUnlock(context, dest);
+    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const PrivateHomeScreen()));
   }
 
   void _openFakeMode() {
@@ -204,18 +221,36 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
     _openSecretRoom();
   }
 
+  void _closeWithoutUnlock() {
+    // Soft exit — leave Private Mode without unlocking or triggering panic/duress.
+    Navigator.of(context, rootNavigator: true).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(privateModeStateProvider);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
+      appBar: AppBar(
+        backgroundColor: AppColors.backgroundLight,
+        elevation: 0,
+        foregroundColor: AppColors.textPrimary,
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'Закрыть',
+            onPressed: _closeWithoutUnlock,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
           child: Column(
             children: [
-              const SizedBox(height: AppSpacing.sectionGap * 2),
+              const SizedBox(height: AppSpacing.sectionGap),
               const Icon(Icons.lock_outline, size: 40, color: AppColors.textPrimary),
               const SizedBox(height: AppSpacing.mediumGap),
               Text('Messenger', style: AppTypography.title),
@@ -229,15 +264,9 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> with SingleTickerPr
                 const SizedBox(height: AppSpacing.mediumGap),
                 AppButton(
                   label: 'Создать PIN',
-                  onPressed: () async {
-                    final done = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(builder: (_) => const PinSetupScreen()),
-                    );
-                    if (!mounted) return;
-                    if (done == true) {
-                      _openSecretRoom();
-                    }
-                  },
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PinSetupScreen()),
+                  ),
                 ),
               ] else if (_lockedOut) ...[
                 Text(

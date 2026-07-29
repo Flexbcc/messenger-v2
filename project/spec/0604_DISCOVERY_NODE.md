@@ -85,3 +85,9 @@ Node (референс: gossip-репликация подписанных за�
 распределённому реестру записей без единого источника истины) — потеря
 одного Discovery Node не должна делать пользователей ненаходимыми, пока
 хотя бы одна реплика записи доступна.
+
+## Связанные документы
+- [ADR-0009](ADR/0009-node-enrollment.md) — enrollment и `trust_status`
+- [0205_NODE_RECORD.md](0205_NODE_RECORD.md) — Node Record v1 + mapping L0–L5
+- [0606_GATEWAY_NODE.md](0606_GATEWAY_NODE.md) — Bootstrap / Gateway
+- Reality R1: `docs/reality/R1-node-bootstrap.md`

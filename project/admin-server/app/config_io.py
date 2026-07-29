@@ -134,30 +134,63 @@ def parse_env_file() -> Dict[str, str]:
     return _parse_env(ENV_PATH.read_text(encoding="utf-8"))
 
 
+# Булевы настройки участия ноды в федерации — их тоже можно задать
+# через окружение контейнера, а не только в .env
+_BOOL_KEYS = frozenset({
+    "NODE_PARTICIPATE_RELAY",
+    "NODE_PARTICIPATE_STORAGE",
+    "NODE_PARTICIPATE_WITNESS",
+    "NODE_PARTICIPATE_MEDIA_CACHE",
+    "NODE_PARTICIPATE_NAT_ASSIST",
+})
+
+
 def read_env_config() -> NodeEnvConfig:
-    if not ENV_PATH.exists():
-        return NodeEnvConfig()
-    data = parse_env_file()
+    """
+    Адреса сервисов для админки.
+
+    Порядок приоритета: переменные окружения контейнера, затем файл .env.
+
+    Это важно, когда одна и та же админка обслуживает разные стеки: в
+    project/.env записаны имена контейнеров основного стека (discovery-node,
+    home-node), а в msng-test они называются иначе (msng-discovery,
+    msng-core-home). Без приоритета окружения админка ходила по именам из
+    файла и получала «Name or service not known».
+
+    Файл .env при этом остаётся источником для полей, которые панель
+    редактирует — их в окружении обычно нет.
+    """
+    data = parse_env_file()  # пустой словарь, если файла нет
+
+    def val(key: str, default: str) -> str:
+        # Пустая строка в окружении считается «не задано»
+        return os.environ.get(key) or data.get(key, default)
+
     try:
-        owner_pct = int(data.get("OWNER_RESOURCE_PERCENT", "40"))
+        owner_pct = int(val("OWNER_RESOURCE_PERCENT", "40"))
     except ValueError:
         owner_pct = 40
     owner_pct = max(0, min(100, owner_pct))
+
+    # Для булевых полей окружение тоже главнее файла
+    merged = {**data, **{k: v for k, v in os.environ.items() if k in _BOOL_KEYS}}
+
     return NodeEnvConfig(
-        discovery_node_url=data.get("DISCOVERY_NODE_URL", "http://localhost:8003"),
-        cluster_id=data.get("CLUSTER_ID", "default"),
-        node_resource_policy=data.get("NODE_RESOURCE_POLICY", "federated"),  # type: ignore[arg-type]
-        home_node_public_url=data.get("HOME_NODE_PUBLIC_URL", "http://localhost:8001"),
-        storage_node_url=data.get("STORAGE_NODE_URL", "http://localhost:8002"),
-        media_node_public_url=data.get("MEDIA_NODE_PUBLIC_URL", "http://localhost:8004"),
-        relay_node_public_url=data.get("RELAY_NODE_PUBLIC_URL", "http://localhost:8005"),
-        jwt_secret=data.get("JWT_SECRET", "dev-secret-change-me-in-production"),
+        discovery_node_url=val("DISCOVERY_NODE_URL", "http://localhost:8003"),
+        cluster_id=val("CLUSTER_ID", "default"),
+        node_resource_policy=val("NODE_RESOURCE_POLICY", "federated"),  # type: ignore[arg-type]
+        home_node_public_url=val("HOME_NODE_URL", "") or val("HOME_NODE_PUBLIC_URL", "http://localhost:8001"),
+        storage_node_url=val("STORAGE_NODE_URL", "http://localhost:8002"),
+        media_node_public_url=val("MEDIA_NODE_URL", "") or val("MEDIA_NODE_PUBLIC_URL", "http://localhost:8004"),
+        relay_node_public_url=val("RELAY_NODE_URL", "") or val("RELAY_NODE_PUBLIC_URL", "http://localhost:8005"),
+        jwt_secret=val("JWT_SECRET", "dev-secret-change-me-in-production"),
+        discovery_admin_secret=val("DISCOVERY_ADMIN_SECRET", ""),
         owner_resource_percent=owner_pct,
-        participate_relay=_env_bool(data, "NODE_PARTICIPATE_RELAY", True),
-        participate_storage=_env_bool(data, "NODE_PARTICIPATE_STORAGE", True),
-        participate_witness=_env_bool(data, "NODE_PARTICIPATE_WITNESS", False),
-        participate_media_cache=_env_bool(data, "NODE_PARTICIPATE_MEDIA_CACHE", False),
-        participate_nat_assist=_env_bool(data, "NODE_PARTICIPATE_NAT_ASSIST", False),
+        participate_relay=_env_bool(merged, "NODE_PARTICIPATE_RELAY", True),
+        participate_storage=_env_bool(merged, "NODE_PARTICIPATE_STORAGE", True),
+        participate_witness=_env_bool(merged, "NODE_PARTICIPATE_WITNESS", False),
+        participate_media_cache=_env_bool(merged, "NODE_PARTICIPATE_MEDIA_CACHE", False),
+        participate_nat_assist=_env_bool(merged, "NODE_PARTICIPATE_NAT_ASSIST", False),
     )
 
 

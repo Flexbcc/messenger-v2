@@ -10,6 +10,120 @@ const AdminBase = {
   },
 };
 
+/**
+ * Авторизация панели.
+ *
+ * Бэкенд требует заголовок X-Admin-Panel-Secret на всех /api/ запросах,
+ * если задан ADMIN_PANEL_SECRET. Раньше фронт его не отправлял вообще —
+ * панель либо работала без защиты, либо ломалась на каждом сохранении.
+ *
+ * Секрет живёт в sessionStorage: очищается при закрытии вкладки,
+ * не переживает перезагрузку браузера. Для панели управления кластером
+ * это правильный компромисс — localStorage хранил бы его бессрочно.
+ */
+const AdminAuth = {
+  STORAGE_KEY: "admin_panel_secret",
+
+  get() {
+    try {
+      return sessionStorage.getItem(this.STORAGE_KEY) || "";
+    } catch (_) {
+      return "";
+    }
+  },
+
+  set(secret) {
+    try {
+      if (secret) sessionStorage.setItem(this.STORAGE_KEY, secret);
+      else sessionStorage.removeItem(this.STORAGE_KEY);
+    } catch (_) {
+      /* приватный режим — работаем без сохранения */
+    }
+  },
+
+  clear() {
+    this.set("");
+  },
+
+  /** Спросить секрет у оператора. Возвращает true, если ввели. */
+  prompt(message) {
+    const entered = window.prompt(
+      message || "Введите ADMIN_PANEL_SECRET для доступа к панели:",
+      ""
+    );
+    if (entered && entered.trim()) {
+      this.set(entered.trim());
+      return true;
+    }
+    return false;
+  },
+
+  /** Показать в шапке, что панель залочена. */
+  renderLockedBanner() {
+    if (document.getElementById("adminAuthBanner")) return;
+    const banner = document.createElement("div");
+    banner.id = "adminAuthBanner";
+    banner.style.cssText =
+      "position:fixed;top:0;left:0;right:0;z-index:9999;padding:10px 16px;" +
+      "background:#b3261e;color:#fff;font:14px/1.4 system-ui,sans-serif;" +
+      "display:flex;gap:12px;align-items:center;justify-content:center";
+    banner.innerHTML =
+      "<span>Панель заблокирована — нужен ADMIN_PANEL_SECRET</span>" +
+      '<button id="adminAuthRetry" style="padding:4px 12px;border:0;border-radius:4px;' +
+      'background:#fff;color:#b3261e;font-weight:600;cursor:pointer">Ввести</button>';
+    document.body.appendChild(banner);
+    document.getElementById("adminAuthRetry").addEventListener("click", () => {
+      if (AdminAuth.prompt()) location.reload();
+    });
+  },
+};
+
+/**
+ * Перехват fetch: добавляет X-Admin-Panel-Secret ко всем запросам к /api/.
+ *
+ * Сделано централизованно, чтобы не править десятки вызовов в app.js,
+ * setup.js, storage.js, nodes.js, services.js и enrollment.js —
+ * и чтобы новый код не мог случайно забыть заголовок.
+ */
+(function installAuthInterceptor() {
+  const nativeFetch = window.fetch.bind(window);
+
+  window.fetch = async function (input, init = {}) {
+    const url = typeof input === "string" ? input : input?.url || "";
+    const isAdminApi = url.includes("/api/") && !url.startsWith("http");
+
+    if (isAdminApi) {
+      const secret = AdminAuth.get();
+      if (secret) {
+        const headers = new Headers(init.headers || {});
+        headers.set("X-Admin-Panel-Secret", secret);
+        init = { ...init, headers };
+      }
+    }
+
+    const res = await nativeFetch(input, init);
+
+    // 401 — секрет отсутствует или неверный. Спрашиваем один раз и повторяем.
+    if (isAdminApi && res.status === 401 && !init.__authRetried) {
+      const hadSecret = !!AdminAuth.get();
+      AdminAuth.clear();
+      const ok = AdminAuth.prompt(
+        hadSecret
+          ? "Секрет неверный. Введите ADMIN_PANEL_SECRET заново:"
+          : "Панель защищена. Введите ADMIN_PANEL_SECRET:"
+      );
+      if (ok) {
+        const headers = new Headers(init.headers || {});
+        headers.set("X-Admin-Panel-Secret", AdminAuth.get());
+        return nativeFetch(input, { ...init, headers, __authRetried: true });
+      }
+      AdminAuth.renderLockedBanner();
+    }
+
+    return res;
+  };
+})();
+
 /** CPU/RAM alert thresholds (operator-tunable, stored locally). */
 const AdminAlerts = {
   STORAGE_KEY: "admin_alert_thresholds",

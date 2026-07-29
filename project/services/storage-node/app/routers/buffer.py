@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from app.db import get_conn
 from app.fed_security import FederationAuthDep, get_federation_security
 from app.schemas import BufferRequest, BufferedEnvelopeResponse, BufferedEnvelopeListResponse
-from shared.security.config import BUFFER_MAX_ENVELOPE_BYTES, BUFFER_MAX_ENTRIES_PER_RECIPIENT
+from shared.security.config import BUFFER_MAX_ENVELOPE_BYTES, BUFFER_MAX_ENTRIES_PER_RECIPIENT, BUFFER_EVICTION_POLICY
 from shared.security.envelope_verify import verify_incoming_federation
 
 router = APIRouter()
@@ -44,7 +44,21 @@ async def buffer_envelope(payload: BufferRequest, _verified: str = FederationAut
             (payload.recipient_device_id,),
         ).fetchone()[0]
         if count >= BUFFER_MAX_ENTRIES_PER_RECIPIENT:
-            raise HTTPException(status_code=429, detail="Buffer queue full for recipient")
+            if BUFFER_EVICTION_POLICY == "fifo":
+                # Удаляем самое старое сообщение этого получателя
+                oldest_id = conn.execute(
+                    """SELECT id FROM buffered_envelopes WHERE recipient_device_id = ?
+                       ORDER BY created_at ASC LIMIT 1""",
+                    (payload.recipient_device_id,),
+                ).fetchone()
+                if oldest_id:
+                    conn.execute(
+                        "DELETE FROM buffered_envelopes WHERE id = ?",
+                        (oldest_id[0],),
+                    )
+                    conn.commit()
+            else:
+                raise HTTPException(status_code=429, detail="Buffer queue full for recipient")
 
         conn.execute(
             """

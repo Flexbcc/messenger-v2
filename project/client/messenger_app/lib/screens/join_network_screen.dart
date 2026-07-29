@@ -42,9 +42,12 @@ class _JoinNetworkScreenState extends State<JoinNetworkScreen> {
         token: parsed.token,
       );
       await BootstrapStore.save(bootstrap);
+      final backupsNote = bootstrap.backupHomeUrls.isEmpty
+          ? ''
+          : '\nЗапасные Home-узлы: ${bootstrap.backupHomeUrls.length}';
       setState(() {
         _success =
-            'Подключено к кластеру «${bootstrap.clusterId}»\nHome: ${bootstrap.homeUrl}';
+            'Подключено к кластеру «${bootstrap.clusterId}»\nHome: ${bootstrap.homeUrl}$backupsNote';
       });
       widget.onJoined?.call();
     } catch (e) {
@@ -60,6 +63,14 @@ class _JoinNetworkScreenState extends State<JoinNetworkScreen> {
     final text = context.textStyles;
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Подключиться к сети'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: 'Закрыть',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

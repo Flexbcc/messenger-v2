@@ -21,10 +21,14 @@ DEFINES=(
   "--dart-define=RELAY_NODE_URL=${RELAY_NODE_URL:-http://localhost:8005}"
 )
 
+# When PWA is served under a subpath (e.g. :7357/app/), set base href accordingly.
+PWA_BASE_HREF="${PWA_BASE_HREF:-/}"
+
 cd "$ROOT"
 "$FLUTTER" pub get
 "$FLUTTER" build web --release \
   --pwa-strategy=offline-first \
+  --base-href="$PWA_BASE_HREF" \
   "${DEFINES[@]}" \
   "$@"
 

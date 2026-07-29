@@ -9,12 +9,11 @@ class MessagePayload {
 
   static const _version = 1;
 
-  static String encodeDuress({required int code, String? text}) {
+  static String encodeDuress({required int code}) {
     return jsonEncode({
       'v': _version,
       'system': 'duress',
       'code': code,
-      if (text != null && text.isNotEmpty) 'text': text,
       'ts': DateTime.now().toIso8601String(),
     });
   }
@@ -32,8 +31,11 @@ class MessagePayload {
     bool secret = false,
     String? replyToMessageId,
     String? replyPreview,
+    int? ttlSeconds,
   }) {
-    final useJson = secret || (replyToMessageId != null && replyToMessageId.isNotEmpty);
+    final useJson = secret ||
+        (replyToMessageId != null && replyToMessageId.isNotEmpty) ||
+        ttlSeconds != null;
     if (!useJson) return body;
     return jsonEncode({
       'v': _version,
@@ -41,12 +43,18 @@ class MessagePayload {
       if (secret) 'secret': true,
       if (replyToMessageId != null && replyToMessageId.isNotEmpty) 'reply_to': replyToMessageId,
       if (replyPreview != null && replyPreview.isNotEmpty) 'reply_preview': replyPreview,
+      if (ttlSeconds != null && ttlSeconds > 0) 'ttl_seconds': ttlSeconds,
     });
   }
 
-  static String encodeJsonMap(Map<String, dynamic> map, {bool secret = false}) {
+  static String encodeJsonMap(
+    Map<String, dynamic> map, {
+    bool secret = false,
+    int? ttlSeconds,
+  }) {
     final out = Map<String, dynamic>.from(map);
     if (secret) out['secret'] = true;
+    if (ttlSeconds != null && ttlSeconds > 0) out['ttl_seconds'] = ttlSeconds;
     return jsonEncode(out);
   }
 
@@ -54,8 +62,10 @@ class MessagePayload {
   static void applyTo(ChatMessage message) {
     if (message.plaintext == null || message.decryptFailed) return;
 
-    if (message.contentType == 'image') {
-      _applySecretFlagFromJson(message);
+    if (message.contentType == 'image' ||
+        message.contentType == 'file' ||
+        message.contentType == 'video') {
+      _applyJsonFlags(message);
       return;
     }
 
@@ -66,6 +76,7 @@ class MessagePayload {
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
       message.isSecret = map['secret'] == true;
+      _applyTtl(message, map);
       final system = map['system'];
       if (system is String && system.isNotEmpty) {
         message.systemKind = system;
@@ -77,10 +88,7 @@ class MessagePayload {
       if (map['v'] != _version) return;
       final body = map['body'];
       if (system == 'duress') {
-        final custom = map['text'];
-        message.plaintext = (custom is String && custom.trim().isNotEmpty)
-            ? custom.trim()
-            : DuressSignalLabels.forCode(message.duressCode ?? 0);
+        message.plaintext = DuressSignalLabels.forCode(message.duressCode ?? 0);
         return;
       }
       if (system == 'pin_duress_hint') {
@@ -106,12 +114,22 @@ class MessagePayload {
     }
   }
 
-  static void _applySecretFlagFromJson(ChatMessage message) {
+  static void _applyJsonFlags(ChatMessage message) {
     final raw = message.plaintext!.trim();
     if (!raw.startsWith('{')) return;
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
       message.isSecret = map['secret'] == true;
+      _applyTtl(message, map);
     } catch (_) {}
+  }
+
+  static void _applyTtl(ChatMessage message, Map<String, dynamic> map) {
+    final ttl = map['ttl_seconds'];
+    if (ttl is int && ttl > 0) {
+      message.ttlSeconds = ttl;
+    } else if (ttl is num && ttl > 0) {
+      message.ttlSeconds = ttl.toInt();
+    }
   }
 }

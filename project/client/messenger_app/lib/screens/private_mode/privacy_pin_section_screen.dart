@@ -143,19 +143,6 @@ class _PrivacyPinSectionScreenState extends ConsumerState<PrivacyPinSectionScree
             AppSettingsGroup(
               title: 'Блокировка приложения',
               children: [
-                if (PlatformCapabilities.isWeb)
-                  AppTile(
-                    leading: Icon(Icons.info_outline, color: colors.warning),
-                    title: 'Биометрия',
-                    subtitle: PlatformCapabilities.unavailableHint('Face ID'),
-                  )
-                else
-                  AppSwitchTile(
-                    leading: Icon(Icons.fingerprint, color: colors.textSecondary),
-                    title: 'Face ID / Touch ID',
-                    value: pm.biometricEnabled,
-                    onChanged: (v) => ref.read(privateModeStateProvider).setBiometricEnabled(v),
-                  ),
                 AppSwitchTile(
                   leading: Icon(Icons.lock_clock_outlined, color: colors.textSecondary),
                   title: 'Блокировка приложения',

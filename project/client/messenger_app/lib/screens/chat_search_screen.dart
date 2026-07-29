@@ -8,7 +8,9 @@ import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../utils/message_format.dart';
 
-/// In-chat search — filters already-loaded decrypted messages locally.
+/// In-chat search — фильтрует уже загруженные расшифрованные сообщения локально.
+/// Поиск серверный не нужен: ciphertext непрозрачен, весь plaintext доступен
+/// в памяти после расшифровки (visibleMessagesFor).
 class ChatSearchScreen extends ConsumerStatefulWidget {
   const ChatSearchScreen({super.key, required this.conversation});
 
@@ -38,6 +40,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
   Widget build(BuildContext context) {
     final controller = ref.watch(appControllerProvider);
     final results = controller.searchMessages(widget.conversation.id, _query);
+    final q = _query.trim();
 
     return Scaffold(
       appBar: AppBar(
@@ -51,23 +54,36 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
             border: InputBorder.none,
           ),
         ),
+        actions: [
+          if (q.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: Text(
+                  '${results.length}',
+                  style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                ),
+              ),
+            ),
+        ],
       ),
-      body: _query.trim().isEmpty
+      body: q.isEmpty
           ? Center(child: Text('Введите текст для поиска', style: AppTypography.caption))
           : results.isEmpty
               ? Center(child: Text('Ничего не найдено', style: AppTypography.caption))
               : ListView.builder(
                   itemCount: results.length,
-                  itemBuilder: (context, i) => _ResultTile(message: results[i]),
+                  itemBuilder: (context, i) => _ResultTile(message: results[i], query: q),
                 ),
     );
   }
 }
 
 class _ResultTile extends ConsumerWidget {
-  const _ResultTile({required this.message});
+  const _ResultTile({required this.message, required this.query});
 
   final ChatMessage message;
+  final String query;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -79,13 +95,52 @@ class _ResultTile extends ConsumerWidget {
 
     return ListTile(
       title: Text(sender, style: AppTypography.body),
-      subtitle: Text(
-        body,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: AppTypography.caption,
-      ),
+      subtitle: _HighlightText(text: body, query: query, maxLines: 2),
       trailing: Text(formatMessageTime(message.createdAt), style: AppTypography.caption),
+      onTap: () => Navigator.of(context).pop(message.id),
+    );
+  }
+}
+
+/// Подсвечивает вхождения query в text жёлтым цветом.
+class _HighlightText extends StatelessWidget {
+  const _HighlightText({required this.text, required this.query, this.maxLines = 3});
+
+  final String text;
+  final String query;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    if (query.isEmpty) {
+      return Text(text, maxLines: maxLines, overflow: TextOverflow.ellipsis,
+          style: AppTypography.caption);
+    }
+    final lower = text.toLowerCase();
+    final lowerQ = query.toLowerCase();
+    final spans = <TextSpan>[];
+    int start = 0;
+    while (true) {
+      final idx = lower.indexOf(lowerQ, start);
+      if (idx == -1) {
+        spans.add(TextSpan(text: text.substring(start)));
+        break;
+      }
+      if (idx > start) spans.add(TextSpan(text: text.substring(start, idx)));
+      spans.add(TextSpan(
+        text: text.substring(idx, idx + query.length),
+        style: const TextStyle(
+          backgroundColor: Color(0xFFFFD700),
+          color: Colors.black,
+          fontWeight: FontWeight.w600,
+        ),
+      ));
+      start = idx + query.length;
+    }
+    return Text.rich(
+      TextSpan(children: spans, style: AppTypography.caption),
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }

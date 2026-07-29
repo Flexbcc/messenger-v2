@@ -8,6 +8,7 @@ class AppSwitchTile extends StatelessWidget {
     super.key,
     this.leading,
     required this.title,
+    this.titleWidget,
     this.subtitle,
     required this.value,
     required this.onChanged,
@@ -17,6 +18,7 @@ class AppSwitchTile extends StatelessWidget {
 
   final Widget? leading;
   final String title;
+  final Widget? titleWidget;
   final String? subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -28,6 +30,7 @@ class AppSwitchTile extends StatelessWidget {
     return AppTile(
       leading: leading,
       title: title,
+      titleWidget: titleWidget,
       subtitle: subtitle,
       showDivider: showDivider,
       enabled: enabled,

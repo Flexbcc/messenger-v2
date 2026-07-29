@@ -42,9 +42,13 @@ class ChatListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = context.textStyles;
+    final compact = Theme.of(context).visualDensity.vertical < 0;
+    final outerV = compact ? 2.0 : 4.0;
+    final innerV = compact ? 6.0 : 10.0;
+    final previewGap = compact ? 2.0 : 4.0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding, vertical: outerV),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -53,7 +57,7 @@ class ChatListTile extends StatelessWidget {
           child: AnimatedContainer(
             duration: AppMotion.normal,
             curve: AppMotion.standard,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: innerV),
             decoration: BoxDecoration(
               color: selected ? colors.cardSoft : Colors.transparent,
               borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -94,10 +98,10 @@ class ChatListTile extends StatelessWidget {
                           ],
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: previewGap),
                       Text(
                         subtitle,
-                        maxLines: 2,
+                        maxLines: compact ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
                         style: text.caption.copyWith(
                           color: unreachable ? colors.danger.withValues(alpha: 0.85) : colors.textSecondary,

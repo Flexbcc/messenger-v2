@@ -1,6 +1,9 @@
 """Gateway Node — public client entry point (spec/0606_GATEWAY_NODE.md, ADR-0010)."""
 import asyncio
+import json
+import os
 import time
+from pathlib import Path
 from typing import Optional
 
 import hmac
@@ -301,6 +304,26 @@ async def join_landing(t: str = Query(..., min_length=8)):
         <p><code>{join_url}</code></p>
         </body></html>"""
     )
+
+
+RELEASES_MANIFEST = Path(
+    os.environ.get(
+        "RELEASES_MANIFEST",
+        str(Path(__file__).resolve().parents[1] / "releases" / "clients" / "manifest.json"),
+    )
+)
+
+
+@app.get("/releases/clients/manifest.json")
+async def client_releases_manifest():
+    """Signed-release manifest for client auto-update (semver + per-platform artifacts)."""
+    if not RELEASES_MANIFEST.is_file():
+        raise HTTPException(status_code=404, detail="Release manifest not deployed")
+    try:
+        data = json.loads(RELEASES_MANIFEST.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=500, detail=f"Invalid manifest: {exc}") from exc
+    return JSONResponse(content=data, headers={"Cache-Control": "public, max-age=300"})
 
 
 install_mesh(

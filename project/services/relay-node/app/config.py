@@ -23,5 +23,10 @@ class Settings:
     federation_audit_db_path: str = os.environ.get("FEDERATION_AUDIT_DB_PATH", "/data/federation_audit.db")
     internal_security_mode: str = os.environ.get("INTERNAL_SECURITY_MODE", "legacy")
 
+    # Rate-limit транзитных сообщений (Фаза 3.2)
+    # Максимум запросов от одного origin_node_id за окно RELAY_RATE_WINDOW_SECONDS.
+    relay_rate_limit: int = int(os.environ.get("RELAY_RATE_LIMIT", "100"))
+    relay_rate_window_seconds: int = int(os.environ.get("RELAY_RATE_WINDOW_SECONDS", "60"))
+
 
 settings = Settings()

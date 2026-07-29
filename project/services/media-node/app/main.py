@@ -11,6 +11,7 @@ from app.routers import admin_storage, media
 from app.storage_service import purge_expired
 from shared.mesh.install import install_mesh
 from shared.security.health import security_health_snapshot
+from shared.security.nonce_cleanup import start_nonce_cleanup
 
 app = FastAPI(title="Media Node", version="0.2.0")
 
@@ -27,6 +28,8 @@ async def on_startup():
     init_db()
     purge_expired()
     start_node_registration()
+    from app.media_auth import get_federation_security
+    start_nonce_cleanup(get_federation_security().nonce_store)
 
 
 @app.get("/health")

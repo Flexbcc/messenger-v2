@@ -1,0 +1,183 @@
+###############################################################################
+# nginx-operator.conf — mTLS-шлюз для пульта управления
+#
+# ЗАЧЕМ
+#   Админ-API ноды не должен быть доступен из интернета. Но управлять нодой
+#   из дома хочется. Решение: шлюз, который пускает только того, у кого есть
+#   клиентский сертификат оператора, выпущенный нашим CA.
+#
+# ЧЕМ ЭТО ЛУЧШЕ ПАРОЛЯ
+#   Проверка сертификата происходит на TLS-хендшейке — до того, как сервер
+#   прочитает хоть один байт HTTP. Кто стучится без сертификата, получает
+#   обрыв соединения, а не страницу логина. Для сканера порт выглядит мёртвым:
+#   ни баннера, ни версии, ни формы для перебора.
+#
+# ПОРТЫ
+#   9443 → discovery admin API   (реестр федерации: approve/suspend/trust)
+#   9444 → home-node monitor     (телеметрия и управление СВОЕЙ нодой)
+#
+# АПСТРИМЫ
+#   Имена контейнеров различаются между стеками, поэтому задаются извне:
+#     DISCOVERY_UPSTREAM  — например msng-discovery:8003
+#     HOME_UPSTREAM       — например msng-core-home:8001
+#   Подставляются через envsubst при старте контейнера.
+#
+# СЕРТИФИКАТЫ
+#   bash scripts/generate-mtls-certs.sh          — CA и серверный серт
+#   bash scripts/generate-operator-cert.sh alex  — сертификат оператора
+###############################################################################
+
+events {
+    worker_connections 512;
+}
+
+http {
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:OperatorSSL:10m;
+
+    # Не выдаём версию nginx — меньше подсказок тому, кто изучает периметр
+    server_tokens off;
+
+    ##########################################################################
+    # Кто считается оператором
+    #
+    # Тройная проверка:
+    #   1. Сертификат подписан нашим CA     (ssl_verify_client on)
+    #   2. CN начинается с operator-        (map ниже)
+    #   3. Отпечаток в списке разрешённых   (operators-allowlist.conf)
+    #
+    # Пункт 2 важен: клиентские сертификаты нод подписаны тем же CA.
+    # Без проверки CN любая нода смогла бы притвориться пультом.
+    #
+    # Пункт 3 даёт отзыв: потеряли ноутбук — убрали строку из allowlist,
+    # перезагрузили nginx. Остальные сертификаты продолжают работать,
+    # перевыпускать CA не нужно.
+    ##########################################################################
+    map $ssl_client_s_dn $is_operator {
+        default                 0;
+        "~*CN=operator-[^,]+"   1;
+    }
+
+    # Список разрешённых отпечатков. Генерируется скриптом
+    # generate-operator-cert.sh при выпуске каждого сертификата.
+    include /etc/nginx/operators-allowlist.conf;
+
+    # Имя оператора из CN — уходит в заголовок и попадает в журнал аудита
+    map $ssl_client_s_dn $operator_name {
+        default                     "unknown";
+        "~*CN=operator-(?<name>[^,]+)"  $name;
+    }
+
+    log_format operator '$time_iso8601 operator=$operator_name '
+                        'cn="$ssl_client_s_dn" fp=$ssl_client_fingerprint '
+                        'ip=$remote_addr "$request" $status';
+
+    access_log /var/log/nginx/operator.log operator;
+
+    ##########################################################################
+    # 9443 — Discovery admin API
+    #
+    # Реестр федерации: список нод, метрики из heartbeat, approve/suspend,
+    # trust level, политика уязвимостей, журнал аудита.
+    #
+    # Работает и для чужих клиентских нод: их телеметрию discovery получает
+    # по heartbeat, поэтому лезть на сами ноды не нужно.
+    ##########################################################################
+    server {
+        listen 9443 ssl;
+        http2 on;
+
+        ssl_certificate     /etc/nginx/certs/gateway.crt;
+        ssl_certificate_key /etc/nginx/certs/gateway.key;
+
+        # Клиентский сертификат обязателен. Без него — обрыв на хендшейке.
+        ssl_client_certificate /etc/nginx/certs/ca.crt;
+        ssl_verify_client on;
+        ssl_verify_depth 2;
+
+        # Сертификат валиден, но это не оператор — например, нода
+        if ($is_operator = 0) {
+            return 403;
+        }
+        # Сертификат оператора, но отозванный — убран из allowlist
+        if ($operator_allowed = 0) {
+            return 403;
+        }
+
+        location /health {
+            access_log off;
+            return 200 '{"status":"ok","gateway":"operator","role":"discovery"}';
+            add_header Content-Type application/json;
+        }
+
+        location / {
+            proxy_pass http://${DISCOVERY_UPSTREAM};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+
+            # Кто именно пришёл — для журнала аудита на стороне discovery
+            proxy_set_header X-Operator-Name        $operator_name;
+            proxy_set_header X-Operator-Fingerprint $ssl_client_fingerprint;
+
+            # Секрет discovery подставляет шлюз, а не браузер оператора.
+            # Так секрет не покидает серверную часть.
+            proxy_set_header X-Discovery-Admin-Secret $DISCOVERY_ADMIN_SECRET;
+
+            proxy_connect_timeout 10s;
+            proxy_read_timeout 60s;
+        }
+    }
+
+    ##########################################################################
+    # 9444 — Home-node monitor
+    #
+    # Телеметрия и управление СВОЕЙ нодой. На чужих нодах этот шлюз
+    # поднимать не нужно — их владельцы управляют ими сами.
+    ##########################################################################
+    server {
+        listen 9444 ssl;
+        http2 on;
+
+        ssl_certificate     /etc/nginx/certs/gateway.crt;
+        ssl_certificate_key /etc/nginx/certs/gateway.key;
+        ssl_client_certificate /etc/nginx/certs/ca.crt;
+        ssl_verify_client on;
+        ssl_verify_depth 2;
+
+        if ($is_operator = 0) {
+            return 403;
+        }
+        if ($operator_allowed = 0) {
+            return 403;
+        }
+
+        location /health {
+            access_log off;
+            return 200 '{"status":"ok","gateway":"operator","role":"home"}';
+            add_header Content-Type application/json;
+        }
+
+        # Только монитор и здоровье. Переписка, ключи и пользовательские
+        # данные через этот шлюз недоступны — даже оператору.
+        location /monitor/ {
+            proxy_pass http://${HOME_UPSTREAM}/monitor/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Operator-Name        $operator_name;
+            proxy_set_header X-Operator-Fingerprint $ssl_client_fingerprint;
+            proxy_read_timeout 60s;
+        }
+
+        location = /health/full {
+            proxy_pass http://${HOME_UPSTREAM}/health;
+            proxy_set_header Host $host;
+        }
+
+        # Всё остальное закрыто явно
+        location / {
+            return 404;
+        }
+    }
+}

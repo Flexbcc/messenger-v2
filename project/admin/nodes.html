@@ -2,108 +2,529 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<script>
-window.__ADMIN_BASE=(location.pathname==="/ops"||location.pathname.startsWith("/ops/"))?"/ops":"";
-document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
-</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Operator Admin — Узлы сети</title>
-<link rel="stylesheet" href="static/theme.css">
-<link rel="stylesheet" href="static/style.css">
+<title>Ноды — Admin</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  .trust-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .trust-l0 { background: #334155; color: #94a3b8; }
+  .trust-l1 { background: #1e3a5f; color: #60a5fa; }
+  .trust-l2 { background: #14432a; color: #4ade80; }
+  .status-badge {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .status-online  { background: #4ade80; }
+  .status-offline { background: #ef4444; }
+  .status-pending { background: #f59e0b; }
+  .metric-bar {
+    display: inline-block;
+    height: 6px;
+    border-radius: 3px;
+    background: #334155;
+    width: 60px;
+    vertical-align: middle;
+    margin-left: 4px;
+  }
+  .metric-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: #3b82f6;
+    transition: width .3s;
+  }
+  .metric-bar-fill.warn  { background: #f59e0b; }
+  .metric-bar-fill.crit  { background: #ef4444; }
+  .nodes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(520px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .node-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .node-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .node-id {
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+  }
+  .node-url {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    font-family: monospace;
+  }
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 10px 0;
+  }
+  .metric-cell {
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  .metric-label { color: var(--text-muted); font-size: 11px; margin-bottom: 2px; }
+  .metric-value { color: var(--text-primary); font-weight: 600; font-size: 14px; }
+  .metric-value.warn { color: #f59e0b; }
+  .metric-value.crit { color: #ef4444; }
+  .counters-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 8px 0;
+  }
+  .node-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .btn-sm {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-primary);
+    transition: background .15s;
+  }
+  .btn-sm:hover { background: var(--border); }
+  .btn-promote { border-color: #3b82f6; color: #3b82f6; }
+  .btn-promote:hover { background: #1e3a5f; }
+  .btn-demote  { border-color: #f59e0b; color: #f59e0b; }
+  .btn-demote:hover  { background: #3a2e0a; }
+  .btn-suspend { border-color: #ef4444; color: #ef4444; }
+  .btn-suspend:hover { background: #3a0a0a; }
+  .threshold-bar {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .threshold-ok   { color: #4ade80; }
+  .threshold-miss { color: #f59e0b; }
+  .candidates-banner {
+    background: #1e3a5f;
+    border: 1px solid #3b82f6;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: #93c5fd;
+  }
+  .auto-refresh {
+    font-size: 12px;
+    color: var(--text-muted);
+    float: right;
+    margin-top: 4px;
+  }
+  .no-metrics { color: var(--text-muted); font-size: 12px; font-style: italic; }
+</style>
 </head>
-<body class="page-form page-nodes">
+<body class="page-nodes">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true"></div>
         <div>
-          <h1>Узлы сети</h1>
-          <p class="subtitle"><span id="opsSubtitle">Оператор · нагрузка и доверие</span></p>
+          <h1>Operator Admin</h1>
+          <p class="subtitle">Метрики и доверие узлов сети</p>
           <span class="operator-badge">Оператор</span>
         </div>
       </div>
       <nav class="site-nav">
         <a href="./">Мониторинг</a>
-        <a href="nodes">Узлы</a>
+        <a href="nodes" class="active">Узлы</a>
         <a href="setup">Настройка</a>
-        <a href="storage" data-nav-storage>Хранилище</a>
+        <a href="storage">Хранилище</a>
         <a href="enrollment">Доверие</a>
+        <a href="vuln">Безопасность</a>
+        <a href="audit">Аудит</a>
       </nav>
       <div class="topbar-actions">
-        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить">↻</button>
-        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему">◐</button>
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить" aria-label="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему" aria-label="Сменить тему">◐</button>
       </div>
     </header>
 
-    <main class="dashboard">
-      <div class="info-banner card warn-banner hidden" id="alertsBanner"></div>
-      <div class="info-banner card">
-        <strong>Центр принятия решений</strong>
-        <p>Вы видите техническую нагрузку нод (CPU, RAM, диск) для анализа. <strong>Подпись / доверие</strong> — через «Доверие»: пока нода не принята, она не участвует в инфраструктуре. Suspend — временно выключить из сети; Compromise — отозвать доступ.</p>
-      </div>
-
-      <section class="card panel-section">
-        <div class="section-head">
-          <h3>Нагрузка по нодам</h3>
-          <span class="muted">Home — полные метрики · остальные — /health</span>
-        </div>
-        <div class="nodes-filter-row">
-          <label class="field-compact">Кластер
-            <select id="clusterFilter">
-              <option value="">Все</option>
-            </select>
-          </label>
-          <label class="field-compact">Роль
-            <select id="roleFilter">
-              <option value="">Все</option>
-              <option value="home">Home</option>
-              <option value="media">Media</option>
-              <option value="relay">Relay</option>
-              <option value="storage">Storage</option>
-            </select>
-          </label>
-        </div>
-        <div class="table-wrap">
-          <table class="data-table compact" id="metricsTable">
-            <thead>
-              <tr>
-                <th>Кластер</th>
-                <th>node_id</th>
-                <th>Роль</th>
-                <th>Доверие</th>
-                <th>Статус</th>
-                <th>CPU</th>
-                <th>RAM</th>
-                <th>Диск</th>
-                <th>WS</th>
-                <th>ping</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="metricsBody">
-              <tr><td colspan="11" class="empty">Загрузка…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="card panel-section">
-        <div class="section-head">
-          <h3>Быстрые действия</h3>
-          <a href="enrollment" class="link-setup">Полный список доверия →</a>
-        </div>
-        <p class="section-hint">Для approve/suspend нужен пароль Discovery — на странице «Доверие».</p>
-        <div class="enrollment-toolbar">
-          <label class="field-compact">Discovery admin secret
-            <input id="adminSecret" type="password" placeholder="DISCOVERY_ADMIN_SECRET" autocomplete="off">
-          </label>
-        </div>
-        <p id="status" class="status-msg"></p>
-      </section>
-    </main>
+<main class="dashboard">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+    <h1 class="page-title">Ноды сети</h1>
+    <span class="auto-refresh" id="refresh-label">обновление через <span id="countdown">30</span>с</span>
   </div>
-  <script src="static/shared.js"></script>
-  <script src="static/clusters.js"></script>
-  <script src="static/nodes.js"></script>
+
+  <div id="candidates-banner" style="display:none"></div>
+
+  <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
+    <div class="stat-chip" id="stat-total">— нод</div>
+    <div class="stat-chip" id="stat-online">— онлайн</div>
+    <div class="stat-chip" id="stat-trusted">— trusted</div>
+    <div class="stat-chip" id="stat-pending">— ожидают</div>
+    <button class="btn btn-secondary" onclick="load()" style="margin-left:auto;">⟳ Обновить</button>
+  </div>
+
+  <!-- Federation delivery counters (агрегат по всем home-нодам) -->
+  <div id="fed-stats" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:16px;">
+    <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px;letter-spacing:.05em;">ДОСТАВКА СООБЩЕНИЙ (с последнего рестарта)</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:22px;font-weight:700;color:#4ade80;" id="fed-direct">—</div>
+        <div style="font-size:11px;color:var(--text-muted);">прямая</div>
+      </div>
+      <div>
+        <div style="font-size:22px;font-weight:700;color:#60a5fa;" id="fed-relay">—</div>
+        <div style="font-size:11px;color:var(--text-muted);">через relay</div>
+      </div>
+      <div>
+        <div style="font-size:22px;font-weight:700;color:#f59e0b;" id="fed-buffer">—</div>
+        <div style="font-size:11px;color:var(--text-muted);">в буфер</div>
+      </div>
+      <div>
+        <div style="font-size:22px;font-weight:700;color:#f87171;" id="fed-failed">—</div>
+        <div style="font-size:11px;color:var(--text-muted);">ошибки</div>
+      </div>
+      <div style="margin-left:auto;text-align:right;">
+        <div style="font-size:22px;font-weight:700;" id="fed-total">—</div>
+        <div style="font-size:11px;color:var(--text-muted);">всего</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="nodes-grid" class="nodes-grid">
+    <div class="node-card" style="color:var(--text-muted);text-align:center;padding:40px;">Загрузка…</div>
+  </div>
+</div>
+
+<div id="toast" style="display:none;position:fixed;bottom:24px;right:24px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 20px;font-size:13px;color:#f1f5f9;z-index:1000;"></main>
+  </div>
+
+<script src="/static/shared.js"></script>
+<script>
+const TRUST_LABELS = { 0: 'L0 · local', 1: 'L1 · relay', 2: 'L2 · hub' };
+const TRUST_CLASSES = { 0: 'trust-l0', 1: 'trust-l1', 2: 'trust-l2' };
+
+let _countdown = 30;
+let _timer = null;
+let _candidates = [];
+
+function toast(msg, ok = true) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = ok ? '#4ade80' : '#ef4444';
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display = 'none', 3500);
+}
+
+function fmtBytes(b) {
+  if (b == null) return '—';
+  if (b >= 1e12) return (b/1e12).toFixed(1) + ' ТБ';
+  if (b >= 1e9)  return (b/1e9).toFixed(1) + ' ГБ';
+  if (b >= 1e6)  return (b/1e6).toFixed(1) + ' МБ';
+  return (b/1e3).toFixed(0) + ' КБ';
+}
+
+function fmtUptime(sec) {
+  if (sec == null) return '—';
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  if (d > 0) return `${d}д ${h}ч`;
+  const m = Math.floor((sec % 3600) / 60);
+  if (h > 0) return `${h}ч ${m}м`;
+  return `${m}м`;
+}
+
+function bar(pct, warn = 70, crit = 90) {
+  if (pct == null) return '';
+  const cls = pct >= crit ? 'crit' : pct >= warn ? 'warn' : '';
+  return `<span class="metric-bar"><span class="metric-bar-fill ${cls}" style="width:${Math.min(pct,100)}%"></span></span>`;
+}
+
+function pctClass(v, warn, crit) {
+  if (v == null) return '';
+  return v >= crit ? 'crit' : v >= warn ? 'warn' : '';
+}
+
+function renderMetrics(m) {
+  if (!m) return '<p class="no-metrics">Метрики не поступали — нода не отправила heartbeat с данными</p>';
+  return `
+    <div class="metrics-row">
+      <div class="metric-cell">
+        <div class="metric-label">CPU</div>
+        <div class="metric-value ${pctClass(m.cpu_percent_est,60,85)}">${m.cpu_percent_est != null ? m.cpu_percent_est+'%' : '—'}${bar(m.cpu_percent_est,60,85)}</div>
+        <div style="font-size:11px;color:var(--text-muted)">load ${m.cpu_load_1m ?? '—'} · ${m.cpu_cores ?? '—'} ядер</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-label">RAM</div>
+        <div class="metric-value ${pctClass(m.ram_percent,70,90)}">${m.ram_percent != null ? m.ram_percent+'%' : '—'}${bar(m.ram_percent,70,90)}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${fmtBytes(m.ram_used_bytes)} / ${fmtBytes(m.ram_total_bytes)}</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-label">Диск</div>
+        <div class="metric-value ${pctClass(m.disk_percent,80,95)}">${m.disk_percent != null ? m.disk_percent+'%' : '—'}${bar(m.disk_percent,80,95)}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${fmtBytes(m.disk_used_bytes)} / ${fmtBytes(m.disk_total_bytes)}</div>
+      </div>
+    </div>
+    <div class="counters-row">
+      <div class="metric-cell">
+        <div class="metric-label">Uptime</div>
+        <div class="metric-value">${fmtUptime(m.uptime_sec)}</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-label">WS соед.</div>
+        <div class="metric-value">${m.ws_connections ?? '—'}</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-label">Сообщ. 24ч</div>
+        <div class="metric-value">${m.messages_24h ?? '—'}</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-label">Всего сообщ.</div>
+        <div class="metric-value">${m.messages_total ?? '—'}</div>
+      </div>
+    </div>
+    ${m.error_rate_pct != null ? `<div style="font-size:11px;color:var(--text-muted)">Ошибки: <span class="${pctClass(m.error_rate_pct,2,5)}">${m.error_rate_pct.toFixed(1)}%</span>${m.latency_ms != null ? ` · RTT ${m.latency_ms}мс` : ''}</div>` : ''}
+  `;
+}
+
+function candidateInfo(nodeId) {
+  const c = _candidates.find(x => x.node_id === nodeId);
+  if (!c) return '';
+  if (c.meets_threshold) {
+    return `<div class="threshold-bar threshold-ok">✓ Готов к повышению до L${c.trust_level + 1}</div>`;
+  }
+  return `<div class="threshold-bar threshold-miss">До повышения: ${c.missing.join(' · ')}</div>`;
+}
+
+function renderNode(node) {
+  const level = node.trust_level ?? 0;
+  const status = node.trust_status;
+  const online = node.reachability === 'online' || node.status === 'online';
+  const statusDot = online ? 'status-online' : (status === 'pending' ? 'status-pending' : 'status-offline');
+  const canPromote = status === 'trusted' && level < 2;
+  const canDemote  = status === 'trusted' && level > 0;
+
+  return `
+  <div class="node-card" id="card-${node.node_id}">
+    <div class="node-header">
+      <span class="status-badge ${statusDot}"></span>
+      <span class="node-id">${node.node_id}</span>
+      <span class="trust-badge ${TRUST_CLASSES[level] || 'trust-l0'}">${TRUST_LABELS[level] || 'L'+level}</span>
+      <span class="trust-badge" style="background:#1e293b;color:#64748b;">${status}</span>
+    </div>
+    <div class="node-url">${node.node_url}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+      v${node.software_version} · кластер ${node.cluster_id}
+      ${node.health_status ? ` · health: ${node.health_status}` : ''}
+      · посл. heartbeat: ${node.last_heartbeat ? new Date(node.last_heartbeat).toLocaleString('ru') : '—'}
+    </div>
+    ${renderMetrics(node.metrics)}
+    ${candidateInfo(node.node_id)}
+    <div class="node-actions">
+      ${canPromote ? `<button class="btn-sm btn-promote" onclick="promote('${node.node_id}')">▲ Повысить</button>` : ''}
+      ${canDemote  ? `<button class="btn-sm btn-demote"  onclick="demote('${node.node_id}')">▼ Понизить</button>` : ''}
+      ${status === 'trusted' ? `<button class="btn-sm btn-suspend" onclick="suspend('${node.node_id}')">⊘ Suspend</button>` : ''}
+      ${status === 'pending' ? `<button class="btn-sm btn-promote" onclick="approve('${node.node_id}')">✓ Одобрить</button>` : ''}
+      <button class="btn-sm" onclick="showHistory('${node.node_id}')">История уровней</button>
+    </div>
+  </div>`;
+}
+
+async function load() {
+  try {
+    const [nodesResp, candResp] = await Promise.all([
+      fetch('/api/monitor/registry/nodes/all'),
+      fetch('/api/monitor/registry/promotion-candidates'),
+    ]);
+    const data = await nodesResp.json();
+    _candidates = candResp.ok ? (await candResp.json()) : [];
+
+    const nodes = data.nodes || [];
+    const online  = nodes.filter(n => n.reachability === 'online' || n.status === 'online').length;
+    const trusted = nodes.filter(n => n.trust_status === 'trusted').length;
+    const pending = nodes.filter(n => n.trust_status === 'pending').length;
+    const readyCandidates = _candidates.filter(c => c.meets_threshold);
+
+    document.getElementById('stat-total').textContent   = `${nodes.length} нод`;
+    document.getElementById('stat-online').textContent  = `${online} онлайн`;
+    document.getElementById('stat-trusted').textContent = `${trusted} trusted`;
+    document.getElementById('stat-pending').textContent = `${pending} ожидают`;
+
+    // Агрегируем federation-счётчики по всем home-нодам
+    // Данные берём из node_url каждой home-ноды — прямой /health запрос
+    {
+      const homeNodes = nodes.filter(n => n.role === 'home' && (n.reachability === 'online' || n.status === 'online'));
+      if (homeNodes.length > 0) {
+        let totals = { direct_ok: 0, relay_ok: 0, buffer_ok: 0, failed: 0 };
+        await Promise.allSettled(homeNodes.map(async (n) => {
+          try {
+            const url = (n.node_url || '').replace(/\/$/, '');
+            if (!url) return;
+            const r = await fetch(`${url}/health`, { signal: AbortSignal.timeout(3000) });
+            if (!r.ok) return;
+            const h = await r.json();
+            const fed = h?.load?.federation;
+            if (!fed) return;
+            totals.direct_ok += fed.direct_ok || 0;
+            totals.relay_ok  += fed.relay_ok  || 0;
+            totals.buffer_ok += fed.buffer_ok || 0;
+            totals.failed    += fed.failed    || 0;
+          } catch (_) {}
+        }));
+        const total = totals.direct_ok + totals.relay_ok + totals.buffer_ok + totals.failed;
+        document.getElementById('fed-direct').textContent  = totals.direct_ok;
+        document.getElementById('fed-relay').textContent   = totals.relay_ok;
+        document.getElementById('fed-buffer').textContent  = totals.buffer_ok;
+        document.getElementById('fed-failed').textContent  = totals.failed;
+        document.getElementById('fed-total').textContent   = total;
+        document.getElementById('fed-stats').style.display = 'block';
+      }
+    }
+
+    const banner = document.getElementById('candidates-banner');
+    if (readyCandidates.length > 0) {
+      banner.style.display = 'block';
+      banner.innerHTML = `🔼 <strong>${readyCandidates.length} нод</strong> готовы к повышению уровня доверия: ${readyCandidates.map(c => `<strong>${c.node_id}</strong> (L${c.trust_level}→L${c.trust_level+1})`).join(', ')}`;
+    } else {
+      banner.style.display = 'none';
+    }
+
+    document.getElementById('nodes-grid').innerHTML =
+      nodes.length === 0
+        ? '<div class="node-card" style="text-align:center;color:var(--text-muted);padding:40px;">Нод не найдено</div>'
+        : nodes.map(renderNode).join('');
+  } catch(e) {
+    document.getElementById('nodes-grid').innerHTML =
+      `<div class="node-card" style="color:#ef4444;padding:20px;">Ошибка загрузки: ${e.message}</div>`;
+  }
+}
+
+async function promote(nodeId) {
+  const reason = prompt(`Причина повышения ${nodeId} (или Enter для автоматической)`);
+  if (reason === null) return;
+  try {
+    const r = await fetch(`/api/monitor/registry/nodes/${nodeId}/promote`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ reason: reason || null }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(JSON.stringify(d.detail || d));
+    toast(`✓ ${d.message}`);
+    await load();
+  } catch(e) {
+    toast(`Ошибка: ${e.message}`, false);
+  }
+}
+
+async function demote(nodeId) {
+  const reason = prompt(`Причина понижения ${nodeId}`);
+  if (reason === null) return;
+  try {
+    const r = await fetch(`/api/monitor/registry/nodes/${nodeId}/demote`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ reason: reason || 'manual demotion' }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(JSON.stringify(d.detail || d));
+    toast(`✓ ${d.message}`);
+    await load();
+  } catch(e) {
+    toast(`Ошибка: ${e.message}`, false);
+  }
+}
+
+async function approve(nodeId) {
+  if (!confirm(`Одобрить ноду ${nodeId}?`)) return;
+  try {
+    const r = await fetch('/api/enrollment/proxy?discovery_url=&path=/admin/registry/nodes/'+nodeId+'/approve', {
+      method: 'POST',
+    });
+    const d = await r.json();
+    toast(r.ok ? `✓ ${d.message}` : `Ошибка: ${JSON.stringify(d.detail)}`, r.ok);
+    if (r.ok) await load();
+  } catch(e) {
+    toast(`Ошибка: ${e.message}`, false);
+  }
+}
+
+async function suspend(nodeId) {
+  const reason = prompt(`Причина suspension ${nodeId}`);
+  if (reason === null) return;
+  try {
+    const r = await fetch('/api/enrollment/proxy?discovery_url=&path=/admin/registry/nodes/'+nodeId+'/suspend', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ reason }),
+    });
+    const d = await r.json();
+    toast(r.ok ? `✓ Нода приостановлена` : `Ошибка: ${JSON.stringify(d.detail)}`, r.ok);
+    if (r.ok) await load();
+  } catch(e) {
+    toast(`Ошибка: ${e.message}`, false);
+  }
+}
+
+async function showHistory(nodeId) {
+  try {
+    const r = await fetch('/api/enrollment/proxy?discovery_url=&path=/admin/registry/nodes/'+nodeId+'/trust-level/history');
+    const d = await r.json();
+    if (!r.ok || !d.history) { toast('Нет данных', false); return; }
+    const lines = d.history.length === 0
+      ? 'История пуста'
+      : d.history.map(h =>
+          `${new Date(h.changed_at).toLocaleString('ru')}: L${h.from_level}→L${h.to_level}  ${h.reason || ''} (${h.actor})`
+        ).join('\n');
+    alert(`История уровней доверия: ${nodeId}\n\n${lines}`);
+  } catch(e) {
+    toast(`Ошибка: ${e.message}`, false);
+  }
+}
+
+// Auto-refresh countdown
+function startCountdown() {
+  clearInterval(_timer);
+  _countdown = 30;
+  _timer = setInterval(() => {
+    _countdown--;
+    const el = document.getElementById('countdown');
+    if (el) el.textContent = _countdown;
+    if (_countdown <= 0) {
+      load();
+      _countdown = 30;
+    }
+  }, 1000);
+}
+
+load();
+startCountdown();
+</script>
 </body>
 </html>

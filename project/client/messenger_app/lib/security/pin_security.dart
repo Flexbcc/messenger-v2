@@ -7,14 +7,32 @@ import '../services/security_meta_store.dart';
 import 'secure_prefs.dart';
 
 /// Shared Argon2id PIN hashing used by Private Mode and App Lock.
-/// Hashes and salts live in OS secure storage (Keychain / Keystore).
+/// Hashes and salts live in OS secure storage (Keychain / Keystore),
+/// namespaced by [setActiveUser] so accounts do not share PINs.
 class PinSecurity {
   PinSecurity._();
 
-  static const realPinHashKey = 'private_mode_real_pin_hash';
-  static const realPinSaltKey = 'private_mode_real_pin_salt';
-  static const fakePinHashKey = 'private_mode_fake_pin_hash';
-  static const fakePinSaltKey = 'private_mode_fake_pin_salt';
+  static const _realPinHashBase = 'private_mode_real_pin_hash';
+  static const _realPinSaltBase = 'private_mode_real_pin_salt';
+  static const _fakePinHashBase = 'private_mode_fake_pin_hash';
+  static const _fakePinSaltBase = 'private_mode_fake_pin_salt';
+
+  static String? _activeUserId;
+
+  static void setActiveUser(String? userId) {
+    _activeUserId = (userId == null || userId.isEmpty) ? null : userId;
+  }
+
+  static String get realPinHashKey => _scoped(_realPinHashBase);
+  static String get realPinSaltKey => _scoped(_realPinSaltBase);
+  static String get fakePinHashKey => _scoped(_fakePinHashBase);
+  static String get fakePinSaltKey => _scoped(_fakePinSaltBase);
+
+  static String _scoped(String base) {
+    final uid = _activeUserId;
+    if (uid == null) return base;
+    return '${base}_u_$uid';
+  }
 
   static final _argon2 = Argon2id(parallelism: 1, memory: 19456, iterations: 2, hashLength: 32);
   static final _secure = SecurePrefs.instance;
@@ -82,8 +100,19 @@ class PinSecurity {
     await SecurityMetaStore.instance.recordPinChange();
   }
 
+  /// Clear PIN for the **active** user (or unscoped keys if none).
   static Future<void> clearAll() async {
     await _secure.clearKeys([realPinHashKey, realPinSaltKey, fakePinHashKey, fakePinSaltKey]);
+  }
+
+  /// Clear legacy unscoped PIN keys left from before account scoping.
+  static Future<void> clearUnscopedKeys() async {
+    await _secure.clearKeys([
+      _realPinHashBase,
+      _realPinSaltBase,
+      _fakePinHashBase,
+      _fakePinSaltBase,
+    ]);
   }
 }
 

@@ -12,6 +12,7 @@ MessageDeliveryStatus deliveryStatusFor({
   required bool isLastOutgoingInChat,
   required DateTime messageCreatedAt,
   bool peerOnline = false,
+  bool showReadReceipts = true,
 }) {
   if (!isMine) return MessageDeliveryStatus.sent;
 
@@ -24,9 +25,11 @@ MessageDeliveryStatus deliveryStatusFor({
     }
   }
 
-  final peerRead = MessageDeliveryStore.instance.peerReadUntil(conversationId);
-  if (peerRead != null && !messageCreatedAt.isAfter(peerRead)) {
-    return MessageDeliveryStatus.read;
+  if (showReadReceipts) {
+    final peerRead = MessageDeliveryStore.instance.peerReadUntil(conversationId);
+    if (peerRead != null && !messageCreatedAt.isAfter(peerRead)) {
+      return MessageDeliveryStatus.read;
+    }
   }
 
   if (info != null) {
@@ -34,6 +37,9 @@ MessageDeliveryStatus deliveryStatusFor({
         info.status == MessageDeliveryStatus.read ||
         info.status == MessageDeliveryStatus.relay ||
         info.status == MessageDeliveryStatus.gateway) {
+      if (!showReadReceipts && info.status == MessageDeliveryStatus.read) {
+        return MessageDeliveryStatus.delivered;
+      }
       return info.status;
     }
     if (info.status == MessageDeliveryStatus.sent && isLastOutgoingInChat && peerOnline) {

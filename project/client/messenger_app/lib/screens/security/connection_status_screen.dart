@@ -11,6 +11,8 @@ import '../../core/ui/app_section.dart';
 import '../../core/ui/app_tile.dart';
 import '../../models/connection_probe_result.dart';
 import '../../services/debug_log.dart';
+import '../../services/node_config_resolver.dart';
+import '../../services/settings_runtime.dart';
 import '../../state/app_controller.dart';
 import '../../utils/format.dart';
 
@@ -158,6 +160,80 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
                         ? AppStatus.online
                         : AppStatus.warning,
                     subtitle: 'Текущий API endpoint',
+                  ),
+                  Builder(builder: (context) {
+                    final backups = NodeConfigResolver().backupHomeUrls();
+                    return _LiveRow(
+                      label: 'Запасные Home-узлы',
+                      value: backups.isEmpty ? 'нет' : '${backups.length}',
+                      status: backups.isEmpty ? AppStatus.warning : AppStatus.online,
+                      subtitle: backups.isEmpty
+                          ? 'Re-bootstrap упадёт на дефолт, если primary Gateway/Home down'
+                          : backups.join(', '),
+                    );
+                  }),
+                  if (controller.lastFailoverAt != null)
+                    _LiveRow(
+                      label: 'Failover',
+                      value: formatCallHistoryTime(controller.lastFailoverAt!),
+                      status: AppStatus.warning,
+                      subtitle: 'Переключились с ${controller.lastFailoverFromUrl} '
+                          'на ${controller.lastFailoverToUrl}',
+                    ),
+                  if (controller.lastHomeChangedEntry != null)
+                    _LiveRow(
+                      label: 'Home контакта сменился',
+                      value: formatCallHistoryTime(
+                        controller.lastHomeChangedEntry!.updatedAt ??
+                            controller.lastHomeChangedEntry!.cachedAt,
+                      ),
+                      status: AppStatus.warning,
+                      subtitle: '${controller.lastHomeChangedUserId} → '
+                          '${controller.lastHomeChangedEntry!.homeUrl}',
+                    ),
+                  FutureBuilder<String>(
+                    future: NodeConfigResolver().connectionSummary(),
+                    builder: (context, snap) {
+                      final summary = snap.data;
+                      final proxyOn = summary != null && summary.contains('прокси');
+                      return _LiveRow(
+                        label: 'Каталог ноды',
+                        value: summary ?? '…',
+                        status: proxyOn ? AppStatus.warning : AppStatus.online,
+                        subtitle: 'fallback / service nodes / fingerprint',
+                      );
+                    },
+                  ),
+                  FutureBuilder<String>(
+                    future: SettingsRuntime.instance.nodeCertificateFingerprint(),
+                    builder: (context, snap) => _LiveRow(
+                      label: 'Certificate fingerprint',
+                      value: snap.data ?? '…',
+                      status: AppStatus.online,
+                      subtitle: 'node.certificate_fingerprint',
+                    ),
+                  ),
+                  FutureBuilder<(bool, bool, bool)>(
+                    future: () async {
+                      final r = SettingsRuntime.instance;
+                      return (
+                        await r.nodeAllowFallback(),
+                        await r.nodeAllowServiceNodes(),
+                        await r.nodeRoaming(),
+                      );
+                    }(),
+                    builder: (context, snap) {
+                      final v = snap.data;
+                      return _LiveRow(
+                        label: 'Fallback / service / roaming',
+                        value: v == null
+                            ? '…'
+                            : '${v.$1 ? 'fallback' : 'no-fallback'} · '
+                                '${v.$2 ? 'service' : 'no-service'} · '
+                                '${v.$3 ? 'roaming' : 'no-roaming'}',
+                        status: AppStatus.online,
+                      );
+                    },
                   ),
                   _LiveRow(
                     label: 'WebSocket',

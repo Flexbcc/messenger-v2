@@ -36,27 +36,35 @@ class CryptoService {
   static const _identityPrefsKey = 'signal_identity_b64';
   static const _registrationIdPrefsKey = 'signal_registration_id';
 
-  static Future<CryptoService> loadOrCreate() async {
+  /// Загружает сохранённый identity или создаёт новый.
+  /// Возвращает (service, isNewIdentity).
+  /// isNewIdentity=true означает: ключи созданы впервые (переустановка или
+  /// первый запуск) — пользователю нужно показать предупреждение о потере доступа
+  /// к старым зашифрованным сообщениям.
+  static Future<(CryptoService, bool isNewIdentity)> loadOrCreate() async {
     final prefs = await SharedPreferences.getInstance();
     final existingIdentity = prefs.getString(_identityPrefsKey);
     final existingRegId = prefs.getInt(_registrationIdPrefsKey);
 
     late IdentityKeyPair identityKeyPair;
     late int registrationId;
+    final bool isNew;
 
     if (existingIdentity != null && existingRegId != null) {
       identityKeyPair = IdentityKeyPair.fromSerialized(base64Decode(existingIdentity));
       registrationId = existingRegId;
+      isNew = false;
     } else {
       identityKeyPair = generateIdentityKeyPair();
       registrationId = generateRegistrationId(false);
       await prefs.setString(_identityPrefsKey, base64Encode(identityKeyPair.serialize()));
       await prefs.setInt(_registrationIdPrefsKey, registrationId);
+      isNew = true;
     }
 
     final store = PersistentSignalProtocolStore(prefs, identityKeyPair, registrationId);
     final senderKeyStore = PersistentSenderKeyStore(prefs);
-    return CryptoService._(store, identityKeyPair, registrationId, senderKeyStore);
+    return (CryptoService._(store, identityKeyPair, registrationId, senderKeyStore), isNew);
   }
 
   /// Non-persisted instance for tests — see test/crypto_roundtrip_test.dart.
@@ -89,19 +97,33 @@ class CryptoService {
     );
   }
 
-  Future<bool> hasSessionWith(String userId) =>
-      store.containsSession(SignalProtocolAddress(userId, 1));
+  /// Signal адрес для пользователя/устройства.
+  /// Legacy (deviceId=null): адрес userId:1 — совместимость со старыми сессиями.
+  /// Per-device (deviceId задан): адрес userId:<hash> — отдельная сессия на устройство.
+  static SignalProtocolAddress _address(String userId, {String? deviceId}) {
+    if (deviceId == null) return SignalProtocolAddress(userId, 1);
+    // Детерминированный числовой код устройства из UUID (2..32767, не 0/1 — legacy)
+    final code = (deviceId.hashCode.abs() % 32765) + 2;
+    return SignalProtocolAddress(userId, code);
+  }
 
-  Future<void> establishSessionFromBundle(String userId, Map<String, dynamic> bundleJson) async {
-    final address = SignalProtocolAddress(userId, 1);
+  Future<bool> hasSessionWith(String userId, {String? deviceId}) =>
+      store.containsSession(_address(userId, deviceId: deviceId));
+
+  Future<void> establishSessionFromBundle(
+    String userId,
+    Map<String, dynamic> bundleJson, {
+    String? deviceId,
+  }) async {
+    final address = _address(userId, deviceId: deviceId);
     final bundle = SignalBundle.fromJson(bundleJson);
     await SessionBuilder.fromSignalStore(store, address).processPreKeyBundle(bundle);
   }
 
   /// Returns the envelope `ciphertext` string: a small JSON tag + base64
   /// body, opaque to the server (see shared/README.md Message Envelope).
-  Future<String> encrypt(String recipientUserId, Uint8List plaintext) async {
-    final address = SignalProtocolAddress(recipientUserId, 1);
+  Future<String> encrypt(String recipientUserId, Uint8List plaintext, {String? deviceId}) async {
+    final address = _address(recipientUserId, deviceId: deviceId);
     final cipher = SessionCipher.fromStore(store, address);
     final message = await cipher.encrypt(plaintext);
     return jsonEncode({
@@ -110,8 +132,9 @@ class CryptoService {
     });
   }
 
-  Future<Uint8List> decrypt(String senderUserId, String ciphertextField) async {
-    final address = SignalProtocolAddress(senderUserId, 1);
+  Future<Uint8List> decrypt(String senderUserId, String ciphertextField, {String? deviceId}) async {
+    // Try per-device address first; fall back to legacy (userId:1) if no session
+    final address = _address(senderUserId, deviceId: deviceId);
     final cipher = SessionCipher.fromStore(store, address);
     final decoded = jsonDecode(ciphertextField) as Map<String, dynamic>;
     final type = decoded['t'] as int;

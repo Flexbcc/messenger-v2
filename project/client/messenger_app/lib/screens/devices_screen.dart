@@ -9,6 +9,7 @@ import '../core/ui/app_button.dart';
 import '../core/ui/app_card.dart';
 import '../core/ui/app_tile.dart';
 import '../models/device_info.dart';
+import '../services/settings_runtime.dart';
 import '../state/app_controller.dart';
 import '../utils/format.dart';
 import 'security/login_approval_screen.dart';
@@ -25,6 +26,11 @@ class DevicesScreen extends ConsumerStatefulWidget {
 class _DevicesScreenState extends ConsumerState<DevicesScreen> {
   bool _loading = true;
   String? _error;
+  bool _remoteWipe = true;
+  bool _requireApproval = true;
+  List<String> _approvalMethods = const [];
+  String _historySync = 'from_pairing';
+  bool _hiddenAccess = false;
 
   @override
   void initState() {
@@ -38,11 +44,51 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
       _error = null;
     });
     try {
+      final runtime = SettingsRuntime.instance;
       await ref.read(appControllerProvider).refreshDevices();
+      _remoteWipe = await runtime.devicesRemoteWipeEnabled();
+      _requireApproval = await runtime.devicesRequireApproval();
+      _approvalMethods = await runtime.devicesApprovalMethods();
+      _historySync = await runtime.devicesHistorySyncDefault();
+      _hiddenAccess = await runtime.devicesHiddenAccessDefault();
     } catch (e) {
       _error = e.toString();
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _confirmRemoteWipe(DeviceInfo device) async {
+    if (!_remoteWipe) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Удалённое стирание отключено (devices.remote_wipe)')),
+      );
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалённое стирание?'),
+        content: Text('Завершить сеанс «${device.deviceName}» на удалённом устройстве?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Стереть')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(appControllerProvider).revokeDeviceSession(device.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Сеанс устройства завершён')),
+        );
+      }
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      }
+    }
   }
 
   Future<void> _confirmEndOtherSessions() async {
@@ -116,7 +162,17 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                               Text('Центр устройств', style: text.title),
                               const SizedBox(height: AppSpacing.sm),
                               Text(
-                                'Активные сеансы, платформа, версия клиента и завершение доступа',
+                                'Текущее: ${controller.session?.deviceId ?? '—'}',
+                                style: text.caption,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Text(
+                                'Подтверждение: ${_requireApproval ? 'вкл.' : 'выкл.'}'
+                                '${_requireApproval && _approvalMethods.isNotEmpty ? ' · ${_approvalMethods.join(', ')}' : ''}',
+                                style: text.caption,
+                              ),
+                              Text(
+                                'История новому устройству: $_historySync · скрытые чаты: ${_hiddenAccess ? 'да' : 'нет'}',
                                 style: text.caption,
                               ),
                               const SizedBox(height: AppSpacing.md),
@@ -157,6 +213,8 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                             _DeviceRow(
                               device: devices[i],
                               showDivider: i < devices.length - 1,
+                              remoteWipeEnabled: _remoteWipe && !devices[i].isCurrent,
+                              onRemoteWipe: () => _confirmRemoteWipe(devices[i]),
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute(builder: (_) => DeviceDetailScreen(device: devices[i])),
                               ),
@@ -226,11 +284,15 @@ class _DeviceRow extends ConsumerWidget {
     required this.device,
     required this.onTap,
     this.showDivider = true,
+    this.remoteWipeEnabled = false,
+    this.onRemoteWipe,
   });
 
   final DeviceInfo device;
   final VoidCallback onTap;
   final bool showDivider;
+  final bool remoteWipeEnabled;
+  final VoidCallback? onRemoteWipe;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -263,6 +325,12 @@ class _DeviceRow extends ConsumerWidget {
                 label: 'Это устройство',
                 color: colors.primary,
               ),
+            ),
+          if (remoteWipeEnabled)
+            IconButton(
+              icon: Icon(Icons.delete_forever_outlined, size: 18, color: colors.danger),
+              tooltip: 'Удалённое стирание',
+              onPressed: onRemoteWipe,
             ),
           if (!profile.trusted)
             Padding(

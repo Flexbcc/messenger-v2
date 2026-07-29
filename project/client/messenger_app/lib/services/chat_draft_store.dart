@@ -1,5 +1,6 @@
 import '../models/chat_draft.dart';
 import 'local_settings_store.dart';
+import 'settings_catalog_bridge.dart';
 
 /// Persists chat drafts locally (survives app restart).
 class ChatDraftStore {
@@ -7,6 +8,7 @@ class ChatDraftStore {
   static final instance = ChatDraftStore._();
 
   final _store = LocalSettingsStore();
+  final _catalog = CatalogSettingsReader();
   final _cache = <String, ChatDraft>{};
 
   Future<ChatDraft> get(String conversationId) async {
@@ -18,6 +20,10 @@ class ChatDraftStore {
   }
 
   Future<void> save(String conversationId, ChatDraft draft) async {
+    if (!await _catalog.draftsEnabled()) {
+      await clear(conversationId);
+      return;
+    }
     if (draft.isEmpty) {
       await clear(conversationId);
       return;

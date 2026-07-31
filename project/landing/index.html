@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Messenger — защищённый мессенджер</title>
+  <meta name="description" content="Децентрализованный мессенджер с E2EE, звонками, private mode и личным хранилищем. Бета 0.1.0.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+  <div class="wrap">
+    <header>
+      <div class="logo">
+        <div class="logo-mark" aria-hidden="true"></div>
+        <span>Messenger</span>
+      </div>
+      <nav>
+        <a href="#about">О проекте</a>
+        <a href="#features">Возможности</a>
+        <a href="#downloads">Скачать</a>
+        <a href="#network">Сеть</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <p class="beta-tag">Бета <span id="version-label">0.1.0</span></p>
+      <h1>Мессенджер, где сообщения<br>не проходят через чужой облачный сервер</h1>
+      <p class="lead">
+        Flex Messenger — клиент для частной сети узлов (Home, Media, Discovery, Gateway).
+        Переписка шифруется на устройстве, медиа хранится у вас или на вашем storage-app,
+        а не у корпорации-посредника.
+      </p>
+      <div class="hero-meta">
+        <span class="pill ok"><span class="status-dot ok"></span> macOS · Web</span>
+        <span class="pill"><span class="status-dot soon"></span> Android · Windows · iOS</span>
+        <span class="pill" id="channel-pill">канал: beta</span>
+      </div>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="#downloads">Скачать клиент</a>
+        <a class="btn btn-ghost btn-lg" href="app/">Открыть в браузере</a>
+      </div>
+    </section>
+
+    <section id="about" class="prose-block">
+      <h2>Что это и зачем</h2>
+      <div class="prose-grid">
+        <div>
+          <p>
+            Это не «ещё один Telegram-клон». Архитектура рассчитана на <strong>свою инфраструктуру</strong>:
+            вы поднимаете ноды (или подключаетесь к сети оператора), клиент получает маршрутизацию через Gateway
+            и ходит напрямую на Home/Media за данными.
+          </p>
+          <p>
+            <strong>Messenger</strong> — приложение для чатов, звонков WebRTC, каталога настроек приватности (~180 параметров),
+            private mode со скрытыми чатами и PIN, pairing новых устройств по QR.
+          </p>
+        </div>
+        <div>
+          <p>
+            <strong>Storage App</strong> — настольное личное хранилище: content-addressed blobs, SQLite-метаданные,
+            tray-иконка, Bonjour в LAN, Ed25519 для доверия. Альтернатива S3 для медиа мессенджера.
+          </p>
+          <p class="muted-sm">
+            Сейчас стадия <strong>0.1.0 beta</strong> — функционал активно дорабатывается, возможны сбои.
+            Клиенты проверяют обновления через Gateway и предлагают перезагрузку (Web) или скачивание (desktop).
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <h2>Возможности</h2>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <h3>E2EE-чаты</h3>
+          <p>Signal Protocol в Dart — работает и в браузере без нативных библиотек.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Звонки</h3>
+          <p>WebRTC audio/video, минимизация звонка, speaker на desktop.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Private Mode</h3>
+          <p>Скрытые чаты в AES-GCM vault, отдельный PIN, decoy PIN.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Настройки</h3>
+          <p>Каталог privacy/contacts/security — persist на Home Node.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Децентрализация</h3>
+          <p>Discovery + Gateway + Home/Media — без единой точки чтения переписки.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Автообновления</h3>
+          <p>Manifest на Gateway: Web — «Перезагрузить», desktop — ссылка на новый билд.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="how">
+      <h2>Как устроено</h2>
+      <div class="flow-card">
+        <ol class="flow-steps">
+          <li><strong>Клиент</strong> → Gateway: bootstrap, invite, manifest обновлений</li>
+          <li><strong>Gateway</strong> → Discovery: каталог доверенных нод</li>
+          <li><strong>Клиент</strong> → Home Node: чаты, сообщения, настройки, WS push</li>
+          <li><strong>Клиент</strong> → Media Node: upload/download медиа</li>
+          <li><strong>Storage App</strong> (опционально): ваш blob-store в LAN или на VPS</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="downloads">
+      <h2>Скачать</h2>
+      <div class="products">
+        <article class="product-card">
+          <h3>Messenger</h3>
+          <p class="desc">Основной клиент — macOS, Web/PWA; Android и Windows в работе.</p>
+          <ul class="download-list">
+            <li class="available">
+              <div class="platform">
+                <strong>macOS (Apple Silicon)</strong>
+                <span>.zip · arm64</span>
+              </div>
+              <a class="btn btn-primary" href="downloads/Messenger-macos-arm64.zip" download>Скачать</a>
+            </li>
+            <li class="available">
+              <div class="platform">
+                <strong>Web / PWA</strong>
+                <span>автообновление через перезагрузку</span>
+              </div>
+              <span class="btn-row">
+                <a class="btn btn-primary" href="app/">Открыть</a>
+                <a class="btn btn-primary" href="downloads/Messenger-web.zip" download>ZIP</a>
+              </span>
+            </li>
+            <li>
+              <div class="platform"><strong>Android</strong><span>APK · CI</span></div>
+              <span class="btn btn-soon">Скоро</span>
+            </li>
+            <li>
+              <div class="platform"><strong>Windows</strong><span>.exe · Windows CI</span></div>
+              <span class="btn btn-soon">Скоро</span>
+            </li>
+            <li>
+              <div class="platform"><strong>iOS</strong><span>TestFlight</span></div>
+              <span class="btn btn-soon">Скоро</span>
+            </li>
+          </ul>
+        </article>
+
+        <article class="product-card" id="storage">
+          <h3>Storage App</h3>
+          <p class="desc">Desktop-хранилище для медиа — tray, Bonjour, Ed25519.</p>
+          <ul class="download-list">
+            <li class="available">
+              <div class="platform">
+                <strong>macOS (Apple Silicon)</strong>
+                <span>.zip · arm64</span>
+              </div>
+              <a class="btn btn-primary" href="downloads/StorageApp-macos-arm64.zip" download>Скачать</a>
+            </li>
+            <li>
+              <div class="platform"><strong>Windows / Linux</strong><span>сборка на целевой ОС</span></div>
+              <span class="btn btn-soon">Скоро</span>
+            </li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="note">
+        <strong>macOS:</strong> распакуйте ZIP → откройте <code>.app</code>.
+        Без Apple notarization — при первом запуске: ПКМ → «Открыть» или «Открыть в любом случае» в Privacy.
+        <br><strong>Обновления:</strong> клиент сравнивает свою версию с
+        <code>/releases/clients/manifest.json</code> на Gateway.
+      </div>
+    </section>
+
+    <section id="network">
+      <h2>Сеть (prod)</h2>
+      <div class="infra">
+        <dl>
+          <dt>Home Node</dt><dd>http://161.104.18.45:8001</dd>
+          <dt>Media Node</dt><dd>http://161.104.18.45:8004</dd>
+          <dt>Discovery</dt><dd>http://194.67.92.147:8003</dd>
+          <dt>Gateway</dt><dd>http://194.67.92.147:8007</dd>
+          <dt>Manifest</dt><dd>http://194.67.92.147:8007/releases/clients/manifest.json</dd>
+        </dl>
+      </div>
+    </section>
+
+    <footer>
+      <p>Messenger · Flex Network · beta · <span id="footer-version">0.1.0+1</span></p>
+    </footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

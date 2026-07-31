@@ -4,15 +4,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MANIFEST="$ROOT/releases/clients/manifest.json"
-MSG_PUB="$ROOT/client/messenger_app/pubspec.yaml"
-STOR_PUB="$ROOT/../storage-app/app/pubspec.yaml"
-if [[ ! -f "$STOR_PUB" ]]; then
-  STOR_PUB="$(cd "$ROOT/.." && pwd)/storage-app/app/pubspec.yaml"
-fi
-if [[ ! -f "$STOR_PUB" ]]; then
-  echo "storage pubspec not found (optional)" >&2
-  STOR_VER="0.1.0"; STOR_BUILD="1"
-fi
+MSG_PUB="$ROOT/frontend/app/pubspec.yaml"
+STOR_PUB="$ROOT/storage-app/app/pubspec.yaml"
 
 read_pubspec() {
   local file="$1"
@@ -25,11 +18,7 @@ read_pubspec() {
 }
 
 read -r MSG_VER MSG_BUILD <<< "$(read_pubspec "$MSG_PUB")"
-if [[ -f "$STOR_PUB" ]]; then
-  read -r STOR_VER STOR_BUILD <<< "$(read_pubspec "$STOR_PUB")"
-else
-  STOR_VER="${STOR_VER:-0.1.0}"; STOR_BUILD="${STOR_BUILD:-1}"
-fi
+read -r STOR_VER STOR_BUILD <<< "$(read_pubspec "$STOR_PUB")"
 STAMP="${BUILD_STAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 LANDING="${LANDING_URL:-http://194.67.92.147:7357}"
 NOTES="${RELEASE_NOTES:-}"
@@ -76,3 +65,10 @@ PY
 # Mirror for landing static host
 mkdir -p "$ROOT/landing/releases/clients"
 cp "$MANIFEST" "$ROOT/landing/releases/clients/manifest.json"
+# Also copy to project deploy tree if present
+for dest in "$ROOT/project/releases/clients" "$ROOT/backend/releases/clients"; do
+  if [[ -d "$(dirname "$dest")" || -d "$ROOT/project" ]]; then
+    mkdir -p "$dest"
+    cp "$MANIFEST" "$dest/manifest.json" 2>/dev/null || true
+  fi
+done

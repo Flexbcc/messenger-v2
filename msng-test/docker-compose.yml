@@ -1,0 +1,622 @@
+##############################################################################
+# msng-test — тестовое окружение
+#
+# Топология:
+#   msng-discovery   — единый Discovery для всей федерации
+#   msng-core-home   — главная нода (твоя): home + media + storage + relay + turn + push
+#   msng-core-media
+#   msng-core-storage
+#   msng-core-relay
+#   msng-core-turn
+#   msng-core-push
+#   msng-client-1-home  — клиентская нода 1 (home + media + storage)
+#   msng-client-1-media
+#   msng-client-1-storage
+#   msng-client-2-*  — клиентская нода 2 (home на 8022: 8021 занят macOS)
+#   msng-client-3-*  — клиентская нода 3
+#   msng-storage-app — отдельное приложение хранилища
+#   msng-web         — Flutter web (nginx) на порту 3000
+#
+# Запуск:  docker compose -p msng up -d --build
+# Остановка: docker compose -p msng down
+# Логи:   docker compose -p msng logs -f msng-core-home
+##############################################################################
+
+x-home-node: &home-node-base
+  build:
+    context: ../project
+    dockerfile: services/home-node/Dockerfile
+  restart: unless-stopped
+  environment: &home-env-base
+    # CLUSTER_ID переопределяется у каждой ноды: панель считает его
+    # идентификатором площадки, и одинаковое значение схлопывает
+    # все ноды в одну строку.
+    DISCOVERY_NODE_URL: http://msng-discovery:8003
+    JWT_SECRET: ${JWT_SECRET:-test-jwt-secret-change-in-prod}
+    CLUSTER_ID: msng-test
+    ENROLLMENT_MODE: legacy
+    INTERNAL_SECURITY_MODE: legacy
+    FEDERATION_ENVELOPE_MODE: legacy
+    NODE_RESOURCE_POLICY: federated
+    NODE_PARTICIPATE_RELAY: "true"
+    NODE_PARTICIPATE_STORAGE: "true"
+    REGISTRATION_POW_DIFFICULTY: "0"
+
+x-storage-node: &storage-node-base
+  build:
+    context: ../project
+    dockerfile: services/storage-node/Dockerfile
+  restart: unless-stopped
+  environment: &storage-env-base
+    DISCOVERY_NODE_URL: http://msng-discovery:8003
+    CLUSTER_ID: msng-test
+    ENROLLMENT_MODE: legacy
+    INTERNAL_SECURITY_MODE: legacy
+    FEDERATION_ENVELOPE_MODE: legacy
+
+x-media-node: &media-node-base
+  build:
+    context: ../project
+    dockerfile: services/media-node/Dockerfile
+  restart: unless-stopped
+  environment: &media-env-base
+    DISCOVERY_NODE_URL: http://msng-discovery:8003
+    JWT_SECRET: ${JWT_SECRET:-test-jwt-secret-change-in-prod}
+    CLUSTER_ID: msng-test
+    ENROLLMENT_MODE: legacy
+    INTERNAL_SECURITY_MODE: legacy
+    MEDIA_STORAGE_DIR: /data/media_blobs
+    STORAGE_CONFIG: /app/config/storage.json
+
+services:
+
+  ##############################################################################
+  # DISCOVERY — общий для всей федерации
+  ##############################################################################
+  msng-discovery:
+    build:
+      # Контекст — корень project/, чтобы попал shared/ (нужен record_signer.py)
+      context: ../project
+      dockerfile: services/discovery-node/Dockerfile
+    container_name: msng-discovery
+    networks:
+      - msng-net
+      - msng-admin-net
+    restart: unless-stopped
+    ports:
+      - "${PORT_DISCOVERY:-8103}:8003"
+    environment:
+      DISCOVERY_DB_PATH: /data/discovery.db
+      ENROLLMENT_MODE: legacy
+      DISCOVERY_ADMIN_SECRET: ${DISCOVERY_ADMIN_SECRET:-test-discovery-secret}
+    volumes:
+      - ./data/discovery:/data
+
+  ##############################################################################
+  # CORE NODE — главная нода
+  ##############################################################################
+  msng-core-home:
+    <<: *home-node-base
+    container_name: msng-core-home
+    networks:
+      - msng-net
+      - msng-admin-net
+    ports:
+      - "${PORT_CORE_HOME:-8001}:8001"
+    environment:
+      <<: *home-env-base
+      CLUSTER_ID: core
+      HOME_NODE_ID: core
+      HOME_NODE_PUBLIC_URL: http://localhost:${PORT_CORE_HOME:-8001}
+      STORAGE_NODE_URL: http://msng-core-storage:8002
+      MEDIA_NODE_URL: http://msng-core-media:8004
+      PUSH_PROXY_URL: http://msng-core-push:8008
+      PUSH_PROXY_SECRET: ${PUSH_PROXY_SECRET:-test-push-secret}
+      HOME_DB_PATH: /data/home.db
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
+      NODE_TOKEN_PATH: /data/node_token
+      NODE_CURVE_KEY_PATH: /data/node_curve_key
+    volumes:
+      - ./data/core/home:/data
+    depends_on:
+      - msng-discovery
+      - msng-core-storage
+      - msng-core-media
+
+  msng-core-storage:
+    <<: *storage-node-base
+    container_name: msng-core-storage
+    networks:
+      - msng-net
+      - msng-admin-net
+    environment:
+      <<: *storage-env-base
+      CLUSTER_ID: core
+      STORAGE_NODE_ID: core-storage
+      STORAGE_NODE_PUBLIC_URL: http://msng-core-storage:8002
+      STORAGE_DB_PATH: /data/storage.db
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
+      NODE_TOKEN_PATH: /data/node_token
+    volumes:
+      - ./data/core/storage:/data
+    depends_on:
+      - msng-discovery
+
+  msng-core-media:
+    <<: *media-node-base
+    container_name: msng-core-media
+    networks:
+      - msng-net
+      - msng-admin-net
+    ports:
+      - "${PORT_CORE_MEDIA:-8004}:8004"
+    environment:
+      <<: *media-env-base
+      CLUSTER_ID: core
+      MEDIA_NODE_ID: core-media
+      MEDIA_NODE_PUBLIC_URL: http://localhost:${PORT_CORE_MEDIA:-8004}
+      HOME_NODE_URL: http://msng-core-home:8001
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      MEDIA_DB_PATH: /data/media.db
+      NODE_TOKEN_PATH: /data/node_token
+    volumes:
+      - ./data/core/media:/data/media_blobs
+      - ./data/core/media-meta:/data
+      - ./config/storage.json:/app/config/storage.json:ro
+    depends_on:
+      - msng-discovery
+
+  msng-core-relay:
+    build:
+      context: ../project
+      dockerfile: services/relay-node/Dockerfile
+    container_name: msng-core-relay
+    networks:
+      - msng-net
+      - msng-admin-net
+    restart: unless-stopped
+    environment:
+      RELAY_NODE_ID: core-relay
+      RELAY_NODE_PUBLIC_URL: http://msng-core-relay:8005
+      DISCOVERY_NODE_URL: http://msng-discovery:8003
+      CLUSTER_ID: core
+      ENROLLMENT_MODE: legacy
+      INTERNAL_SECURITY_MODE: legacy
+      FEDERATION_ENVELOPE_MODE: legacy
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
+      NODE_TOKEN_PATH: /data/node_token
+    volumes:
+      - ./data/core/relay:/data
+    depends_on:
+      - msng-discovery
+
+  msng-core-turn:
+    build:
+      context: ../project
+      dockerfile: services/turn-node/Dockerfile
+    container_name: msng-core-turn
+    networks:
+      - msng-net
+      - msng-admin-net
+    restart: unless-stopped
+    ports:
+      - "${PORT_CORE_TURN:-8006}:8006"
+    environment:
+      TURN_NODE_ID: core-turn
+      TURN_NODE_PUBLIC_URL: http://localhost:${PORT_CORE_TURN:-8006}
+      DISCOVERY_NODE_URL: http://msng-discovery:8003
+      JWT_SECRET: ${JWT_SECRET:-test-jwt-secret-change-in-prod}
+      CLUSTER_ID: core
+      ENROLLMENT_MODE: legacy
+      INTERNAL_SECURITY_MODE: legacy
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:-test-turn-secret}
+      TURN_SERVER_HOST: localhost
+      TURN_SERVER_PORT: 3478
+      NODE_TOKEN_PATH: /data/node_token
+    volumes:
+      - ./data/core/turn:/data
+    depends_on:
+      - msng-discovery
+
+  msng-core-push:
+    build: ../project/services/push-proxy
+    container_name: msng-core-push
+    networks:
+      - msng-net
+      - msng-admin-net
+    restart: unless-stopped
+    environment:
+      PUSH_PROXY_SECRET: ${PUSH_PROXY_SECRET:-test-push-secret}
+      DATABASE_URL: /data/push_tokens.db
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
+    volumes:
+      - ./data/core/push:/data
+    depends_on:
+      - msng-discovery
+
+  ##############################################################################
+  # CLIENT NODE 1
+  ##############################################################################
+  msng-client-1-home:
+    <<: *home-node-base
+    container_name: msng-client-1-home
+    networks:
+      - msng-net
+    ports:
+      - "${PORT_C1_HOME:-8011}:8001"
+    environment:
+      <<: *home-env-base
+      CLUSTER_ID: client-1
+      HOME_NODE_ID: client-1
+      HOME_NODE_PUBLIC_URL: http://localhost:${PORT_C1_HOME:-8011}
+      STORAGE_NODE_URL: http://msng-client-1-storage:8002
+      MEDIA_NODE_URL: http://msng-client-1-media:8004
+      PUSH_PROXY_URL: http://msng-core-push:8008
+      PUSH_PROXY_SECRET: ${PUSH_PROXY_SECRET:-test-push-secret}
+      HOME_DB_PATH: /data/home.db
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
+      NODE_TOKEN_PATH: /data/node_token
+      NODE_CURVE_KEY_PATH: /data/node_curve_key
+    volumes:
+      - ./data/client-1/home:/data
+    depends_on:
+      - msng-discovery
+      - msng-client-1-storage
+      - msng-client-1-media
+
+  msng-client-1-storage:
+    <<: *storage-node-base
+    container_name: msng-client-1-storage
+    networks:
+      - msng-net
+    environment:
+      <<: *storage-env-base
+      CLUSTER_ID: client-1
+      STORAGE_NODE_ID: client-1-storage
+      STORAGE_NODE_PUBLIC_URL: http://msng-client-1-storage:8002
+      STORAGE_DB_PATH: /data/storage.db
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      NODE_TOKEN_PATH: /data/node_token
+    volumes:
+      - ./data/client-1/storage:/data
+    depends_on:
+      - msng-discovery
+
+  msng-client-1-media:
+    <<: *media-node-base
+    container_name: msng-client-1-media
+    networks:
+      - msng-net
+    ports:
+      - "${PORT_C1_MEDIA:-8014}:8004"
+    environment:
+      <<: *media-env-base
+      CLUSTER_ID: client-1
+      MEDIA_NODE_ID: client-1-media
+      MEDIA_NODE_PUBLIC_URL: http://localhost:${PORT_C1_MEDIA:-8014}
+      HOME_NODE_URL: http://msng-client-1-home:8001
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      MEDIA_DB_PATH: /data/media.db
+      NODE_TOKEN_PATH: /data/node_token
+    volumes:
+      - ./data/client-1/media:/data/media_blobs
+      - ./data/client-1/media-meta:/data
+      - ./config/storage.json:/app/config/storage.json:ro
+    depends_on:
+      - msng-discovery
+
+  ##############################################################################
+  # CLIENT NODE 2
+  ##############################################################################
+  msng-client-2-home:
+    <<: *home-node-base
+    container_name: msng-client-2-home
+    networks:
+      - msng-net
+    ports:
+      - "${PORT_C2_HOME:-8022}:8001"
+    environment:
+      <<: *home-env-base
+      CLUSTER_ID: client-2
+      HOME_NODE_ID: client-2
+      HOME_NODE_PUBLIC_URL: http://localhost:${PORT_C2_HOME:-8022}
+      STORAGE_NODE_URL: http://msng-client-2-storage:8002
+      MEDIA_NODE_URL: http://msng-client-2-media:8004
+      PUSH_PROXY_URL: http://msng-core-push:8008
+      PUSH_PROXY_SECRET: ${PUSH_PROXY_SECRET:-test-push-secret}
+      HOME_DB_PATH: /data/home.db
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
+      NODE_TOKEN_PATH: /data/node_token
+      NODE_CURVE_KEY_PATH: /data/node_curve_key
+    volumes:
+      - ./data/client-2/home:/data
+    depends_on:
+      - msng-discovery
+      - msng-client-2-storage
+      - msng-client-2-media
+
+  msng-client-2-storage:
+    <<: *storage-node-base
+    container_name: msng-client-2-storage
+    networks:
+      - msng-net
+    environment:
+      <<: *storage-env-base
+      CLUSTER_ID: client-2
+      STORAGE_NODE_ID: client-2-storage
+      STORAGE_NODE_PUBLIC_URL: http://msng-client-2-storage:8002
+      STORAGE_DB_PATH: /data/storage.db
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      NODE_TOKEN_PATH: /data/node_token
+    volumes:
+      - ./data/client-2/storage:/data
+    depends_on:
+      - msng-discovery
+
+  msng-client-2-media:
+    <<: *media-node-base
+    container_name: msng-client-2-media
+    networks:
+      - msng-net
+    ports:
+      - "${PORT_C2_MEDIA:-8024}:8004"
+    environment:
+      <<: *media-env-base
+      CLUSTER_ID: client-2
+      MEDIA_NODE_ID: client-2-media
+      MEDIA_NODE_PUBLIC_URL: http://localhost:${PORT_C2_MEDIA:-8024}
+      HOME_NODE_URL: http://msng-client-2-home:8001
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      MEDIA_DB_PATH: /data/media.db
+      NODE_TOKEN_PATH: /data/node_token
+    volumes:
+      - ./data/client-2/media:/data/media_blobs
+      - ./data/client-2/media-meta:/data
+      - ./config/storage.json:/app/config/storage.json:ro
+    depends_on:
+      - msng-discovery
+
+  ##############################################################################
+  # CLIENT NODE 3
+  ##############################################################################
+  msng-client-3-home:
+    <<: *home-node-base
+    container_name: msng-client-3-home
+    networks:
+      - msng-net
+    ports:
+      - "${PORT_C3_HOME:-8031}:8001"
+    environment:
+      <<: *home-env-base
+      CLUSTER_ID: client-3
+      HOME_NODE_ID: client-3
+      HOME_NODE_PUBLIC_URL: http://localhost:${PORT_C3_HOME:-8031}
+      STORAGE_NODE_URL: http://msng-client-3-storage:8002
+      MEDIA_NODE_URL: http://msng-client-3-media:8004
+      PUSH_PROXY_URL: http://msng-core-push:8008
+      PUSH_PROXY_SECRET: ${PUSH_PROXY_SECRET:-test-push-secret}
+      HOME_DB_PATH: /data/home.db
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
+      NODE_TOKEN_PATH: /data/node_token
+      NODE_CURVE_KEY_PATH: /data/node_curve_key
+    volumes:
+      - ./data/client-3/home:/data
+    depends_on:
+      - msng-discovery
+      - msng-client-3-storage
+      - msng-client-3-media
+
+  msng-client-3-storage:
+    <<: *storage-node-base
+    container_name: msng-client-3-storage
+    networks:
+      - msng-net
+    environment:
+      <<: *storage-env-base
+      CLUSTER_ID: client-3
+      STORAGE_NODE_ID: client-3-storage
+      STORAGE_NODE_PUBLIC_URL: http://msng-client-3-storage:8002
+      STORAGE_DB_PATH: /data/storage.db
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      NODE_TOKEN_PATH: /data/node_token
+    volumes:
+      - ./data/client-3/storage:/data
+    depends_on:
+      - msng-discovery
+
+  msng-client-3-media:
+    <<: *media-node-base
+    container_name: msng-client-3-media
+    networks:
+      - msng-net
+    ports:
+      - "${PORT_C3_MEDIA:-8034}:8004"
+    environment:
+      <<: *media-env-base
+      CLUSTER_ID: client-3
+      MEDIA_NODE_ID: client-3-media
+      MEDIA_NODE_PUBLIC_URL: http://localhost:${PORT_C3_MEDIA:-8034}
+      HOME_NODE_URL: http://msng-client-3-home:8001
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      MEDIA_DB_PATH: /data/media.db
+      NODE_TOKEN_PATH: /data/node_token
+    volumes:
+      - ./data/client-3/media:/data/media_blobs
+      - ./data/client-3/media-meta:/data
+      - ./config/storage.json:/app/config/storage.json:ro
+    depends_on:
+      - msng-discovery
+
+  ##############################################################################
+  # STORAGE APP — отдельное приложение хранилища (персональное облако)
+  ##############################################################################
+  msng-storage-app:
+    <<: *storage-node-base
+    container_name: msng-storage-app
+    networks:
+      - msng-net
+    ports:
+      - "${PORT_STORAGE_APP:-8042}:8002"
+    environment:
+      <<: *storage-env-base
+      CLUSTER_ID: storage-app
+      STORAGE_NODE_ID: storage-app
+      STORAGE_NODE_PUBLIC_URL: http://localhost:${PORT_STORAGE_APP:-8042}
+      STORAGE_DB_PATH: /data/storage.db
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      NODE_TOKEN_PATH: /data/node_token
+      # Привязан к core-home как владелец
+      HOME_NODE_URL: http://msng-core-home:8001
+    volumes:
+      - ./data/storage-app:/data
+    depends_on:
+      - msng-discovery
+      - msng-core-home
+
+  ##############################################################################
+  # ADMIN — панель управления, локальный доступ
+  #
+  # Слушает ТОЛЬКО 127.0.0.1 — снаружи машины недоступна.
+  # Этого достаточно, пока стек крутится у вас на компьютере.
+  #
+  # Для удалённого сервера так делать НЕЛЬЗЯ: там вместо этого
+  # поднимается msng-operator-gw (профиль remote) и пульт из
+  # operator-console/, который предъявляет ему сертификат.
+  ##############################################################################
+  msng-admin:
+    build:
+      context: ../project/admin-server
+    container_name: msng-admin
+    networks:
+      - msng-admin-net
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PORT_ADMIN:-9210}:9210"
+    environment:
+      ADMIN_PORT: "9210"
+      ADMIN_VARIANT: project
+      PROJECT_ROOT: /project
+      ADMIN_STATIC: /project/admin
+      ENV_FILE: /project/.env
+      STORAGE_CONFIG: /project/config/storage.json
+      COMPOSE_FILE: /msng-test/docker-compose.yml
+      HOME_NODE_URL: http://msng-core-home:8001
+      STORAGE_NODE_URL: http://msng-core-storage:8002
+      MEDIA_NODE_URL: http://msng-core-media:8004
+      RELAY_NODE_URL: http://msng-core-relay:8005
+      DISCOVERY_NODE_URL: http://msng-discovery:8003
+      DISCOVERY_ADMIN_SECRET: ${DISCOVERY_ADMIN_SECRET:-test-discovery-secret}
+      # Пусто = без пароля. Работает только с localhost, для теста нормально.
+      # Задайте ADMIN_PANEL_SECRET в .env, если хотите пароль.
+      ADMIN_PANEL_SECRET: ${ADMIN_PANEL_SECRET:-}
+    volumes:
+      - ../project:/project
+      - ./:/msng-test
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - msng-discovery
+      - msng-core-home
+
+  ##############################################################################
+  # OPERATOR GATEWAY — mTLS-шлюз для пульта управления
+  #
+  # Админки на сервере НЕТ. Вместо неё — шлюз, который пускает только
+  # того, кто предъявил сертификат оператора, выпущенный CA федерации.
+  #
+  # Кто стучится без сертификата, получает обрыв на TLS-хендшейке:
+  # для сканера порт выглядит мёртвым.
+  #
+  #   9443 → discovery admin API (реестр федерации)
+  #   9444 → монитор home-ноды
+  #
+  # Сам пульт живёт в operator-console/ на машине оператора.
+  ##############################################################################
+  msng-operator-gw:
+    image: nginx:1.27-alpine
+    container_name: msng-operator-gw
+    # Не поднимается по умолчанию: локально mTLS не нужен — всё на одной
+    # машине. Нужен, когда нода на удалённом сервере:
+    #     docker compose -p msng --profile remote up -d msng-operator-gw
+    profiles: ["remote"]
+    networks:
+      # Только admin-net. В сети федерации шлюзу делать нечего:
+      # discovery и core-home доступны и отсюда, а клиентские ноды
+      # при этом не видят его даже по DNS.
+      - msng-admin-net
+    restart: unless-stopped
+    ports:
+      - "${PORT_GW_DISCOVERY:-9443}:9443"
+      - "${PORT_GW_HOME:-9444}:9444"
+    environment:
+      DISCOVERY_ADMIN_SECRET: ${DISCOVERY_ADMIN_SECRET:-test-discovery-secret}
+      # Имена контейнеров этого стека — в конфиге они подставляются
+      DISCOVERY_UPSTREAM: msng-discovery:8003
+      HOME_UPSTREAM: msng-core-home:8001
+    volumes:
+      - ../project/config/nginx/nginx-operator.conf.template:/etc/nginx/templates/nginx.conf.template:ro
+      - ../project/config/nginx/operators-allowlist.conf:/etc/nginx/operators-allowlist.conf:ro
+      - ../project/config/mtls:/etc/nginx/certs:ro
+      - ./config/operator-gw-entrypoint.sh:/entrypoint.sh:ro
+    # Логика старта — в отдельном файле: YAML схлопывает переносы строк,
+    # и многострочный shell с циклом и кавычками ломается.
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    depends_on:
+      - msng-discovery
+      - msng-core-home
+
+  ##############################################################################
+  # WEB CLIENT — Flutter web через nginx
+  ##############################################################################
+  msng-web:
+    image: nginx:alpine
+    container_name: msng-web
+    networks:
+      - msng-net
+    restart: unless-stopped
+    ports:
+      - "${PORT_WEB:-3000}:80"
+    volumes:
+      - ./web-build:/usr/share/nginx/html:ro
+      - ./config/nginx-web.conf:/etc/nginx/conf.d/default.conf:ro
+
+##############################################################################
+# СЕТИ
+#
+# msng-net        — федерация. Здесь живут все ноды и общаются между собой.
+# msng-admin-net  — административная. Шлюз оператора плюс сервисы, к которым
+#                   он проксирует (core + discovery).
+#
+# Клиентские ноды (client-1/2/3) в msng-admin-net НЕ входят — они не видят
+# msng-operator-gw даже по DNS изнутри Docker.
+#
+# Порты шлюза (9443/9444) проброшены наружу намеренно: управлять нодой нужно
+# из дома. Защита здесь не сетевая, а криптографическая — без клиентского
+# сертификата соединение рвётся на TLS-хендшейке.
+##############################################################################
+networks:
+  msng-net:
+    name: msng-net
+    driver: bridge
+  msng-admin-net:
+    name: msng-admin-net
+    driver: bridge

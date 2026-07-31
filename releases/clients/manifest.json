@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "channel": "beta",
-  "updated_at": "2026-07-20T12:16:15Z",
-  "landing_url": "https://194.67.92.147",
+  "updated_at": "20260719",
+  "landing_url": "http://194.67.92.147:7357",
   "products": {
     "messenger": {
       "display_name": "Messenger",
@@ -23,7 +23,7 @@
           "build": 1,
           "available": true,
           "update_kind": "download",
-          "download_url": "https://194.67.92.147/downloads/Messenger-macos-arm64.zip",
+          "download_url": "http://194.67.92.147:7357/downloads/Messenger-macos-arm64.zip",
           "min_version": "0.1.0"
         },
         "android": {
@@ -72,7 +72,7 @@
           "build": 1,
           "available": true,
           "update_kind": "download",
-          "download_url": "https://194.67.92.147/downloads/StorageApp-macos-arm64.zip",
+          "download_url": "http://194.67.92.147:7357/downloads/StorageApp-macos-arm64.zip",
           "min_version": "0.1.0"
         },
         "windows": {

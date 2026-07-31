@@ -1,0 +1,4275 @@
+{
+  "meta": {
+    "product": "OUO Messenger",
+    "schema_version": "1.0.0",
+    "locale": "ru-RU",
+    "value_conventions": {
+      "boolean": "true/false",
+      "single_select": "одно значение из options",
+      "multi_select": "массив значений из options",
+      "text": "строка",
+      "number": "число",
+      "secret": "секретное значение, не отображать открыто",
+      "action": "кнопка/операция",
+      "read_only": "только отображение",
+      "list": "управляемый список объектов"
+    }
+  },
+  "sections": [
+    {
+      "id": "profile",
+      "title": "Профиль",
+      "icon": "user",
+      "settings": [
+        {
+          "id": "profile.avatar",
+          "title": "Аватар",
+          "type": "action",
+          "action": "upload_image",
+          "description": "Изображение профиля пользователя. Хранится как ссылка на локальный или удалённый зашифрованный медиа-объект.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "profile.display_name",
+          "title": "Отображаемое имя",
+          "type": "text",
+          "required": true,
+          "description": "Имя, которое показывается собеседникам и в списке чатов. Не является уникальным идентификатором.",
+          "data": {
+            "json_type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "ui": {
+            "control": "text_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "profile.username_enabled",
+          "title": "Использовать username",
+          "type": "boolean",
+          "default": false,
+          "description": "Включает публичный username как дополнительный способ поиска и добавления пользователя.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "profile.username",
+          "title": "Username",
+          "type": "text",
+          "visible_if": {
+            "setting": "profile.username_enabled",
+            "equals": true
+          },
+          "description": "Уникальное публичное имя пользователя. Используется для поиска без телефона и QR-кода.",
+          "data": {
+            "json_type": "string",
+            "minLength": 3,
+            "maxLength": 32,
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_]{2,31}$",
+            "example": "alex_user"
+          },
+          "ui": {
+            "control": "text_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "profile.bio",
+          "title": "Описание профиля",
+          "type": "text",
+          "multiline": true,
+          "description": "Краткое описание профиля, которое видят пользователи согласно настройкам приватности.",
+          "data": {
+            "json_type": "string",
+            "minLength": 0,
+            "maxLength": 500
+          },
+          "ui": {
+            "control": "textarea",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "profile.public_id",
+          "title": "Публичный ID",
+          "type": "read_only",
+          "description": "Неизменяемый публичный идентификатор профиля, создаваемый клиентом автоматически.",
+          "data": {
+            "json_type": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array",
+              "null"
+            ],
+            "readOnly": true
+          },
+          "ui": {
+            "control": "info_row",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "profile.qr",
+          "title": "QR-код профиля",
+          "type": "action",
+          "action": "show_qr",
+          "description": "Открывает QR-код профиля для безопасного обмена идентификатором и ключами.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "profile.language",
+          "title": "Язык интерфейса",
+          "type": "single_select",
+          "options": [
+            "ru",
+            "en"
+          ],
+          "default": "ru",
+          "description": "Выбор одного значения для параметра «Язык интерфейса» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "ru",
+              "en"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "profile.time_format",
+          "title": "Формат времени",
+          "type": "single_select",
+          "options": [
+            "24h",
+            "12h"
+          ],
+          "default": "24h",
+          "description": "Выбор одного значения для параметра «Формат времени» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "24h",
+              "12h"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "profile.date_format",
+          "title": "Формат даты",
+          "type": "single_select",
+          "options": [
+            "DD.MM.YYYY",
+            "YYYY-MM-DD",
+            "MM/DD/YYYY"
+          ],
+          "default": "DD.MM.YYYY",
+          "description": "Выбор одного значения для параметра «Формат даты» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "DD.MM.YYYY",
+              "YYYY-MM-DD",
+              "MM/DD/YYYY"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "identity",
+      "title": "Необязательные контактные данные",
+      "icon": "id",
+      "settings": [
+        {
+          "id": "identity.phone_enabled",
+          "title": "Хранить телефон в профиле",
+          "type": "boolean",
+          "default": false,
+          "description": "Хранит номер локально как необязательное поле контактной карточки. Номер не используется для входа или восстановления.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "identity.phone",
+          "title": "Телефон",
+          "type": "text",
+          "format": "phone",
+          "visible_if": {
+            "setting": "identity.phone_enabled",
+            "equals": true
+          },
+          "description": "Необязательный номер в формате E.164. Ключ аккаунта остаётся единственным способом входа и восстановления.",
+          "data": {
+            "json_type": "string",
+            "minLength": 0,
+            "maxLength": 16,
+            "pattern": "^\\+[1-9]\\d{7,14}$",
+            "example": "+79991234567"
+          },
+          "ui": {
+            "control": "text_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "identity.email_enabled",
+          "title": "Хранить почту в профиле",
+          "type": "boolean",
+          "default": false,
+          "description": "Хранит адрес локально как необязательное поле контактной карточки. Почта не используется для входа или восстановления.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "identity.email",
+          "title": "Электронная почта",
+          "type": "text",
+          "format": "email",
+          "visible_if": {
+            "setting": "identity.email_enabled",
+            "equals": true
+          },
+          "description": "Необязательный адрес электронной почты. Ключ аккаунта остаётся единственным способом входа и восстановления.",
+          "data": {
+            "json_type": "string",
+            "minLength": 0,
+            "maxLength": 254,
+            "format": "email"
+          },
+          "ui": {
+            "control": "text_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "identity.security_notifications",
+          "title": "Получать уведомления безопасности",
+          "type": "multi_select",
+          "options": [
+            "email",
+            "push",
+            "trusted_device"
+          ],
+          "default": [
+            "push"
+          ],
+          "description": "Выбор одного или нескольких значений для параметра «Получать уведомления безопасности». Хранится как массив уникальных значений.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "push",
+                "trusted_device"
+              ]
+            },
+            "uniqueItems": true,
+            "minItems": 0,
+            "maxItems": 3
+          },
+          "ui": {
+            "control": "multi_select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "privacy",
+      "title": "Конфиденциальность",
+      "icon": "shield",
+      "settings": [
+        {
+          "id": "privacy.phone_visibility",
+          "title": "Кто видит телефон",
+          "type": "single_select",
+          "options": [
+            "nobody",
+            "contacts",
+            "selected",
+            "everyone"
+          ],
+          "default": "nobody",
+          "visible_if": {
+            "setting": "identity.phone_enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Кто видит телефон» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "nobody",
+              "contacts",
+              "selected",
+              "everyone"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.phone_visibility_list",
+          "title": "Выбранные пользователи",
+          "type": "list",
+          "item_type": "user",
+          "visible_if": {
+            "setting": "privacy.phone_visibility",
+            "equals": "selected"
+          },
+          "description": "Управляемый список «Выбранные пользователи». Каждый элемент имеет собственный идентификатор и тип user.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.phone_search",
+          "title": "Кто может найти по телефону",
+          "type": "single_select",
+          "options": [
+            "nobody",
+            "contacts",
+            "everyone"
+          ],
+          "default": "nobody",
+          "visible_if": {
+            "setting": "identity.phone_enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Кто может найти по телефону» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "nobody",
+              "contacts",
+              "everyone"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.email_visibility",
+          "title": "Кто видит почту",
+          "type": "single_select",
+          "options": [
+            "nobody",
+            "contacts",
+            "selected",
+            "everyone"
+          ],
+          "default": "nobody",
+          "visible_if": {
+            "setting": "identity.email_enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Кто видит почту» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "nobody",
+              "contacts",
+              "selected",
+              "everyone"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.email_visibility_list",
+          "title": "Выбранные пользователи",
+          "type": "list",
+          "item_type": "user",
+          "visible_if": {
+            "setting": "privacy.email_visibility",
+            "equals": "selected"
+          },
+          "description": "Управляемый список «Выбранные пользователи». Каждый элемент имеет собственный идентификатор и тип user.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.username_search",
+          "title": "Разрешить поиск по username",
+          "type": "boolean",
+          "default": true,
+          "visible_if": {
+            "setting": "profile.username_enabled",
+            "equals": true
+          },
+          "description": "Переключатель «Разрешить поиск по username». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.avatar_visibility",
+          "title": "Кто видит аватар",
+          "type": "single_select",
+          "options": [
+            "nobody",
+            "contacts",
+            "everyone"
+          ],
+          "default": "contacts",
+          "description": "Выбор одного значения для параметра «Кто видит аватар» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "nobody",
+              "contacts",
+              "everyone"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.last_seen",
+          "title": "Последнее посещение",
+          "type": "single_select",
+          "options": [
+            "nobody",
+            "contacts",
+            "selected",
+            "everyone"
+          ],
+          "default": "contacts",
+          "description": "Выбор одного значения для параметра «Последнее посещение» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "nobody",
+              "contacts",
+              "selected",
+              "everyone"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.last_seen_list",
+          "title": "Исключения",
+          "type": "list",
+          "item_type": "user",
+          "visible_if": {
+            "setting": "privacy.last_seen",
+            "equals": "selected"
+          },
+          "description": "Управляемый список «Исключения». Каждый элемент имеет собственный идентификатор и тип user.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.online_status",
+          "title": "Показывать онлайн-статус",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Показывать онлайн-статус». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.read_receipts",
+          "title": "Отправлять отметки о прочтении",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Отправлять отметки о прочтении». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.typing_status",
+          "title": "Показывать набор текста",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Показывать набор текста». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.voice_record_status",
+          "title": "Показывать запись голосового",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Показывать запись голосового». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.incoming_messages",
+          "title": "Кто может писать первым",
+          "type": "single_select",
+          "options": [
+            "nobody",
+            "contacts",
+            "invites",
+            "everyone"
+          ],
+          "default": "invites",
+          "description": "Выбор одного значения для параметра «Кто может писать первым» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "nobody",
+              "contacts",
+              "invites",
+              "everyone"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.calls_from",
+          "title": "Кто может звонить",
+          "type": "single_select",
+          "options": [
+            "nobody",
+            "contacts",
+            "selected",
+            "everyone"
+          ],
+          "default": "contacts",
+          "description": "Выбор одного значения для параметра «Кто может звонить» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "nobody",
+              "contacts",
+              "selected",
+              "everyone"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.calls_allowlist",
+          "title": "Список разрешенных",
+          "type": "list",
+          "item_type": "user",
+          "visible_if": {
+            "setting": "privacy.calls_from",
+            "equals": "selected"
+          },
+          "description": "Управляемый список «Список разрешенных». Каждый элемент имеет собственный идентификатор и тип user.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.group_invites",
+          "title": "Кто может добавлять в группы",
+          "type": "single_select",
+          "options": [
+            "nobody",
+            "contacts",
+            "everyone"
+          ],
+          "default": "contacts",
+          "description": "Выбор одного значения для параметра «Кто может добавлять в группы» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "nobody",
+              "contacts",
+              "everyone"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.qr_only",
+          "title": "QR-only режим",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «QR-only режим». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.qr_mode",
+          "title": "Тип QR-доступа",
+          "type": "single_select",
+          "options": [
+            "permanent",
+            "temporary",
+            "single_use"
+          ],
+          "default": "temporary",
+          "visible_if": {
+            "setting": "privacy.qr_only",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Тип QR-доступа» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "permanent",
+              "temporary",
+              "single_use"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.qr_ttl_minutes",
+          "title": "Срок действия QR, минут",
+          "type": "number",
+          "default": 30,
+          "visible_if": {
+            "setting": "privacy.qr_mode",
+            "equals": "temporary"
+          },
+          "description": "Числовое значение параметра «Срок действия QR, минут». Клиент должен проверять минимальное и максимальное значение.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 1,
+            "maximum": 10080
+          },
+          "ui": {
+            "control": "number_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "privacy.invisible_mode",
+          "title": "Невидимый режим",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Невидимый режим». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "title": "Безопасность",
+      "icon": "lock",
+      "settings": [
+        {
+          "id": "security.pin_enabled",
+          "title": "Включить PIN",
+          "type": "boolean",
+          "default": false,
+          "description": "Включает локальную блокировку клиента PIN-кодом.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.pin",
+          "title": "Основной PIN",
+          "type": "secret",
+          "visible_if": {
+            "setting": "security.pin_enabled",
+            "equals": true
+          },
+          "description": "Секретный локальный PIN. Не должен сохраняться в открытом виде и не передаётся на сервер.",
+          "data": {
+            "json_type": "string",
+            "minLength": 4,
+            "maxLength": 12,
+            "sensitive": true,
+            "pattern": "^\\d{4,12}$"
+          },
+          "ui": {
+            "control": "password_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "local_encrypted"
+        },
+        {
+          "id": "security.pin_length",
+          "title": "Длина PIN",
+          "type": "single_select",
+          "options": [
+            4,
+            6,
+            8,
+            10,
+            12
+          ],
+          "default": 6,
+          "visible_if": {
+            "setting": "security.pin_enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Длина PIN» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "integer",
+            "enum": [
+              4,
+              6,
+              8,
+              10,
+              12
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.alphanumeric_password",
+          "title": "Разрешить буквенно-цифровой код",
+          "type": "boolean",
+          "default": false,
+          "visible_if": {
+            "setting": "security.pin_enabled",
+            "equals": true
+          },
+          "description": "Переключатель «Разрешить буквенно-цифровой код». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.autolock",
+          "title": "Автоблокировка",
+          "type": "single_select",
+          "options": [
+            "immediately",
+            "30s",
+            "1m",
+            "5m",
+            "15m",
+            "1h",
+            "never"
+          ],
+          "default": "5m",
+          "visible_if": {
+            "setting": "security.pin_enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Автоблокировка» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "immediately",
+              "30s",
+              "1m",
+              "5m",
+              "15m",
+              "1h",
+              "never"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.lock_on_background",
+          "title": "Блокировать при сворачивании",
+          "type": "boolean",
+          "default": true,
+          "visible_if": {
+            "setting": "security.pin_enabled",
+            "equals": true
+          },
+          "description": "Переключатель «Блокировать при сворачивании». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.lock_on_screen_off",
+          "title": "Блокировать при выключении экрана",
+          "type": "boolean",
+          "default": true,
+          "visible_if": {
+            "setting": "security.pin_enabled",
+            "equals": true
+          },
+          "description": "Переключатель «Блокировать при выключении экрана». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.pin_attempt_policy",
+          "title": "Политика неверного PIN",
+          "type": "read_only",
+          "value": "1-2: предупреждение; 3: 30с; 4: 2м; 5: 10м; 6: 30м; 7: 2ч; 8: 12ч; 9: 24ч; 10: защитная блокировка",
+          "visible_if": {
+            "setting": "security.pin_enabled",
+            "equals": true
+          },
+          "description": "Информационное описание задержек и защитных действий при неверном вводе PIN.",
+          "data": {
+            "json_type": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array",
+              "null"
+            ],
+            "readOnly": true
+          },
+          "ui": {
+            "control": "info_row",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.wipe_enabled",
+          "title": "Стирать локальные данные после ошибок",
+          "type": "boolean",
+          "default": false,
+          "visible_if": {
+            "setting": "security.pin_enabled",
+            "equals": true
+          },
+          "description": "После заданного числа неверных попыток удаляет локальную историю, медиа-кэш и защищённое хранилище. Ключ входа сохраняется, чтобы аккаунт можно было вернуть по локальной копии.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": true,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.wipe_after",
+          "title": "Количество попыток до стирания",
+          "type": "single_select",
+          "options": [
+            10,
+            15,
+            20
+          ],
+          "default": 15,
+          "visible_if": {
+            "setting": "security.wipe_enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Количество попыток до стирания» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "integer",
+            "enum": [
+              10,
+              15,
+              20
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": true,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.fake_pin_enabled",
+          "title": "Фейковый PIN",
+          "type": "boolean",
+          "default": false,
+          "visible_if": {
+            "setting": "security.pin_enabled",
+            "equals": true
+          },
+          "description": "Включает альтернативный PIN, открывающий безопасный или подставной профиль.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.fake_pin",
+          "title": "Фейковый PIN",
+          "type": "secret",
+          "visible_if": {
+            "setting": "security.fake_pin_enabled",
+            "equals": true
+          },
+          "description": "Альтернативный PIN, внешне неотличимый от основного PIN.",
+          "data": {
+            "json_type": "string",
+            "minLength": 4,
+            "maxLength": 12,
+            "sensitive": true,
+            "pattern": "^\\d{4,12}$"
+          },
+          "ui": {
+            "control": "password_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "local_encrypted"
+        },
+        {
+          "id": "security.fake_profile_chats",
+          "title": "Чаты фейкового профиля",
+          "type": "list",
+          "item_type": "chat",
+          "visible_if": {
+            "setting": "security.fake_pin_enabled",
+            "equals": true
+          },
+          "description": "Только эти чаты видны после ввода фейкового PIN. Пустой список открывает пустой подставной профиль.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.distress_signal",
+          "title": "Отправлять скрытый тревожный сигнал",
+          "type": "boolean",
+          "default": false,
+          "visible_if": {
+            "setting": "security.fake_pin_enabled",
+            "equals": true
+          },
+          "description": "Переключатель «Отправлять скрытый тревожный сигнал». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.distress_contacts",
+          "title": "Получатели тревожного сигнала",
+          "type": "list",
+          "item_type": "user",
+          "visible_if": {
+            "setting": "security.distress_signal",
+            "equals": true
+          },
+          "description": "Управляемый список «Получатели тревожного сигнала». Каждый элемент имеет собственный идентификатор и тип user.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "security.require_pin_for_critical",
+          "title": "Требовать PIN для критичных действий",
+          "type": "multi_select",
+          "options": [
+            "export",
+            "add_device",
+            "change_node",
+            "view_keys",
+            "delete_profile"
+          ],
+          "default": [
+            "export",
+            "add_device",
+            "view_keys"
+          ],
+          "visible_if": {
+            "setting": "security.pin_enabled",
+            "equals": true
+          },
+          "description": "Выбор одного или нескольких значений для параметра «Требовать PIN для критичных действий». Хранится как массив уникальных значений.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "export",
+                "add_device",
+                "change_node",
+                "view_keys",
+                "delete_profile"
+              ]
+            },
+            "uniqueItems": true,
+            "minItems": 0,
+            "maxItems": 5
+          },
+          "ui": {
+            "control": "multi_select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "hidden_chats",
+      "title": "Скрытые чаты",
+      "icon": "eye-off",
+      "settings": [
+        {
+          "id": "hidden.enabled",
+          "title": "Включить скрытые чаты",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Включить скрытые чаты». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "hidden.open_method",
+          "title": "Способ открытия",
+          "type": "single_select",
+          "options": [
+            "pin",
+            "gesture",
+            "secret_command"
+          ],
+          "default": "pin",
+          "visible_if": {
+            "setting": "hidden.enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Способ открытия» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "pin",
+              "gesture",
+              "secret_command"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "hidden.chat_list",
+          "title": "Список скрытых чатов",
+          "type": "list",
+          "item_type": "chat",
+          "visible_if": {
+            "setting": "hidden.enabled",
+            "equals": true
+          },
+          "description": "Управляемый список «Список скрытых чатов». Каждый элемент имеет собственный идентификатор и тип chat.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "hidden.hide_from_search",
+          "title": "Скрывать из поиска",
+          "type": "boolean",
+          "default": true,
+          "visible_if": {
+            "setting": "hidden.enabled",
+            "equals": true
+          },
+          "description": "Переключатель «Скрывать из поиска». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "hidden.hide_notifications",
+          "title": "Скрывать уведомления",
+          "type": "boolean",
+          "default": true,
+          "visible_if": {
+            "setting": "hidden.enabled",
+            "equals": true
+          },
+          "description": "Переключатель «Скрывать уведомления». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "hidden.hide_media",
+          "title": "Скрывать медиа из общей галереи",
+          "type": "boolean",
+          "default": true,
+          "visible_if": {
+            "setting": "hidden.enabled",
+            "equals": true
+          },
+          "description": "Переключатель «Скрывать медиа из общей галереи». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "hidden.autolock",
+          "title": "Автоблокировка скрытого раздела",
+          "type": "single_select",
+          "options": [
+            "immediately",
+            "30s",
+            "1m",
+            "5m",
+            "15m"
+          ],
+          "default": "1m",
+          "visible_if": {
+            "setting": "hidden.enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Автоблокировка скрытого раздела» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "immediately",
+              "30s",
+              "1m",
+              "5m",
+              "15m"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "contacts",
+      "title": "Контакты и доверие",
+      "icon": "users",
+      "settings": [
+        {
+          "id": "contacts.trusted_enabled",
+          "title": "Использовать список доверенных пользователей",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Использовать список доверенных пользователей». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "contacts.trusted_list",
+          "title": "Список доверенных пользователей",
+          "type": "list",
+          "item_type": "user",
+          "visible_if": {
+            "setting": "contacts.trusted_enabled",
+            "equals": true
+          },
+          "description": "Управляемый список «Список доверенных пользователей». Каждый элемент имеет собственный идентификатор и тип user.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "contacts.trust_levels_enabled",
+          "title": "Использовать уровни доверия",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Использовать уровни доверия». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "contacts.trust_levels",
+          "title": "Доступные уровни доверия",
+          "type": "multi_select",
+          "options": [
+            "unknown",
+            "normal",
+            "trusted",
+            "highTrust"
+          ],
+          "default": [
+            "unknown",
+            "normal",
+            "trusted",
+            "highTrust"
+          ],
+          "visible_if": {
+            "setting": "contacts.trust_levels_enabled",
+            "equals": true
+          },
+          "description": "Выбор одного или нескольких значений для параметра «Доступные уровни доверия». Хранится как массив уникальных значений.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "unknown",
+                "normal",
+                "trusted",
+                "highTrust"
+              ]
+            },
+            "uniqueItems": true,
+            "minItems": 0,
+            "maxItems": 4
+          },
+          "ui": {
+            "control": "multi_select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "contacts.blocked_list",
+          "title": "Заблокированные пользователи",
+          "type": "list",
+          "item_type": "user",
+          "description": "Управляемый список «Заблокированные пользователи». Каждый элемент имеет собственный идентификатор и тип user.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "contacts.key_change_warning",
+          "title": "Предупреждать об изменении ключей",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Предупреждать об изменении ключей». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "contacts.block_on_key_change",
+          "title": "Блокировать отправку при изменении ключа",
+          "type": "boolean",
+          "default": false,
+          "visible_if": {
+            "setting": "contacts.key_change_warning",
+            "equals": true
+          },
+          "description": "Переключатель «Блокировать отправку при изменении ключа». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "notifications",
+      "title": "Уведомления",
+      "icon": "bell",
+      "settings": [
+        {
+          "id": "notifications.enabled",
+          "title": "Включить уведомления",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Включить уведомления». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "notifications.preview",
+          "title": "Содержимое уведомления",
+          "type": "single_select",
+          "options": [
+            "full",
+            "sender_only",
+            "hidden"
+          ],
+          "default": "sender_only",
+          "visible_if": {
+            "setting": "notifications.enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Содержимое уведомления» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "full",
+              "sender_only",
+              "hidden"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "notifications.types",
+          "title": "Типы уведомлений",
+          "type": "multi_select",
+          "options": [
+            "direct",
+            "groups",
+            "mentions",
+            "replies",
+            "calls",
+            "contact_requests",
+            "security",
+            "node_errors",
+            "delivery_errors"
+          ],
+          "default": [
+            "direct",
+            "mentions",
+            "replies",
+            "calls",
+            "security"
+          ],
+          "visible_if": {
+            "setting": "notifications.enabled",
+            "equals": true
+          },
+          "description": "Выбор одного или нескольких значений для параметра «Типы уведомлений». Хранится как массив уникальных значений.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "direct",
+                "groups",
+                "mentions",
+                "replies",
+                "calls",
+                "contact_requests",
+                "security",
+                "node_errors",
+                "delivery_errors"
+              ]
+            },
+            "uniqueItems": true,
+            "minItems": 0,
+            "maxItems": 9
+          },
+          "ui": {
+            "control": "multi_select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "notifications.dnd_enabled",
+          "title": "Не беспокоить",
+          "type": "boolean",
+          "default": false,
+          "visible_if": {
+            "setting": "notifications.enabled",
+            "equals": true
+          },
+          "description": "Переключатель «Не беспокоить». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "notifications.dnd_schedule",
+          "title": "Расписание",
+          "type": "list",
+          "item_type": "time_range",
+          "visible_if": {
+            "setting": "notifications.dnd_enabled",
+            "equals": true
+          },
+          "description": "Управляемый список «Расписание». Каждый элемент имеет собственный идентификатор и тип time_range.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "notifications.dnd_exceptions",
+          "title": "Исключения",
+          "type": "list",
+          "item_type": "user_or_chat",
+          "visible_if": {
+            "setting": "notifications.dnd_enabled",
+            "equals": true
+          },
+          "description": "Управляемый список «Исключения». Каждый элемент имеет собственный идентификатор и тип user_or_chat.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "notifications.hidden_chat_policy",
+          "title": "Уведомления скрытых чатов",
+          "type": "single_select",
+          "options": [
+            "none",
+            "generic",
+            "normal"
+          ],
+          "default": "none",
+          "visible_if": {
+            "setting": "hidden.enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Уведомления скрытых чатов» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "none",
+              "generic",
+              "normal"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "messages",
+      "title": "Сообщения и чаты",
+      "icon": "message",
+      "settings": [
+        {
+          "id": "messages.send_key",
+          "title": "Отправка сообщения",
+          "type": "single_select",
+          "options": [
+            "enter",
+            "ctrl_enter",
+            "button_only"
+          ],
+          "default": "enter",
+          "description": "Выбор одного значения для параметра «Отправка сообщения» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "enter",
+              "ctrl_enter",
+              "button_only"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "messages.save_drafts",
+          "title": "Автосохранение черновиков",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Автосохранение черновиков». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "messages.confirm_delete",
+          "title": "Подтверждать удаление",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Подтверждать удаление». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "messages.confirm_large_files",
+          "title": "Подтверждать большие файлы",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Подтверждать большие файлы». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "messages.large_file_mb",
+          "title": "Порог большого файла, МБ",
+          "type": "number",
+          "default": 100,
+          "visible_if": {
+            "setting": "messages.confirm_large_files",
+            "equals": true
+          },
+          "description": "Числовое значение параметра «Порог большого файла, МБ». Клиент должен проверять минимальное и максимальное значение.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 1,
+            "maximum": 102400
+          },
+          "ui": {
+            "control": "number_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "messages.read_receipts_override",
+          "title": "Локально показывать статусы прочтения",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Локально показывать статусы прочтения». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "messages.auto_delete_enabled",
+          "title": "Автоудаление сообщений",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Автоудаление сообщений». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": true,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "messages.auto_delete_ttl",
+          "title": "Срок хранения",
+          "type": "single_select",
+          "options": [
+            "1h",
+            "1d",
+            "7d",
+            "30d",
+            "90d"
+          ],
+          "default": "7d",
+          "visible_if": {
+            "setting": "messages.auto_delete_enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Срок хранения» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "1h",
+              "1d",
+              "7d",
+              "30d",
+              "90d"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": true,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "messages.link_preview",
+          "title": "Превью ссылок",
+          "type": "single_select",
+          "options": [
+            "off",
+            "local_only",
+            "through_node"
+          ],
+          "default": "local_only",
+          "description": "Выбор одного значения для параметра «Превью ссылок» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "off",
+              "local_only",
+              "through_node"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "media",
+      "title": "Медиа и файлы",
+      "icon": "image",
+      "settings": [
+        {
+          "id": "media.autoload_wifi",
+          "title": "Автозагрузка по Wi‑Fi",
+          "type": "multi_select",
+          "options": [
+            "photos",
+            "videos",
+            "audio",
+            "files"
+          ],
+          "default": [
+            "photos",
+            "audio"
+          ],
+          "description": "Выбор одного или нескольких значений для параметра «Автозагрузка по Wi‑Fi». Хранится как массив уникальных значений.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "photos",
+                "videos",
+                "audio",
+                "files"
+              ]
+            },
+            "uniqueItems": true,
+            "minItems": 0,
+            "maxItems": 4
+          },
+          "ui": {
+            "control": "multi_select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "media.autoload_mobile",
+          "title": "Автозагрузка по мобильной сети",
+          "type": "multi_select",
+          "options": [
+            "photos",
+            "videos",
+            "audio",
+            "files"
+          ],
+          "default": [
+            "photos"
+          ],
+          "description": "Выбор одного или нескольких значений для параметра «Автозагрузка по мобильной сети». Хранится как массив уникальных значений.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "photos",
+                "videos",
+                "audio",
+                "files"
+              ]
+            },
+            "uniqueItems": true,
+            "minItems": 0,
+            "maxItems": 4
+          },
+          "ui": {
+            "control": "multi_select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "media.max_autoload_mb",
+          "title": "Максимальный размер автозагрузки, МБ",
+          "type": "number",
+          "default": 20,
+          "description": "Числовое значение параметра «Максимальный размер автозагрузки, МБ». Клиент должен проверять минимальное и максимальное значение.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 1,
+            "maximum": 102400
+          },
+          "ui": {
+            "control": "number_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "media.image_quality",
+          "title": "Качество фото",
+          "type": "single_select",
+          "options": [
+            "compressed",
+            "balanced",
+            "original"
+          ],
+          "default": "balanced",
+          "description": "Выбор одного значения для параметра «Качество фото» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "compressed",
+              "balanced",
+              "original"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "media.cache_limit_gb",
+          "title": "Лимит кэша, ГБ",
+          "type": "number",
+          "default": 2,
+          "description": "Числовое значение параметра «Лимит кэша, ГБ». Клиент должен проверять минимальное и максимальное значение.",
+          "data": {
+            "json_type": "integer",
+            "minimum": 0,
+            "maximum": 1024
+          },
+          "ui": {
+            "control": "number_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "media.auto_cleanup",
+          "title": "Автоочистка кэша",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Автоочистка кэша». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "media.auto_cleanup_after",
+          "title": "Удалять через",
+          "type": "single_select",
+          "options": [
+            "7d",
+            "30d",
+            "90d"
+          ],
+          "default": "30d",
+          "visible_if": {
+            "setting": "media.auto_cleanup",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Удалять через» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "7d",
+              "30d",
+              "90d"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "devices",
+      "title": "Устройства",
+      "icon": "devices",
+      "settings": [
+        {
+          "id": "devices.current",
+          "title": "Текущее устройство",
+          "type": "read_only",
+          "description": "Информационное поле «Текущее устройство». Заполняется системой и не редактируется пользователем.",
+          "data": {
+            "json_type": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array",
+              "null"
+            ],
+            "readOnly": true
+          },
+          "ui": {
+            "control": "info_row",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "devices.list",
+          "title": "Все устройства",
+          "type": "action",
+          "action": "show_devices",
+          "description": "Открывает серверный список активных устройств и управление их сеансами.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "devices.require_approval",
+          "title": "Требовать подтверждение нового устройства",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Требовать подтверждение нового устройства». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "devices.history_sync_default",
+          "title": "История для нового устройства",
+          "type": "single_select",
+          "options": [
+            "none",
+            "from_pairing",
+            "30d",
+            "all"
+          ],
+          "default": "from_pairing",
+          "description": "Выбор одного значения для параметра «История для нового устройства» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "none",
+              "from_pairing",
+              "30d",
+              "all"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "devices.hidden_access_default",
+          "title": "Доступ новых устройств к скрытым чатам",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Доступ новых устройств к скрытым чатам». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "devices.remote_wipe",
+          "title": "Разрешить отзыв удалённых сеансов",
+          "type": "boolean",
+          "default": true,
+          "description": "Разрешает завершать сеансы других устройств с текущего устройства. Это отзывает серверный токен, но не обещает стереть данные из закрытой PWA.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": true,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "node",
+      "title": "Нода и сеть",
+      "icon": "server",
+      "settings": [
+        {
+          "id": "node.mode",
+          "title": "Режим подключения",
+          "type": "single_select",
+          "options": [
+            "auto",
+            "community",
+            "personal",
+            "local_only"
+          ],
+          "default": "auto",
+          "description": "Выбор одного значения для параметра «Режим подключения» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "auto",
+              "community",
+              "personal",
+              "local_only"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.current",
+          "title": "Текущая нода",
+          "type": "read_only",
+          "description": "Информационное поле «Текущая нода». Заполняется системой и не редактируется пользователем.",
+          "data": {
+            "json_type": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array",
+              "null"
+            ],
+            "readOnly": true
+          },
+          "ui": {
+            "control": "info_row",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.custom_enabled",
+          "title": "Использовать свою ноду",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Использовать свою ноду». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.custom_address",
+          "title": "Адрес своей ноды",
+          "type": "text",
+          "format": "url",
+          "visible_if": {
+            "setting": "node.custom_enabled",
+            "equals": true
+          },
+          "description": "URL собственной ноды пользователя.",
+          "data": {
+            "json_type": "string",
+            "minLength": 0,
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "ui": {
+            "control": "text_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.certificate_fingerprint",
+          "title": "Fingerprint сертификата",
+          "type": "read_only",
+          "visible_if": {
+            "setting": "node.custom_enabled",
+            "equals": true
+          },
+          "description": "Отпечаток TLS-сертификата ноды для проверки подлинности соединения.",
+          "data": {
+            "json_type": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array",
+              "null"
+            ],
+            "readOnly": true
+          },
+          "ui": {
+            "control": "info_row",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.allow_fallback",
+          "title": "Разрешить fallback на общую сеть",
+          "type": "boolean",
+          "default": true,
+          "visible_if": {
+            "setting": "node.mode",
+            "in": [
+              "auto",
+              "personal"
+            ]
+          },
+          "description": "Переключатель «Разрешить fallback на общую сеть». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.allow_relays",
+          "title": "Разрешить relay-ноды",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Разрешить relay-ноды». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.allow_service_nodes",
+          "title": "Разрешить сервисные ноды",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Разрешить сервисные ноды». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.proxy_enabled",
+          "title": "Использовать прокси",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Использовать прокси». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.proxy_type",
+          "title": "Тип прокси",
+          "type": "single_select",
+          "options": [
+            "socks5",
+            "http"
+          ],
+          "default": "socks5",
+          "visible_if": {
+            "setting": "node.proxy_enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Тип прокси» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "socks5",
+              "http"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.proxy_address",
+          "title": "Адрес прокси",
+          "type": "text",
+          "visible_if": {
+            "setting": "node.proxy_enabled",
+            "equals": true
+          },
+          "description": "Текстовое значение параметра «Адрес прокси» в разделе «Нода и сеть».",
+          "data": {
+            "json_type": "string",
+            "minLength": 0,
+            "maxLength": 2048
+          },
+          "ui": {
+            "control": "text_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.mobile_data",
+          "title": "Разрешить мобильную сеть",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Разрешить мобильную сеть». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "node.roaming",
+          "title": "Разрешить роуминг",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Разрешить роуминг». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "sync",
+      "title": "Синхронизация",
+      "icon": "sync",
+      "settings": [
+        {
+          "id": "sync.enabled",
+          "title": "Загружать историю с основной ноды",
+          "type": "boolean",
+          "default": true,
+          "description": "Разрешает этому устройству получать зашифрованную историю сообщений с основной ноды. Контакты, настройки и ключи на сервер не отправляются.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "sync.types",
+          "title": "Что синхронизировать",
+          "type": "multi_select",
+          "options": [
+            "messages",
+            "contacts",
+            "settings",
+            "media",
+            "drafts",
+            "folders",
+            "favorites",
+            "hidden_chats"
+          ],
+          "default": [
+            "messages",
+            "contacts",
+            "settings",
+            "drafts"
+          ],
+          "visible_if": {
+            "setting": "sync.enabled",
+            "equals": true
+          },
+          "description": "Выбор одного или нескольких значений для параметра «Что синхронизировать». Хранится как массив уникальных значений.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "messages",
+                "contacts",
+                "settings",
+                "media",
+                "drafts",
+                "folders",
+                "favorites",
+                "hidden_chats"
+              ]
+            },
+            "uniqueItems": true,
+            "minItems": 0,
+            "maxItems": 8
+          },
+          "ui": {
+            "control": "multi_select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "sync.network",
+          "title": "Сеть для синхронизации",
+          "type": "single_select",
+          "options": [
+            "any",
+            "wifi_only",
+            "manual"
+          ],
+          "default": "any",
+          "visible_if": {
+            "setting": "sync.enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Сеть для синхронизации» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "any",
+              "wifi_only",
+              "manual"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "sync.history_depth",
+          "title": "Глубина истории",
+          "type": "single_select",
+          "options": [
+            "from_now",
+            "7d",
+            "30d",
+            "90d",
+            "all"
+          ],
+          "default": "30d",
+          "visible_if": {
+            "setting": "sync.enabled",
+            "equals": true
+          },
+          "description": "Ограничивает возраст зашифрованных сообщений, которые клиент запрашивает у основной ноды.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "from_now",
+              "7d",
+              "30d",
+              "90d",
+              "all"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "storage_ownership",
+      "title": "Хранение и владение данными",
+      "icon": "database",
+      "settings": [
+        {
+          "id": "storage.summary",
+          "title": "Обзор размещения данных",
+          "type": "read_only",
+          "description": "Информационное поле «Обзор размещения данных». Заполняется системой и не редактируется пользователем.",
+          "data": {
+            "json_type": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array",
+              "null"
+            ],
+            "readOnly": true
+          },
+          "ui": {
+            "control": "info_row",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.message_location",
+          "title": "Где хранятся сообщения",
+          "type": "single_select",
+          "options": [
+            "device_only",
+            "personal_node",
+            "selected_node",
+            "replicated_nodes"
+          ],
+          "default": "device_only",
+          "description": "Определяет физическое место хранения зашифрованных сообщений.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "device_only",
+              "personal_node",
+              "selected_node",
+              "replicated_nodes"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.message_nodes",
+          "title": "Ноды хранения сообщений",
+          "type": "list",
+          "item_type": "node",
+          "visible_if": {
+            "setting": "storage.message_location",
+            "in": [
+              "selected_node",
+              "replicated_nodes"
+            ]
+          },
+          "description": "Управляемый список «Ноды хранения сообщений». Каждый элемент имеет собственный идентификатор и тип node.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.replication_factor",
+          "title": "Количество копий сообщений",
+          "type": "single_select",
+          "options": [
+            2,
+            3,
+            5
+          ],
+          "default": 2,
+          "visible_if": {
+            "setting": "storage.message_location",
+            "equals": "replicated_nodes"
+          },
+          "description": "Выбор одного значения для параметра «Количество копий сообщений» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "integer",
+            "enum": [
+              2,
+              3,
+              5
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.media_location",
+          "title": "Где хранятся медиа",
+          "type": "single_select",
+          "options": [
+            "sender_device",
+            "personal_node_s3",
+            "selected_s3",
+            "recipient_cache"
+          ],
+          "default": "personal_node_s3",
+          "description": "Определяет физическое место хранения зашифрованных медиафайлов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "sender_device",
+              "personal_node_s3",
+              "selected_s3",
+              "recipient_cache"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.s3_endpoint",
+          "title": "S3 endpoint",
+          "type": "text",
+          "format": "url",
+          "visible_if": {
+            "setting": "storage.media_location",
+            "equals": "selected_s3"
+          },
+          "description": "Текстовое значение параметра «S3 endpoint» в разделе «Хранение и владение данными».",
+          "data": {
+            "json_type": "string",
+            "minLength": 0,
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "ui": {
+            "control": "text_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.s3_bucket",
+          "title": "S3 bucket",
+          "type": "text",
+          "visible_if": {
+            "setting": "storage.media_location",
+            "equals": "selected_s3"
+          },
+          "description": "Текстовое значение параметра «S3 bucket» в разделе «Хранение и владение данными».",
+          "data": {
+            "json_type": "string",
+            "minLength": 0,
+            "maxLength": 2048
+          },
+          "ui": {
+            "control": "text_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.s3_access_key",
+          "title": "S3 access key",
+          "type": "secret",
+          "visible_if": {
+            "setting": "storage.media_location",
+            "equals": "selected_s3"
+          },
+          "description": "Секретное значение «S3 access key». Не отображается открыто, не логируется и хранится только в защищённом виде.",
+          "data": {
+            "json_type": "string",
+            "minLength": 4,
+            "maxLength": 256,
+            "sensitive": true
+          },
+          "ui": {
+            "control": "password_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "local_encrypted"
+        },
+        {
+          "id": "storage.s3_secret_key",
+          "title": "S3 secret key",
+          "type": "secret",
+          "visible_if": {
+            "setting": "storage.media_location",
+            "equals": "selected_s3"
+          },
+          "description": "Секретное значение «S3 secret key». Не отображается открыто, не логируется и хранится только в защищённом виде.",
+          "data": {
+            "json_type": "string",
+            "minLength": 4,
+            "maxLength": 256,
+            "sensitive": true
+          },
+          "ui": {
+            "control": "password_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "local_encrypted"
+        },
+        {
+          "id": "storage.media_ttl_enabled",
+          "title": "Очищать локальный кэш медиа по сроку",
+          "type": "boolean",
+          "default": false,
+          "description": "Удаляет расшифрованные фото, видео и файлы из локального кэша устройства. Зашифрованный серверный буфер имеет отдельный операторский TTL.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.media_ttl",
+          "title": "Срок локального кэша медиа",
+          "type": "single_select",
+          "options": [
+            "1d",
+            "7d",
+            "30d",
+            "90d",
+            "1y"
+          ],
+          "default": "30d",
+          "visible_if": {
+            "setting": "storage.media_ttl_enabled",
+            "equals": true
+          },
+          "description": "Максимальный возраст расшифрованной копии вложения в локальном кэше этого устройства.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "1d",
+              "7d",
+              "30d",
+              "90d",
+              "1y"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.key_location",
+          "title": "Где хранятся ключи",
+          "type": "single_select",
+          "options": [
+            "device_secure_store",
+            "device_encrypted",
+            "hardware_keystore"
+          ],
+          "default": "device_secure_store",
+          "description": "Определяет, где клиент хранит локальные криптографические ключи.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "device_secure_store",
+              "device_encrypted",
+              "hardware_keystore"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.backup_location",
+          "title": "Где хранятся резервные копии",
+          "type": "read_only",
+          "options": [],
+          "default": "Зашифрованный файл на устройстве",
+          "description": "Копия создаётся как зашифрованный файл через системный диалог браузера. Сервер не получает файл или пароль.",
+          "data": {
+            "json_type": "string",
+            "readOnly": true
+          },
+          "ui": {
+            "control": "info_row",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "storage.access_devices",
+          "title": "Устройства с доступом к данным",
+          "type": "action",
+          "action": "open_devices",
+          "description": "Открывает реальный список авторизованных устройств, где можно проверить доверие или отозвать сеанс.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "storage.access_nodes",
+          "title": "Ноды, хранящие зашифрованные данные",
+          "type": "list",
+          "item_type": "node",
+          "read_only": true,
+          "description": "Управляемый список «Ноды, хранящие зашифрованные данные». Каждый элемент имеет собственный идентификатор и тип node.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "ui": {
+            "control": "list_editor",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.last_sync",
+          "title": "Последняя синхронизация",
+          "type": "read_only",
+          "description": "Информационное поле «Последняя синхронизация». Заполняется системой и не редактируется пользователем.",
+          "data": {
+            "json_type": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array",
+              "null"
+            ],
+            "readOnly": true
+          },
+          "ui": {
+            "control": "info_row",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.last_backup",
+          "title": "Последняя резервная копия",
+          "type": "read_only",
+          "description": "Информационное поле «Последняя резервная копия». Заполняется системой и не редактируется пользователем.",
+          "data": {
+            "json_type": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array",
+              "null"
+            ],
+            "readOnly": true
+          },
+          "ui": {
+            "control": "info_row",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "storage.integrity_check",
+          "title": "Проверить целостность данных",
+          "type": "action",
+          "action": "run_integrity_check",
+          "description": "Действие «Проверить целостность данных». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "storage.route_audit",
+          "title": "Проверить маршрут доставки",
+          "type": "action",
+          "action": "run_route_audit",
+          "description": "Действие «Проверить маршрут доставки». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "storage.delete_local",
+          "title": "Удалить локальные копии",
+          "type": "action",
+          "action": "delete_local_data",
+          "description": "Действие «Удалить локальные копии». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": true,
+            "requires_confirmation": true
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "storage.delete_remote",
+          "title": "Запросить удаление удаленных копий",
+          "type": "action",
+          "action": "request_remote_delete",
+          "description": "Действие «Запросить удаление удаленных копий». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": true,
+            "requires_confirmation": true
+          },
+          "scope": "profile",
+          "storage": "none"
+        }
+      ]
+    },
+    {
+      "id": "backup",
+      "title": "Резервные копии",
+      "icon": "backup",
+      "settings": [
+        {
+          "id": "backup.enabled",
+          "title": "Включить резервное копирование",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Включить резервное копирование». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "backup.schedule",
+          "title": "Периодичность",
+          "type": "single_select",
+          "options": [
+            "manual",
+            "daily",
+            "weekly",
+            "monthly"
+          ],
+          "default": "weekly",
+          "visible_if": {
+            "setting": "backup.enabled",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Периодичность» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "manual",
+              "daily",
+              "weekly",
+              "monthly"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "backup.contents",
+          "title": "Что включать",
+          "type": "multi_select",
+          "options": [
+            "profile",
+            "settings",
+            "contacts",
+            "messages",
+            "media",
+            "hidden_chats",
+            "keys"
+          ],
+          "default": [
+            "profile",
+            "settings",
+            "contacts",
+            "messages"
+          ],
+          "visible_if": {
+            "setting": "backup.enabled",
+            "equals": true
+          },
+          "description": "Выбор одного или нескольких значений для параметра «Что включать». Хранится как массив уникальных значений.",
+          "data": {
+            "json_type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "profile",
+                "settings",
+                "contacts",
+                "messages",
+                "media",
+                "hidden_chats",
+                "keys"
+              ]
+            },
+            "uniqueItems": true,
+            "minItems": 0,
+            "maxItems": 7
+          },
+          "ui": {
+            "control": "multi_select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "backup.encryption",
+          "title": "Шифровать резервную копию",
+          "type": "boolean",
+          "default": true,
+          "visible_if": {
+            "setting": "backup.enabled",
+            "equals": true
+          },
+          "description": "Переключатель «Шифровать резервную копию». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "backup.password",
+          "title": "Пароль резервной копии",
+          "type": "secret",
+          "visible_if": {
+            "setting": "backup.encryption",
+            "equals": true
+          },
+          "description": "Отдельный пароль шифрования резервной копии.",
+          "data": {
+            "json_type": "string",
+            "minLength": 10,
+            "maxLength": 128,
+            "sensitive": true
+          },
+          "ui": {
+            "control": "password_input",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "local_encrypted"
+        },
+        {
+          "id": "backup.create_now",
+          "title": "Создать копию сейчас",
+          "type": "action",
+          "action": "create_backup",
+          "visible_if": {
+            "setting": "backup.enabled",
+            "equals": true
+          },
+          "description": "Действие «Создать копию сейчас». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "backup.restore",
+          "title": "Восстановить из копии",
+          "type": "action",
+          "action": "restore_backup",
+          "description": "Действие «Восстановить из копии». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        }
+      ]
+    },
+    {
+      "id": "calls",
+      "title": "Звонки",
+      "icon": "phone",
+      "settings": [
+        {
+          "id": "calls.p2p",
+          "title": "Разрешить P2P",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Разрешить P2P». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "calls.force_relay",
+          "title": "Всегда использовать relay",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Всегда использовать relay». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "calls.video",
+          "title": "Разрешить видео",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Разрешить видео». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "calls.quality",
+          "title": "Качество видео",
+          "type": "single_select",
+          "options": [
+            "low",
+            "balanced",
+            "high"
+          ],
+          "default": "balanced",
+          "visible_if": {
+            "setting": "calls.video",
+            "equals": true
+          },
+          "description": "Выбор одного значения для параметра «Качество видео» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "low",
+              "balanced",
+              "high"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "calls.noise_suppression",
+          "title": "Подавление шума",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Подавление шума». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "calls.echo_cancellation",
+          "title": "Эхоподавление",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Эхоподавление». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "calls.data_saver",
+          "title": "Экономия трафика",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Экономия трафика». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "appearance",
+      "title": "Интерфейс",
+      "icon": "palette",
+      "settings": [
+        {
+          "id": "appearance.theme",
+          "title": "Тема",
+          "type": "single_select",
+          "options": [
+            "system",
+            "light",
+            "dark"
+          ],
+          "default": "system",
+          "description": "Выбор одного значения для параметра «Тема» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "system",
+              "light",
+              "dark"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "appearance.text_size",
+          "title": "Размер текста",
+          "type": "single_select",
+          "options": [
+            "small",
+            "normal",
+            "large",
+            "extra_large"
+          ],
+          "default": "normal",
+          "description": "Выбор одного значения для параметра «Размер текста» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "small",
+              "normal",
+              "large",
+              "extra_large"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "appearance.compact",
+          "title": "Компактный режим",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Компактный режим». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "appearance.animations",
+          "title": "Анимации",
+          "type": "boolean",
+          "default": true,
+          "description": "Переключатель «Анимации». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "appearance.reduce_motion",
+          "title": "Уменьшить движение",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Уменьшить движение». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "appearance.chat_bubbles",
+          "title": "Стиль сообщений",
+          "type": "single_select",
+          "options": [
+            "bubbles",
+            "flat",
+            "compact"
+          ],
+          "default": "bubbles",
+          "description": "Выбор одного значения для параметра «Стиль сообщений» из фиксированного списка допустимых вариантов.",
+          "data": {
+            "json_type": "string",
+            "enum": [
+              "bubbles",
+              "flat",
+              "compact"
+            ]
+          },
+          "ui": {
+            "control": "select",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        }
+      ]
+    },
+    {
+      "id": "data",
+      "title": "Данные и удаление",
+      "icon": "trash",
+      "settings": [
+        {
+          "id": "data.keep_local_on_logout",
+          "title": "Сохранять локальные данные после выхода",
+          "type": "boolean",
+          "default": true,
+          "description": "Если включено, обычный выход завершает сеанс, но сохраняет локальную историю и настройки для следующего входа по ключу. Отключение стирает локальную историю при выходе.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "data.export_profile",
+          "title": "Экспортировать профиль",
+          "type": "action",
+          "action": "export_profile",
+          "description": "Действие «Экспортировать профиль». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "data.export_history",
+          "title": "Экспортировать историю",
+          "type": "action",
+          "action": "export_history",
+          "description": "Действие «Экспортировать историю». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "data.export_contacts",
+          "title": "Экспортировать контакты",
+          "type": "action",
+          "action": "export_contacts",
+          "description": "Действие «Экспортировать контакты». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "data.clear_cache",
+          "title": "Очистить кэш",
+          "type": "action",
+          "action": "clear_cache",
+          "description": "Действие «Очистить кэш». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": true
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "data.clear_local",
+          "title": "Удалить локальные данные",
+          "type": "action",
+          "action": "clear_local_data",
+          "description": "Действие «Удалить локальные данные». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": true
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "data.delete_profile",
+          "title": "Удалить локальный профиль",
+          "type": "action",
+          "action": "delete_profile",
+          "description": "Безвозвратно удаляет с этого устройства ключ входа, E2EE-ключи, локальную историю, настройки и идентификатор профиля. Данные на сервере этим действием не восстанавливаются и не используются для восстановления.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": true,
+            "requires_confirmation": true
+          },
+          "scope": "profile",
+          "storage": "none"
+        },
+        {
+          "id": "data.revoke_all_devices",
+          "title": "Отозвать все устройства",
+          "type": "action",
+          "action": "revoke_all_devices",
+          "description": "Действие «Отозвать все устройства». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": true
+          },
+          "scope": "profile",
+          "storage": "none"
+        }
+      ]
+    },
+    {
+      "id": "developer",
+      "title": "Для разработчика",
+      "icon": "code",
+      "settings": [
+        {
+          "id": "developer.enabled",
+          "title": "Режим разработчика",
+          "type": "boolean",
+          "default": false,
+          "description": "Переключатель «Режим разработчика». Значение true включает функцию, false отключает.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
+          "id": "developer.logs",
+          "title": "Логи",
+          "type": "action",
+          "action": "open_logs",
+          "visible_if": {
+            "setting": "developer.enabled",
+            "equals": true
+          },
+          "description": "Действие «Логи». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "none"
+        },
+        {
+          "id": "developer.network_debug",
+          "title": "Сетевые запросы",
+          "type": "action",
+          "action": "open_network_debug",
+          "visible_if": {
+            "setting": "developer.enabled",
+            "equals": true
+          },
+          "description": "Действие «Сетевые запросы». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "none"
+        },
+        {
+          "id": "developer.test_notifications",
+          "title": "Тест уведомлений",
+          "type": "action",
+          "action": "test_notifications",
+          "visible_if": {
+            "setting": "developer.enabled",
+            "equals": true
+          },
+          "description": "Действие «Тест уведомлений». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "none"
+        },
+        {
+          "id": "developer.test_crypto",
+          "title": "Тест шифрования",
+          "type": "action",
+          "action": "test_crypto",
+          "visible_if": {
+            "setting": "developer.enabled",
+            "equals": true
+          },
+          "description": "Действие «Тест шифрования». Не хранит постоянное значение, а запускает отдельный сценарий.",
+          "data": {
+            "json_type": "null",
+            "transient": true
+          },
+          "ui": {
+            "control": "button",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "none"
+        },
+        {
+          "id": "developer.protocol_version",
+          "title": "Версия протокола",
+          "type": "read_only",
+          "visible_if": {
+            "setting": "developer.enabled",
+            "equals": true
+          },
+          "description": "Информационное поле «Версия протокола». Заполняется системой и не редактируется пользователем.",
+          "data": {
+            "json_type": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array",
+              "null"
+            ],
+            "readOnly": true
+          },
+          "ui": {
+            "control": "info_row",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        }
+      ]
+    }
+  ]
+}

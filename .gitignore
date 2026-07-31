@@ -1,17 +1,139 @@
+# ============================================================
+# messenger — корневой .gitignore
+# ============================================================
+
+# --- OS ---
+.DS_Store
+**/.DS_Store
+.claude/settings.local.json
+__test_root
+Thumbs.db
+
+# --- Секреты ---
 .env
 .env.local
+.env.*.local
+**/.env
+**/.env.local
+config/deploy/gitea.env
+project/config/deploy/gitea.env
+
+# Криптоключи нод (генерируются при старте)
+**/node_signing_key
+**/node_token
+**/node_curve_key
+*.pem
+*.key
+!**/*.public.key
+
+# PKI федерации — приватные ключи CA и операторов.
+# Ключ оператора = полный доступ к управлению федерацией.
+# Ключ CA = возможность выпустить себе такой доступ.
+**/config/mtls/ca.key
+**/config/mtls/operators/
+**/config/mtls/clients/
+**/config/mtls/*.key
+operator-console/certs/*
+!operator-console/certs/.gitkeep
+!operator-console/certs/README.md
+
+# Реестр операторов содержит отпечатки — сами по себе не секрет,
+# но состав операторов раскрывать незачем
+**/config/mtls/operators.tsv
+**/config/mtls/operators.env
+
+# --- Runtime данные и БД ---
 data/
+**/data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# --- Python ---
 __pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
 .pytest_cache/
 .venv/
-*.pyc
+venv/
+.mypy_cache/
+.ruff_cache/
 
-# Flutter / frontend build artifacts
-client/messenger_app/build/
-client/messenger_app/.dart_tool/
+# --- Flutter / Dart ---
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/generated_plugin_registrant.dart
+**/*.iml
+.flutter-versions
 
-# Local deploy secrets
-config/deploy/gitea.env
+# Flutter — платформенные артефакты
+**/ios/Pods/
+**/macos/Pods/
+**/ios/Flutter/ephemeral/
+**/macos/Flutter/ephemeral/
+**/linux/flutter/ephemeral/
+**/windows/flutter/ephemeral/
+**/ios/.symlinks/
+**/macos/.symlinks/
+**/Podfile.lock
+**/*.xcworkspace/xcuserdata/
+**/*.xcodeproj/xcuserdata/
+**/xcuserdata/
 
-# Runtime SQLite (Docker volume is source of truth)
-services/discovery-node/discovery.db
+# Android
+**/android/.gradle/
+**/android/local.properties
+**/android/key.properties
+**/android/app/*.jks
+**/android/app/*.keystore
+**/.gradle/
+
+# --- Node ---
+node_modules/
+**/node_modules/
+npm-debug.log*
+
+# --- Собранные артефакты / релизы ---
+dist/
+releases/
+**/downloads/*.zip
+**/downloads/*.dmg
+**/downloads/*.apk
+**/downloads/*.app
+**/downloads/*.tar.gz
+landing/downloads/
+project/landing/downloads/
+web-build/
+**/web-build/
+
+# Собранный Flutter web, который кладётся в лендинг
+landing/app/
+project/landing/app/
+**/canvaskit/
+**/main.dart.js
+**/main.dart.js.map
+**/flutter_service_worker.js
+
+# --- msng-test ---
+msng-test/data/
+msng-test/web-build/
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- IDE ---
+.idea/
+.vscode/
+!.vscode/settings.json
+*.swp
+*.swo
+
+# --- Логи ---
+*.log
+logs/

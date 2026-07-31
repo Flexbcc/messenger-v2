@@ -1,0 +1,33 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "messenger-web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "python3 -m http.server $PORT --directory project/client/messenger_app/build/web"],
+      "port": 9100,
+      "autoPort": true
+    },
+    {
+      "name": "node-monitor-admin",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "python3 -m http.server $PORT --directory project/admin"],
+      "port": 9200,
+      "autoPort": true
+    },
+    {
+      "name": "messenger-web-user2",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "python3 -m http.server $PORT --directory project/client/messenger_app/build/web"],
+      "port": 9101,
+      "autoPort": true
+    },
+    {
+      "name": "ouo-settings",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd ouo-settings-web-spec/web && npm run dev -- --port $PORT --strictPort"],
+      "port": 5173,
+      "autoPort": true
+    }
+  ]
+}

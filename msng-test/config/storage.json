@@ -1,0 +1,16 @@
+{
+  "media": {
+    "primary_backend": "local",
+    "local_path": "/data/media_blobs",
+    "s3": {
+      "enabled": false
+    },
+    "network_cache_ttl_hours": 48
+  },
+  "personal_cloud": {
+    "enabled": true,
+    "default_for_node_users": "operator",
+    "allow_user_personal_s3": false,
+    "users": {}
+  }
+}

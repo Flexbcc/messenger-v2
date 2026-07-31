@@ -1,0 +1,240 @@
+# client-node — полный стек нод для клиента (без admin и operator)
+#
+# Подключается к сети оператора через DISCOVERY_NODE_URL.
+# Клиент хостит свои ноды: home, storage, relay, media, turn, gateway.
+# Discovery и admin/operator — только у оператора (backend/).
+#
+# Быстрый старт:
+#   cp .env.example .env
+#   # Заполнить DISCOVERY_NODE_URL, HOME_NODE_PUBLIC_URL, JWT_SECRET, CLUSTER_ID
+#   ./scripts/setup.sh        ← интерактивная настройка (рекомендуется)
+#   docker compose up -d --build
+#
+# Обновление:
+#   ./scripts/update.sh
+#
+# Порты наружу (через nginx):
+#   443   → home-node  (HTTPS + WSS)
+#   8444  → media-node (HTTPS)
+#   8446  → turn-node  (HTTPS API)
+#   8447  → gateway-node (HTTPS)
+#   3478  → coturn (UDP, STUN/TURN медиапоток)
+#   49152-65535 → coturn RTP (UDP, открыть в firewall)
+
+services:
+
+  # ── nginx: TLS termination ────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"       # HTTP → HTTPS редирект
+      - "443:443"     # home-node (HTTPS + WSS)
+      - "8444:8444"   # media-node
+      - "8446:8446"   # turn-node API
+      - "8447:8447"   # gateway-node
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - home-node
+      - media-node
+      - turn-node
+      - gateway-node
+
+  # ── home-node ─────────────────────────────────────────────────────────────
+  home-node:
+    build:
+      context: ../project
+      dockerfile: services/home-node/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8001"
+    environment:
+      HOME_NODE_ID: ${HOME_NODE_ID:-home-client}
+      HOME_NODE_PUBLIC_URL: ${HOME_NODE_PUBLIC_URL:-https://localhost}
+      DISCOVERY_NODE_URL: ${DISCOVERY_NODE_URL}
+      STORAGE_NODE_URL: http://storage-node:8002
+      MEDIA_NODE_URL: http://media-node:8004
+      JWT_SECRET: ${JWT_SECRET}
+      CLUSTER_ID: ${CLUSTER_ID:-client}
+      NODE_RESOURCE_POLICY: ${NODE_RESOURCE_POLICY:-cluster}
+      OWNER_RESOURCE_PERCENT: ${OWNER_RESOURCE_PERCENT:-100}
+      NODE_PARTICIPATE_RELAY: ${NODE_PARTICIPATE_RELAY:-true}
+      NODE_PARTICIPATE_STORAGE: ${NODE_PARTICIPATE_STORAGE:-true}
+      NODE_PARTICIPATE_WITNESS: "false"
+      NODE_PARTICIPATE_MEDIA_CACHE: "false"
+      NODE_PARTICIPATE_NAT_ASSIST: "false"
+      ENROLLMENT_MODE: ${ENROLLMENT_MODE:-legacy}
+      INTERNAL_SECURITY_MODE: ${INTERNAL_SECURITY_MODE:-legacy}
+      FEDERATION_ENVELOPE_MODE: ${FEDERATION_ENVELOPE_MODE:-legacy}
+      NODE_TOKEN_PATH: /data/node_token
+      ENROLLMENT_SECRET_PATH: /data/enrollment_secret
+      NODE_BUILD_HASH: ${NODE_BUILD_HASH:-client-local}
+      NODE_TLS_CERT_FINGERPRINT: ${NODE_TLS_CERT_FINGERPRINT:-}
+      NODE_RELEASE_SIGNATURE: ${NODE_RELEASE_SIGNATURE:-}
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
+      HOME_DB_PATH: /data/home.db
+    volumes:
+      - ./data/home:/data
+    depends_on:
+      - storage-node
+      - media-node
+
+  # ── storage-node (internal) ───────────────────────────────────────────────
+  storage-node:
+    build:
+      context: ../project
+      dockerfile: services/storage-node/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8002"
+    environment:
+      STORAGE_NODE_ID: ${STORAGE_NODE_ID:-storage-client}
+      STORAGE_NODE_PUBLIC_URL: http://storage-node:8002
+      DISCOVERY_NODE_URL: ${DISCOVERY_NODE_URL}
+      CLUSTER_ID: ${CLUSTER_ID:-client}
+      ENROLLMENT_MODE: ${ENROLLMENT_MODE:-legacy}
+      INTERNAL_SECURITY_MODE: ${INTERNAL_SECURITY_MODE:-legacy}
+      FEDERATION_ENVELOPE_MODE: ${FEDERATION_ENVELOPE_MODE:-legacy}
+      NODE_TOKEN_PATH: /data/node_token
+      ENROLLMENT_SECRET_PATH: /data/enrollment_secret
+      NODE_BUILD_HASH: ${NODE_BUILD_HASH:-client-local}
+      NODE_TLS_CERT_FINGERPRINT: ${NODE_TLS_CERT_FINGERPRINT:-}
+      NODE_RELEASE_SIGNATURE: ${NODE_RELEASE_SIGNATURE:-}
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
+      STORAGE_DB_PATH: /data/storage.db
+    volumes:
+      - ./data/storage:/data
+
+  # ── relay-node (internal) ─────────────────────────────────────────────────
+  relay-node:
+    build:
+      context: ../project
+      dockerfile: services/relay-node/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8005"
+    environment:
+      RELAY_NODE_ID: ${RELAY_NODE_ID:-relay-client}
+      RELAY_NODE_PUBLIC_URL: ${RELAY_NODE_PUBLIC_URL:-http://relay-node:8005}
+      DISCOVERY_NODE_URL: ${DISCOVERY_NODE_URL}
+      CLUSTER_ID: ${CLUSTER_ID:-client}
+      ENROLLMENT_MODE: ${ENROLLMENT_MODE:-legacy}
+      INTERNAL_SECURITY_MODE: ${INTERNAL_SECURITY_MODE:-legacy}
+      FEDERATION_ENVELOPE_MODE: ${FEDERATION_ENVELOPE_MODE:-legacy}
+      NODE_TOKEN_PATH: /data/node_token
+      ENROLLMENT_SECRET_PATH: /data/enrollment_secret
+      NODE_BUILD_HASH: ${NODE_BUILD_HASH:-client-local}
+      NODE_TLS_CERT_FINGERPRINT: ${NODE_TLS_CERT_FINGERPRINT:-}
+      NODE_RELEASE_SIGNATURE: ${NODE_RELEASE_SIGNATURE:-}
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
+    volumes:
+      - ./data/relay:/data
+
+  # ── media-node ────────────────────────────────────────────────────────────
+  media-node:
+    build:
+      context: ../project
+      dockerfile: services/media-node/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8004"
+    environment:
+      MEDIA_NODE_ID: ${MEDIA_NODE_ID:-media-client}
+      MEDIA_NODE_PUBLIC_URL: ${MEDIA_NODE_PUBLIC_URL:-https://localhost:8444}
+      DISCOVERY_NODE_URL: ${DISCOVERY_NODE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SECURITY_MODE: ${INTERNAL_SECURITY_MODE:-legacy}
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
+      MEDIA_ACCESS_SECRET: ${MEDIA_ACCESS_SECRET:-}
+      CLUSTER_ID: ${CLUSTER_ID:-client}
+      ENROLLMENT_MODE: ${ENROLLMENT_MODE:-legacy}
+      NODE_TOKEN_PATH: /data/node_token
+      ENROLLMENT_SECRET_PATH: /data/enrollment_secret
+      NODE_BUILD_HASH: ${NODE_BUILD_HASH:-client-local}
+      NODE_TLS_CERT_FINGERPRINT: ${NODE_TLS_CERT_FINGERPRINT:-}
+      NODE_RELEASE_SIGNATURE: ${NODE_RELEASE_SIGNATURE:-}
+      MEDIA_STORAGE_DIR: /data/media_blobs
+      STORAGE_CONFIG: /project/config/storage.json
+      MEDIA_DB_PATH: /data/media.db
+      HOME_NODE_URL: http://home-node:8001
+    volumes:
+      - ./data/media:/data/media_blobs
+      - ./data/media-meta:/data
+      - ./config:/project/config:ro
+
+  # ── turn-node ─────────────────────────────────────────────────────────────
+  turn-node:
+    build:
+      context: ../project
+      dockerfile: services/turn-node/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8006"
+    environment:
+      TURN_NODE_ID: ${TURN_NODE_ID:-turn-client}
+      TURN_NODE_PUBLIC_URL: ${TURN_NODE_PUBLIC_URL:-https://localhost:8446}
+      DISCOVERY_NODE_URL: ${DISCOVERY_NODE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SECURITY_MODE: ${INTERNAL_SECURITY_MODE:-legacy}
+      CLUSTER_ID: ${CLUSTER_ID:-client}
+      ENROLLMENT_MODE: ${ENROLLMENT_MODE:-legacy}
+      NODE_TOKEN_PATH: /data/node_token
+      ENROLLMENT_SECRET_PATH: /data/enrollment_secret
+      NODE_BUILD_HASH: ${NODE_BUILD_HASH:-client-local}
+      NODE_TLS_CERT_FINGERPRINT: ${NODE_TLS_CERT_FINGERPRINT:-}
+      NODE_RELEASE_SIGNATURE: ${NODE_RELEASE_SIGNATURE:-}
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET}
+      TURN_SERVER_HOST: ${TURN_SERVER_HOST:-localhost}
+      TURN_SERVER_PORT: ${TURN_SERVER_PORT:-3478}
+    volumes:
+      - ./data/turn:/data
+
+  # ── coturn: реальный TURN/STUN медиарелей ────────────────────────────────
+  # network_mode: host — единственный способ корректно работать с UDP на Linux VPS.
+  # На macOS не работает — только для production на Linux.
+  coturn:
+    image: coturn/coturn:latest
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./config/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+      - ./data/coturn:/var/lib/coturn
+
+  # ── gateway-node ──────────────────────────────────────────────────────────
+  gateway-node:
+    build:
+      context: ../project
+      dockerfile: services/gateway-node/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8007"
+    environment:
+      GATEWAY_NODE_ID: ${GATEWAY_NODE_ID:-gateway-client}
+      GATEWAY_NODE_PUBLIC_URL: ${GATEWAY_NODE_PUBLIC_URL:-https://localhost:8447}
+      GATEWAY_DISCOVERY_PUBLIC_URL: ${DISCOVERY_NODE_URL}
+      DISCOVERY_NODE_URL: ${DISCOVERY_NODE_URL}
+      DEFAULT_HOME_NODE_URL: ${HOME_NODE_PUBLIC_URL:-https://localhost}
+      DEFAULT_MEDIA_NODE_URL: ${MEDIA_NODE_PUBLIC_URL:-https://localhost:8444}
+      CLUSTER_ID: ${CLUSTER_ID:-client}
+      GATEWAY_INVITE_SECRET: ${GATEWAY_INVITE_SECRET:-}
+      GATEWAY_INVITE_TTL_SECONDS: ${GATEWAY_INVITE_TTL_SECONDS:-300}
+      ENROLLMENT_MODE: ${ENROLLMENT_MODE:-legacy}
+      NODE_TOKEN_PATH: /data/node_token
+      ENROLLMENT_SECRET_PATH: /data/enrollment_secret
+      NODE_BUILD_HASH: ${NODE_BUILD_HASH:-client-local}
+      NODE_TLS_CERT_FINGERPRINT: ${NODE_TLS_CERT_FINGERPRINT:-}
+      NODE_RELEASE_SIGNATURE: ${NODE_RELEASE_SIGNATURE:-}
+      GATEWAY_TLS_ENABLED: "false"
+      GATEWAY_MTLS_MODE: "off"
+    volumes:
+      - ./data/gateway:/data
+      - ./config/mtls:/mtls:ro

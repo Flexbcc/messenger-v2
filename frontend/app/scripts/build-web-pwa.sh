@@ -27,12 +27,16 @@ PWA_BASE_HREF="${PWA_BASE_HREF:-/}"
 cd "$ROOT"
 "$FLUTTER" pub get
 "$FLUTTER" build web --release \
-  --pwa-strategy=offline-first \
+  --pwa-strategy=none \
   --base-href="$PWA_BASE_HREF" \
   "${DEFINES[@]}" \
   "$@"
 
 OUT="$ROOT/build/web"
+# Serve a precompressed bundle when nginx has gzip_static enabled. Apart from
+# reducing CPU work, this gives proxies a fixed Content-Length for the large
+# Flutter entrypoint.
+gzip -9 -k -f "$OUT/main.dart.js"
 echo
 echo "PWA build ready:"
 echo "  $OUT"

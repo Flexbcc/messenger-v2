@@ -47,7 +47,29 @@
     window.addEventListener('flutter-first-frame', function () {
       document.getElementById('app-loader')?.remove();
     });
+
+    // Remove the legacy Flutter offline worker. It attempted to pre-cache the
+    // whole multi-megabyte bundle before startup and could leave the app in a
+    // retry loop on slow connections. The separate /push/ worker is preserved.
+    (async function startFlutter() {
+      let removedControllingWorker = false;
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          if (registration.scope.endsWith('/push/')) continue;
+          if (navigator.serviceWorker.controller) removedControllingWorker = true;
+          await registration.unregister();
+        }
+      }
+      if (removedControllingWorker && !sessionStorage.getItem('flutter-sw-cleared')) {
+        sessionStorage.setItem('flutter-sw-cleared', '1');
+        location.reload();
+        return;
+      }
+      const loader = document.createElement('script');
+      loader.src = 'flutter_bootstrap.js';
+      document.body.appendChild(loader);
+    })();
   </script>
-  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

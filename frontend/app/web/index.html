@@ -33,9 +33,21 @@
 
   <title>Мессенджер</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; background: #0f1115; }
+    #app-loader { height: 100%; display: grid; place-items: center; color: #fff;
+      font: 16px system-ui, -apple-system, sans-serif; }
+    #app-loader span { opacity: .72; }
+  </style>
 </head>
 <body>
+  <div id="app-loader"><span>Загрузка мессенджера…</span></div>
   <script src="push_bridge.js"></script>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      document.getElementById('app-loader')?.remove();
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

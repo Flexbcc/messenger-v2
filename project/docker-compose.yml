@@ -1,6 +1,8 @@
 services:
   discovery-node:
-    build: ./services/discovery-node
+    build:
+      context: .
+      dockerfile: services/discovery-node/Dockerfile
     restart: unless-stopped
     ports:
       - "${DISCOVERY_PORT:-8003}:8003"

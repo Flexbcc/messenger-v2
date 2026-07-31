@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart' as hashes;
 import 'package:http/http.dart' as http;
 
 import '../config.dart';
@@ -121,6 +122,7 @@ class ApiClient {
     required String authPublicKey,
     required Map<String, dynamic> identityKeyBundle,
   }) async {
+    final pow = await _solveRegistrationPow();
     final resp = await _postJson(_homeUri('/auth/register'), {
       'display_name': displayName,
       'phone': phone,
@@ -131,8 +133,28 @@ class ApiClient {
       'device_type': deviceType,
       'auth_public_key': authPublicKey,
       'identity_key_bundle': identityKeyBundle,
+      'pow_challenge': pow.$1,
+      'pow_nonce': pow.$2,
     });
     return _decodeOrThrow(resp) as Map<String, dynamic>;
+  }
+
+  Future<(String, String)> _solveRegistrationPow() async {
+    final response = await _get(_homeUri('/auth/pow-challenge'));
+    final payload = _decodeOrThrow(response) as Map<String, dynamic>;
+    final challenge = payload['challenge'] as String? ?? '';
+    final difficulty = payload['difficulty'] as int? ?? 0;
+    if (difficulty <= 0) return ('', '');
+    final prefix = '0' * difficulty;
+    for (var nonce = 0; ; nonce++) {
+      final value = nonce.toString();
+      final digest = hashes.sha256.convert(utf8.encode('$challenge:$value'));
+      if (digest.toString().startsWith(prefix)) return (challenge, value);
+      if (nonce > 0 && nonce % 25000 == 0) {
+        // Let the browser render while solving a deliberately small Hashcash.
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
   }
 
   /// ADR-0007 temporary bridge login by phone/login/email + password.

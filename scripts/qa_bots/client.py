@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import json
 import os
 import uuid
@@ -98,6 +99,17 @@ class HomeClient:
         password: str,
         device_name: str = "qa-bot",
     ) -> tuple[int, dict]:
+        code, challenge_data = self.request("GET", "/auth/pow-challenge")
+        if code != 200:
+            return code, challenge_data
+        challenge = challenge_data.get("challenge", "")
+        difficulty = int(challenge_data.get("difficulty", 0))
+        nonce = 0
+        prefix = "0" * difficulty
+        while difficulty and not hashlib.sha256(
+            f"{challenge}:{nonce}".encode()
+        ).hexdigest().startswith(prefix):
+            nonce += 1
         return self.request(
             "POST",
             "/auth/register",
@@ -109,6 +121,8 @@ class HomeClient:
                 "device_type": "desktop",
                 "auth_public_key": base64.b64encode(os.urandom(32)).decode(),
                 "identity_key_bundle": dummy_identity_bundle(),
+                "pow_challenge": challenge,
+                "pow_nonce": str(nonce),
             },
         )
 

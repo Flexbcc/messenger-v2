@@ -95,21 +95,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _controller!.loadChatPreferences(widget.conversation.id);
     _textController.addListener(_onDraftChanged);
     Future.microtask(() async {
-      await _reloadSendKey();
-      await _loadDraft();
-      await _controller!.loadHistory(widget.conversation.id);
-      await MessageDeliveryStore.instance.loadPeerRead(widget.conversation.id);
-      await _controller!.markConversationRead(widget.conversation.id);
+      try {
+        await _reloadSendKey().timeout(const Duration(seconds: 3));
+        await _loadDraft().timeout(const Duration(seconds: 3));
+        await _controller!
+            .loadHistory(widget.conversation.id)
+            .timeout(const Duration(seconds: 15));
+      } catch (e, st) {
+        debugPrint('Chat initial load failed: $e\n$st');
+      } finally {
+        if (mounted) setState(() => _loadingHistory = false);
+      }
+
+      // Delivery/read/presence checks are useful, but must not keep the chat
+      // behind an endless loader if browser storage or crypto is slow.
+      unawaited(
+        MessageDeliveryStore.instance
+            .loadPeerRead(widget.conversation.id)
+            .timeout(const Duration(seconds: 5))
+            .catchError((_) {}),
+      );
+      unawaited(
+        _controller!
+            .markConversationRead(widget.conversation.id)
+            .timeout(const Duration(seconds: 5))
+            .catchError((_) {}),
+      );
       if (!_isFavoritesChat) {
-        await _controller!.validateConversationReachability(
-          widget.conversation,
+        unawaited(
+          _controller!
+              .validateConversationReachability(widget.conversation)
+              .timeout(const Duration(seconds: 8))
+              .catchError((_) {}),
         );
       }
-      if (mounted) setState(() => _loadingHistory = false);
-      if (widget.scrollToMessageId != null) {
-        _scrollToMessageId(widget.scrollToMessageId);
-      } else {
-        _scrollToBottom();
+      if (mounted) {
+        if (widget.scrollToMessageId != null) {
+          _scrollToMessageId(widget.scrollToMessageId);
+        } else {
+          _scrollToBottom();
+        }
       }
     });
   }
@@ -360,13 +385,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _reload() async {
     setState(() => _loadingHistory = true);
-    await ref.read(appControllerProvider).loadHistory(widget.conversation.id);
-    await ref
-        .read(appControllerProvider)
-        .markConversationRead(widget.conversation.id);
-    if (mounted) {
-      setState(() => _loadingHistory = false);
-      _scrollToBottom();
+    try {
+      await ref
+          .read(appControllerProvider)
+          .loadHistory(widget.conversation.id)
+          .timeout(const Duration(seconds: 15));
+      await ref
+          .read(appControllerProvider)
+          .markConversationRead(widget.conversation.id)
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('Chat reload failed: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingHistory = false);
+        _scrollToBottom();
+      }
     }
   }
 

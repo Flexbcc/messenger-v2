@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
@@ -89,7 +90,9 @@ class _ProfileQrScreenState extends ConsumerState<ProfileQrScreen> {
                               ? 'Истёк — обновите QR'
                               : 'Действует до: ${_expiresAt!.toLocal()}',
                           style: text.caption.copyWith(
-                            color: expired ? colors.danger : colors.textSecondary,
+                            color: expired
+                                ? colors.danger
+                                : colors.textSecondary,
                           ),
                         ),
                       if (_qrOnly) ...[
@@ -104,7 +107,25 @@ class _ProfileQrScreenState extends ConsumerState<ProfileQrScreen> {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 AppCard(
-                  child: SelectableText(_payload, style: text.body.copyWith(fontSize: 13)),
+                  child: Column(
+                    children: [
+                      Container(
+                        color: Colors.white,
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: QrImageView(
+                          data: _payload,
+                          size: 260,
+                          backgroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        'Покажите этот QR собеседнику. ID и имя будут заполнены автоматически.',
+                        textAlign: TextAlign.center,
+                        style: text.caption,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 AppButton(

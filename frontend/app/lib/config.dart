@@ -24,10 +24,12 @@ class AppConfig {
 
   static String _resolvedHome = '';
 
-  static String get homeNodeUrl =>
-      _resolvedHome.isNotEmpty ? _resolvedHome : (BootstrapStore.current?.homeUrl ?? _defaultHome);
+  static String get homeNodeUrl => _resolvedHome.isNotEmpty
+      ? _resolvedHome
+      : (BootstrapStore.current?.homeUrl ?? _defaultHome);
 
-  static String get mediaNodeUrl => BootstrapStore.current?.mediaUrl ?? _defaultMedia;
+  static String get mediaNodeUrl =>
+      BootstrapStore.current?.mediaUrl ?? _defaultMedia;
   static String get discoveryNodeUrl =>
       BootstrapStore.current?.discoveryUrl ?? _defaultDiscovery;
   static String get gatewayNodeUrl =>
@@ -52,6 +54,14 @@ class AppInfo {
   static String version = '0.1.0';
   static String buildNumber = '1';
   static const channel = 'beta';
+
+  /// Unique fingerprint baked into every web build. Unlike pubspec version,
+  /// this changes on every deployment and lets an installed PWA detect that
+  /// its JavaScript bundle is stale without relying on a service worker.
+  static const buildId = String.fromEnvironment(
+    'APP_BUILD_ID',
+    defaultValue: '',
+  );
 
   static String get label => '$version+$buildNumber';
   static String get displayVersion => '$version ($channel)';

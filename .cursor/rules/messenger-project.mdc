@@ -1,0 +1,18 @@
+---
+description: Current Messenger architecture, safety constraints and verification
+alwaysApply: true
+---
+
+# Messenger project rules
+
+Read `docs/CURSOR-HANDOFF.md` before changing Flutter, deployment, storage, authentication, PWA caching, updates, QR flows, or push notifications.
+
+- Treat `frontend/app` as the active Flutter client.
+- Preserve the local-first identity model: never clear IndexedDB/localStorage or server-side-reset a user to fix a client bug.
+- Never add `Clear-Site-Data` to production responses.
+- Flutter offline service worker stays disabled unless an explicit, tested migration plan is approved.
+- Preserve the separately scoped push service worker.
+- Every deployed PWA must be built through `frontend/app/scripts/build-web-pwa.sh` so `APP_BUILD_ID` and `deploy-version.json` exist.
+- Do not silently force-reload while the user may be composing a message. Detect, notify, then reload on user action.
+- Run Dart formatting, Flutter analyze/tests, and a production web build after relevant changes.
+- Do not commit secrets, `.env`, private keys, exported identities, or production user data.

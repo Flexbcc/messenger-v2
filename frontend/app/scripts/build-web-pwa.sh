@@ -12,6 +12,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FLUTTER="${FLUTTER:-/Users/apple/flutter/bin/flutter}"
+SOURCE_REV="$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+APP_BUILD_ID="${APP_BUILD_ID:-${SOURCE_REV}-$(date -u +%Y%m%d%H%M%S)}"
 
 DEFINES=(
   "--dart-define=HOME_NODE_URL=${HOME_NODE_URL:-http://localhost:8001}"
@@ -19,6 +21,7 @@ DEFINES=(
   "--dart-define=DISCOVERY_NODE_URL=${DISCOVERY_NODE_URL:-http://localhost:8003}"
   "--dart-define=GATEWAY_NODE_URL=${GATEWAY_NODE_URL:-http://localhost:8007}"
   "--dart-define=RELAY_NODE_URL=${RELAY_NODE_URL:-http://localhost:8005}"
+  "--dart-define=APP_BUILD_ID=${APP_BUILD_ID}"
 )
 
 # When PWA is served under a subpath (e.g. :7357/app/), set base href accordingly.
@@ -33,6 +36,9 @@ cd "$ROOT"
   "$@"
 
 OUT="$ROOT/build/web"
+cat > "$OUT/deploy-version.json" <<EOF
+{"build_id":"${APP_BUILD_ID}","source_revision":"${SOURCE_REV}","built_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+EOF
 # Serve a precompressed bundle when nginx has gzip_static enabled. Apart from
 # reducing CPU work, this gives proxies a fixed Content-Length for the large
 # Flutter entrypoint.
@@ -48,3 +54,4 @@ echo "Baked API URLs:"
 echo "  HOME_NODE_URL=${HOME_NODE_URL:-http://localhost:8001}"
 echo "  MEDIA_NODE_URL=${MEDIA_NODE_URL:-http://localhost:8004}"
 echo "  DISCOVERY_NODE_URL=${DISCOVERY_NODE_URL:-http://localhost:8003}"
+echo "  APP_BUILD_ID=${APP_BUILD_ID}"

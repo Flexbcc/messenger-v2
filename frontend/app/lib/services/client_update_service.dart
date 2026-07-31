@@ -10,7 +10,7 @@ import '../config.dart';
 import '../models/client_release_manifest.dart';
 import 'pwa_update_bridge.dart';
 
-/// Checks gateway release manifest and (on web) PWA service worker updates.
+/// Checks the release manifest and the independently published web build id.
 class ClientUpdateService extends ChangeNotifier {
   ClientUpdateService._();
   static final instance = ClientUpdateService._();
@@ -44,15 +44,11 @@ class ClientUpdateService extends ChangeNotifier {
     if (_started) return;
     _started = true;
 
-    if (kIsWeb) {
-      PwaUpdateBridge.instance.start(() {
-        pwaReloadReady = true;
-        notifyListeners();
-      });
-    }
-
     unawaited(checkForUpdates());
-    _timer = Timer.periodic(const Duration(hours: 6), (_) => checkForUpdates());
+    _timer = Timer.periodic(
+      kIsWeb ? const Duration(minutes: 5) : const Duration(hours: 6),
+      (_) => checkForUpdates(),
+    );
   }
 
   void stop() {
@@ -66,10 +62,16 @@ class ClientUpdateService extends ChangeNotifier {
     _checking = true;
     try {
       lastError = null;
+      if (kIsWeb) {
+        await _checkWebBuild();
+      }
       final uri = Uri.parse(
-        '${AppConfig.gatewayNodeUrl}/releases/clients/manifest.json',
+        '${AppConfig.gatewayNodeUrl}/releases/clients/manifest.json'
+        '?_=${DateTime.now().millisecondsSinceEpoch}',
       );
-      final res = await http.get(uri).timeout(const Duration(seconds: 12));
+      final res = await http
+          .get(uri, headers: const {'Cache-Control': 'no-cache'})
+          .timeout(const Duration(seconds: 12));
       if (res.statusCode != 200) {
         lastError = 'manifest ${res.statusCode}';
         return;
@@ -102,6 +104,30 @@ class ClientUpdateService extends ChangeNotifier {
       lastError = e.toString();
     } finally {
       _checking = false;
+    }
+  }
+
+  Future<void> _checkWebBuild() async {
+    // Old builds (before APP_BUILD_ID was introduced) cannot be compared. They
+    // will be replaced once manually, after which all deployments are detected.
+    if (AppInfo.buildId.isEmpty) return;
+    try {
+      final uri = Uri.base.resolve(
+        'deploy-version.json?_=${DateTime.now().millisecondsSinceEpoch}',
+      );
+      final res = await http
+          .get(uri, headers: const {'Cache-Control': 'no-cache'})
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return;
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final remoteBuildId = body['build_id']?.toString() ?? '';
+      if (remoteBuildId.isNotEmpty && remoteBuildId != AppInfo.buildId) {
+        pwaReloadReady = true;
+        notifyListeners();
+      }
+    } catch (_) {
+      // The regular release-manifest check below must still run when the small
+      // static version file is temporarily unavailable.
     }
   }
 

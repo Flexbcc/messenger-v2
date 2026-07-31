@@ -90,6 +90,13 @@ final appControllerProvider = ChangeNotifierProvider<AppController>(
   (ref) => AppController(),
 );
 
+class _EncryptedPayload {
+  const _EncryptedPayload(this.fallback, this.deviceEnvelopes);
+
+  final String fallback;
+  final List<Map<String, String>> deviceEnvelopes;
+}
+
 /// Single pragmatic app-state holder for the MVP (see ADR-0004 — simplicity
 /// over textbook layering while the product surface is still small).
 class AppController extends ChangeNotifier {
@@ -2134,14 +2141,15 @@ class AppController extends ChangeNotifier {
     if (session == null) return;
     final wireBody = MessagePayload.encodeDuress(code: code);
     try {
-      final ciphertext = await _encryptForConversation(
+      final encrypted = await _encryptForConversation(
         conversation,
         Uint8List.fromList(utf8.encode(wireBody)),
       );
       final resp = await _api.sendMessage(
         conversationId: conversation.id,
-        ciphertext: ciphertext,
+        ciphertext: encrypted.fallback,
         contentType: 'text',
+        deviceEnvelopes: encrypted.deviceEnvelopes,
       );
       final msg = ChatMessage.fromJson(resp)..plaintext = wireBody;
       MessagePayload.applyTo(msg);
@@ -2835,7 +2843,7 @@ class AppController extends ChangeNotifier {
                 m.senderUserId,
                 m.ciphertext,
               )
-            : await crypto!.decrypt(m.senderUserId, m.ciphertext);
+            : await _decryptDirectMessage(m);
         m.plaintext = utf8.decode(plaintextBytes);
         m.decryptFailed = false;
         MessagePayload.applyTo(m);
@@ -3415,15 +3423,16 @@ class AppController extends ChangeNotifier {
         replyPreview: replyPreview,
         ttlSeconds: ttlSeconds,
       );
-      final ciphertext = await _encryptForConversation(
+      final encrypted = await _encryptForConversation(
         conversation,
         Uint8List.fromList(utf8.encode(wireBody)),
       );
       final resp = await _api.sendMessage(
         conversationId: conversation.id,
-        ciphertext: ciphertext,
+        ciphertext: encrypted.fallback,
         contentType: 'text',
         clientMsgId: clientMsgId,
+        deviceEnvelopes: encrypted.deviceEnvelopes,
       );
 
       final msg = ChatMessage.fromJson(resp)
@@ -3545,15 +3554,16 @@ class AppController extends ChangeNotifier {
         ttlSeconds: ttlSeconds,
       );
 
-      final ciphertext = await _encryptForConversation(
+      final encrypted = await _encryptForConversation(
         conversation,
         Uint8List.fromList(utf8.encode(pointerJson)),
       );
       final resp = await _api.sendMessage(
         conversationId: conversation.id,
-        ciphertext: ciphertext,
+        ciphertext: encrypted.fallback,
         contentType: contentType,
         clientMsgId: clientMsgId,
+        deviceEnvelopes: encrypted.deviceEnvelopes,
       );
 
       final msg = ChatMessage.fromJson(resp)
@@ -3591,13 +3601,18 @@ class AppController extends ChangeNotifier {
 
   /// Group → sender-key encryption (0301_GROUP_MESSAGING.md), distributing
   /// the key first if needed. Direct → existing pairwise Double Ratchet.
-  Future<String> _encryptForConversation(
+  Future<_EncryptedPayload> _encryptForConversation(
     Conversation conversation,
     Uint8List plaintext,
   ) async {
     if (conversation.isGroup) {
       await _distributeGroupKeyIfNeeded(conversation);
-      return crypto!.encryptGroup(conversation.id, session!.userId, plaintext);
+      final ciphertext = await crypto!.encryptGroup(
+        conversation.id,
+        session!.userId,
+        plaintext,
+      );
+      return _EncryptedPayload(ciphertext, const []);
     }
     final other = directPeerUserId(conversation);
     if (other == null) {
@@ -3609,8 +3624,58 @@ class AppController extends ChangeNotifier {
       DebugLog.instance.error('send', detail);
       throw StateError(detail);
     }
+    try {
+      final rawDevices = await _api.getUserDeviceBundles(other);
+      final envelopes = <Map<String, String>>[];
+      for (final raw in rawDevices) {
+        final device = raw as Map<String, dynamic>;
+        final deviceId = device['device_id']?.toString() ?? '';
+        final bundle = device['identity_key_bundle'];
+        if (deviceId.isEmpty || bundle is! Map<String, dynamic>) continue;
+        if (!await crypto!.hasSessionWith(other, deviceId: deviceId)) {
+          await crypto!.establishSessionFromBundle(
+            other,
+            bundle,
+            deviceId: deviceId,
+          );
+        }
+        envelopes.add({
+          'device_id': deviceId,
+          'ciphertext': await crypto!.encrypt(
+            other,
+            plaintext,
+            recipientDeviceId: deviceId,
+          ),
+        });
+      }
+      if (envelopes.isNotEmpty) {
+        return _EncryptedPayload(envelopes.first['ciphertext']!, envelopes);
+      }
+    } catch (e) {
+      DebugLog.instance.warn(
+        'crypto',
+        'per-device encryption unavailable, using legacy route: $e',
+      );
+    }
     await _ensureSessionWith(other);
-    return crypto!.encrypt(other, plaintext);
+    final ciphertext = await crypto!.encrypt(other, plaintext);
+    return _EncryptedPayload(ciphertext, const []);
+  }
+
+  Future<Uint8List> _decryptDirectMessage(ChatMessage message) async {
+    final senderDeviceId = message.senderDeviceId;
+    if (senderDeviceId != null && senderDeviceId.isNotEmpty) {
+      try {
+        return await crypto!.decrypt(
+          message.senderUserId,
+          message.ciphertext,
+          senderDeviceId: senderDeviceId,
+        );
+      } catch (_) {
+        // Compatibility with account-wide sessions from older clients.
+      }
+    }
+    return crypto!.decrypt(message.senderUserId, message.ciphertext);
   }
 
   void _configurePpcMediaStore() {

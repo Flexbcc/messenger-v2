@@ -41,6 +41,12 @@ class CryptoService {
   static const _identityPrefsKey = 'signal_identity_b64';
   static const _registrationIdPrefsKey = 'signal_registration_id';
 
+  SignalProtocolAddress _address(String userId, [String? deviceId]) =>
+      SignalProtocolAddress(
+        deviceId == null || deviceId.isEmpty ? userId : '$userId::$deviceId',
+        1,
+      );
+
   static Future<CryptoService> loadOrCreate() async {
     final prefs = await SharedPreferences.getInstance();
     final existingIdentity = prefs.getString(_identityPrefsKey);
@@ -115,14 +121,15 @@ class CryptoService {
     );
   }
 
-  Future<bool> hasSessionWith(String userId) =>
-      store.containsSession(SignalProtocolAddress(userId, 1));
+  Future<bool> hasSessionWith(String userId, {String? deviceId}) =>
+      store.containsSession(_address(userId, deviceId));
 
   Future<void> establishSessionFromBundle(
     String userId,
-    Map<String, dynamic> bundleJson,
-  ) async {
-    final address = SignalProtocolAddress(userId, 1);
+    Map<String, dynamic> bundleJson, {
+    String? deviceId,
+  }) async {
+    final address = _address(userId, deviceId);
     final bundle = SignalBundle.fromJson(bundleJson);
     await SessionBuilder.fromSignalStore(
       store,
@@ -132,8 +139,12 @@ class CryptoService {
 
   /// Returns the envelope `ciphertext` string: a small JSON tag + base64
   /// body, opaque to the server (see shared/README.md Message Envelope).
-  Future<String> encrypt(String recipientUserId, Uint8List plaintext) async {
-    final address = SignalProtocolAddress(recipientUserId, 1);
+  Future<String> encrypt(
+    String recipientUserId,
+    Uint8List plaintext, {
+    String? recipientDeviceId,
+  }) async {
+    final address = _address(recipientUserId, recipientDeviceId);
     final cipher = SessionCipher.fromStore(store, address);
     final message = await cipher.encrypt(plaintext);
     return jsonEncode({
@@ -142,8 +153,12 @@ class CryptoService {
     });
   }
 
-  Future<Uint8List> decrypt(String senderUserId, String ciphertextField) async {
-    final address = SignalProtocolAddress(senderUserId, 1);
+  Future<Uint8List> decrypt(
+    String senderUserId,
+    String ciphertextField, {
+    String? senderDeviceId,
+  }) async {
+    final address = _address(senderUserId, senderDeviceId);
     final cipher = SessionCipher.fromStore(store, address);
     final decoded = jsonDecode(ciphertextField) as Map<String, dynamic>;
     final type = decoded['t'] as int;

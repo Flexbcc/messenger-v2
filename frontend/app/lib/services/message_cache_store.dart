@@ -49,45 +49,50 @@ class MessageCacheStore {
     return _db!;
   }
 
-  String _webConvKey(String userId, String conversationId) => '$_webPrefix::$userId::$conversationId';
+  String _webConvKey(String userId, String conversationId) =>
+      '$_webPrefix::$userId::$conversationId';
 
   Map<String, dynamic> _messageToJson(ChatMessage message) => {
-        'id': message.id,
-        'conversation_id': message.conversationId,
-        'sender_user_id': message.senderUserId,
-        'sender_device_id': message.senderDeviceId,
-        'content_type': message.contentType,
-        'crypto_version': message.cryptoVersion,
-        'created_at': message.createdAt.millisecondsSinceEpoch,
-        'plaintext': message.plaintext,
-        'ciphertext': message.ciphertext,
-        'decrypt_failed': message.decryptFailed,
-        'reply_to_message_id': message.replyToMessageId,
-        'reply_preview': message.replyPreview,
-        'is_secret': message.isSecret,
-        'system_kind': message.systemKind,
-        'duress_code': message.duressCode,
-      };
+    'id': message.id,
+    'conversation_id': message.conversationId,
+    'sender_user_id': message.senderUserId,
+    'sender_device_id': message.senderDeviceId,
+    'content_type': message.contentType,
+    'crypto_version': message.cryptoVersion,
+    'created_at': message.createdAt.millisecondsSinceEpoch,
+    'plaintext': message.plaintext,
+    'ciphertext': message.ciphertext,
+    'decrypt_failed': message.decryptFailed,
+    'reply_to_message_id': message.replyToMessageId,
+    'reply_preview': message.replyPreview,
+    'is_secret': message.isSecret,
+    'system_kind': message.systemKind,
+    'duress_code': message.duressCode,
+  };
 
   ChatMessage _messageFromJson(Map<String, dynamic> json) => ChatMessage(
-        id: json['id'] as String,
-        conversationId: json['conversation_id'] as String,
-        senderUserId: json['sender_user_id'] as String,
-        senderDeviceId: json['sender_device_id'] as String?,
-        ciphertext: json['ciphertext'] as String? ?? '',
-        contentType: json['content_type'] as String,
-        cryptoVersion: json['crypto_version'] as String,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(json['created_at'] as int),
-        plaintext: json['plaintext'] as String?,
-        decryptFailed: json['decrypt_failed'] as bool? ?? false,
-        replyToMessageId: json['reply_to_message_id'] as String?,
-        replyPreview: json['reply_preview'] as String?,
-        isSecret: json['is_secret'] as bool? ?? false,
-        systemKind: json['system_kind'] as String?,
-        duressCode: json['duress_code'] as int?,
-      );
+    id: json['id'] as String,
+    conversationId: json['conversation_id'] as String,
+    senderUserId: json['sender_user_id'] as String,
+    senderDeviceId: json['sender_device_id'] as String?,
+    ciphertext: json['ciphertext'] as String? ?? '',
+    contentType: json['content_type'] as String,
+    cryptoVersion: json['crypto_version'] as String,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(json['created_at'] as int),
+    plaintext: json['plaintext'] as String?,
+    decryptFailed: json['decrypt_failed'] as bool? ?? false,
+    replyToMessageId: json['reply_to_message_id'] as String?,
+    replyPreview: json['reply_preview'] as String?,
+    isSecret: json['is_secret'] as bool? ?? false,
+    systemKind: json['system_kind'] as String?,
+    duressCode: json['duress_code'] as int?,
+  );
 
-  Future<void> _webSaveConversation(String userId, String conversationId, List<ChatMessage> messages) async {
+  Future<void> _webSaveConversation(
+    String userId,
+    String conversationId,
+    List<ChatMessage> messages,
+  ) async {
     final sorted = List<ChatMessage>.from(messages)
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     final slice = sorted.length > _webMaxPerConversation
@@ -100,23 +105,35 @@ class MessageCacheStore {
     await prefs.setString(_webConvKey(userId, conversationId), packed);
   }
 
-  Future<List<ChatMessage>> _webLoadConversation(String userId, String conversationId) async {
+  Future<List<ChatMessage>> _webLoadConversation(
+    String userId,
+    String conversationId,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final packed = prefs.getString(_webConvKey(userId, conversationId));
     if (packed == null) return [];
     final decoded = await _crypto.decryptJson(packed);
     if (decoded == null) return [];
     final items = decoded['items'] as List<dynamic>? ?? [];
-    return items.map((e) => _messageFromJson(e as Map<String, dynamic>)).toList();
+    return items
+        .map((e) => _messageFromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> upsertMessage(String userId, ChatMessage message) async {
     message = await _mergeWithExisting(userId, message);
     if (kIsWeb) {
-      final existing = await _webLoadConversation(userId, message.conversationId);
+      final existing = await _webLoadConversation(
+        userId,
+        message.conversationId,
+      );
       final byId = {for (final m in existing) m.id: m};
       byId[message.id] = message;
-      await _webSaveConversation(userId, message.conversationId, byId.values.toList());
+      await _webSaveConversation(
+        userId,
+        message.conversationId,
+        byId.values.toList(),
+      );
       return;
     }
     final payload = await _crypto.encryptJson({
@@ -130,21 +147,17 @@ class MessageCacheStore {
       'duress_code': message.duressCode,
     });
     final db = await _database();
-    await db.insert(
-      'cached_messages',
-      {
-        'id': message.id,
-        'user_id': userId,
-        'conversation_id': message.conversationId,
-        'sender_user_id': message.senderUserId,
-        'sender_device_id': message.senderDeviceId,
-        'content_type': message.contentType,
-        'crypto_version': message.cryptoVersion,
-        'created_at': message.createdAt.millisecondsSinceEpoch,
-        'payload': payload,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('cached_messages', {
+      'id': message.id,
+      'user_id': userId,
+      'conversation_id': message.conversationId,
+      'sender_user_id': message.senderUserId,
+      'sender_device_id': message.senderDeviceId,
+      'content_type': message.contentType,
+      'crypto_version': message.cryptoVersion,
+      'created_at': message.createdAt.millisecondsSinceEpoch,
+      'payload': payload,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> upsertMessages(String userId, List<ChatMessage> messages) async {
@@ -176,29 +189,31 @@ class MessageCacheStore {
         'system_kind': message.systemKind,
         'duress_code': message.duressCode,
       });
-      batch.insert(
-        'cached_messages',
-        {
-          'id': message.id,
-          'user_id': userId,
-          'conversation_id': message.conversationId,
-          'sender_user_id': message.senderUserId,
-          'sender_device_id': message.senderDeviceId,
-          'content_type': message.contentType,
-          'crypto_version': message.cryptoVersion,
-          'created_at': message.createdAt.millisecondsSinceEpoch,
-          'payload': payload,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      batch.insert('cached_messages', {
+        'id': message.id,
+        'user_id': userId,
+        'conversation_id': message.conversationId,
+        'sender_user_id': message.senderUserId,
+        'sender_device_id': message.senderDeviceId,
+        'content_type': message.contentType,
+        'crypto_version': message.cryptoVersion,
+        'created_at': message.createdAt.millisecondsSinceEpoch,
+        'payload': payload,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
   }
 
   /// Keep previously decrypted plaintext when a later upsert would wipe it.
-  Future<ChatMessage> _mergeWithExisting(String userId, ChatMessage message) async {
+  Future<ChatMessage> _mergeWithExisting(
+    String userId,
+    ChatMessage message,
+  ) async {
     if (kIsWeb) {
-      final existing = await _webLoadConversation(userId, message.conversationId);
+      final existing = await _webLoadConversation(
+        userId,
+        message.conversationId,
+      );
       final prev = existing.where((m) => m.id == message.id).firstOrNull;
       return _mergeMessages(prev, message);
     }
@@ -217,17 +232,22 @@ class MessageCacheStore {
 
   ChatMessage _mergeMessages(ChatMessage? prev, ChatMessage next) {
     if (prev == null) return next;
-    final keepPrevPlaintext = prev.plaintext != null &&
+    final keepPrevPlaintext =
+        prev.plaintext != null &&
         prev.plaintext!.isNotEmpty &&
         !prev.decryptFailed &&
-        (next.plaintext == null || next.plaintext!.isEmpty || next.decryptFailed);
+        (next.plaintext == null ||
+            next.plaintext!.isEmpty ||
+            next.decryptFailed);
     if (!keepPrevPlaintext) return next;
     return ChatMessage(
       id: next.id,
       conversationId: next.conversationId,
       senderUserId: next.senderUserId,
       senderDeviceId: next.senderDeviceId,
-      ciphertext: next.ciphertext.isNotEmpty ? next.ciphertext : prev.ciphertext,
+      ciphertext: next.ciphertext.isNotEmpty
+          ? next.ciphertext
+          : prev.ciphertext,
       contentType: next.contentType,
       cryptoVersion: next.cryptoVersion,
       createdAt: next.createdAt,
@@ -245,15 +265,16 @@ class MessageCacheStore {
     );
   }
 
-  Future<List<ChatMessage>> loadConversation(String userId, String conversationId, {int limit = 200}) async {
+  Future<List<ChatMessage>> loadConversation(
+    String userId,
+    String conversationId, {
+    int limit = 200,
+  }) async {
     if (kIsWeb) {
       final all = await _webLoadConversation(userId, conversationId);
-      if (all.isEmpty) {
-        // Packed blob may be undecryptable after key loss — drop it.
-        final prefs = await SharedPreferences.getInstance();
-        final packed = prefs.getString(_webConvKey(userId, conversationId));
-        if (packed != null) await prefs.remove(_webConvKey(userId, conversationId));
-      }
+      // Never delete an unreadable encrypted blob automatically. Secure
+      // storage can be temporarily unavailable in mobile PWA mode; deleting
+      // here made a transient key-read problem into permanent history loss.
       if (all.length <= limit) return all;
       return all.sublist(all.length - limit);
     }
@@ -283,7 +304,9 @@ class MessageCacheStore {
         where: 'user_id = ? AND id IN ($placeholders)',
         whereArgs: [userId, ...deadIds],
       );
-      debugPrint('MessageCacheStore: purged ${deadIds.length} unreadable rows for $conversationId');
+      debugPrint(
+        'MessageCacheStore: purged ${deadIds.length} unreadable rows for $conversationId',
+      );
     }
     return out;
   }
@@ -320,7 +343,11 @@ class MessageCacheStore {
       return;
     }
     final db = await _database();
-    await db.delete('cached_messages', where: 'user_id = ?', whereArgs: [userId]);
+    await db.delete(
+      'cached_messages',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
   }
 
   Future<void> clearConversation(String userId, String conversationId) async {

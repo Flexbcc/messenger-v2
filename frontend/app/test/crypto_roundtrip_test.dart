@@ -9,45 +9,99 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:messenger_app/crypto/crypto_service.dart';
 
 void main() {
-  test('Alice can establish a session from Bob\'s bundle and exchange messages', () async {
+  test(
+    'Alice can establish a session from Bob\'s bundle and exchange messages',
+    () async {
+      final alice = CryptoService.ephemeral();
+      final bob = CryptoService.ephemeral();
+
+      // Bob publishes his bundle (this is what Home Node would store/serve).
+      final bobBundle = await bob.generatePublishableBundle();
+
+      // Alice has never talked to Bob before.
+      expect(await alice.hasSessionWith('bob'), isFalse);
+
+      // Alice establishes a session from Bob's published bundle (X3DH).
+      await alice.establishSessionFromBundle('bob', bobBundle);
+      expect(await alice.hasSessionWith('bob'), isTrue);
+
+      // Alice encrypts a message for Bob.
+      const plaintext = 'hello bob, this must never be visible to the server';
+      final ciphertext = await alice.encrypt('bob', utf8.encode(plaintext));
+
+      // The wire ciphertext must not contain the plaintext anywhere (sanity
+      // check that we're not accidentally "encrypting" with a no-op).
+      expect(ciphertext.contains(plaintext), isFalse);
+
+      // Bob decrypts it (this is his first message from Alice — PreKeySignalMessage,
+      // which also establishes his side of the session).
+      final decrypted = await bob.decrypt('alice', ciphertext);
+      expect(utf8.decode(decrypted), equals(plaintext));
+
+      // Bob replies — now using the established (whisper/ratchet) session.
+      const reply = 'hi alice, got it';
+      final replyCiphertext = await bob.encrypt('alice', utf8.encode(reply));
+      final decryptedReply = await alice.decrypt('bob', replyCiphertext);
+      expect(utf8.decode(decryptedReply), equals(reply));
+
+      // A second message in the same direction must ratchet forward (not
+      // reuse the same message key) — different ciphertext for the same text.
+      final ciphertext2 = await alice.encrypt('bob', utf8.encode(plaintext));
+      expect(ciphertext2, isNot(equals(ciphertext)));
+      final decrypted2 = await bob.decrypt('alice', ciphertext2);
+      expect(utf8.decode(decrypted2), equals(plaintext));
+    },
+  );
+
+  test('separate recipient devices keep independent Signal sessions', () async {
     final alice = CryptoService.ephemeral();
-    final bob = CryptoService.ephemeral();
+    final bobPhone = CryptoService.ephemeral();
+    final bobDesktop = CryptoService.ephemeral();
 
-    // Bob publishes his bundle (this is what Home Node would store/serve).
-    final bobBundle = await bob.generatePublishableBundle();
+    await alice.establishSessionFromBundle(
+      'bob',
+      await bobPhone.generatePublishableBundle(),
+      deviceId: 'bob-phone',
+    );
+    await alice.establishSessionFromBundle(
+      'bob',
+      await bobDesktop.generatePublishableBundle(),
+      deviceId: 'bob-desktop',
+    );
 
-    // Alice has never talked to Bob before.
-    expect(await alice.hasSessionWith('bob'), isFalse);
+    const text = 'delivered to every Bob device';
+    final phoneCiphertext = await alice.encrypt(
+      'bob',
+      utf8.encode(text),
+      recipientDeviceId: 'bob-phone',
+    );
+    final desktopCiphertext = await alice.encrypt(
+      'bob',
+      utf8.encode(text),
+      recipientDeviceId: 'bob-desktop',
+    );
 
-    // Alice establishes a session from Bob's published bundle (X3DH).
-    await alice.establishSessionFromBundle('bob', bobBundle);
-    expect(await alice.hasSessionWith('bob'), isTrue);
-
-    // Alice encrypts a message for Bob.
-    const plaintext = 'hello bob, this must never be visible to the server';
-    final ciphertext = await alice.encrypt('bob', utf8.encode(plaintext));
-
-    // The wire ciphertext must not contain the plaintext anywhere (sanity
-    // check that we're not accidentally "encrypting" with a no-op).
-    expect(ciphertext.contains(plaintext), isFalse);
-
-    // Bob decrypts it (this is his first message from Alice — PreKeySignalMessage,
-    // which also establishes his side of the session).
-    final decrypted = await bob.decrypt('alice', ciphertext);
-    expect(utf8.decode(decrypted), equals(plaintext));
-
-    // Bob replies — now using the established (whisper/ratchet) session.
-    const reply = 'hi alice, got it';
-    final replyCiphertext = await bob.encrypt('alice', utf8.encode(reply));
-    final decryptedReply = await alice.decrypt('bob', replyCiphertext);
-    expect(utf8.decode(decryptedReply), equals(reply));
-
-    // A second message in the same direction must ratchet forward (not
-    // reuse the same message key) — different ciphertext for the same text.
-    final ciphertext2 = await alice.encrypt('bob', utf8.encode(plaintext));
-    expect(ciphertext2, isNot(equals(ciphertext)));
-    final decrypted2 = await bob.decrypt('alice', ciphertext2);
-    expect(utf8.decode(decrypted2), equals(plaintext));
+    expect(phoneCiphertext, isNot(desktopCiphertext));
+    expect(
+      utf8.decode(
+        await bobPhone.decrypt(
+          'alice',
+          phoneCiphertext,
+          senderDeviceId: 'alice-device',
+        ),
+      ),
+      text,
+    );
+    expect(
+      utf8.decode(
+        await bobDesktop.decrypt(
+          'alice',
+          desktopCiphertext,
+          senderDeviceId: 'alice-device',
+        ),
+      ),
+      text,
+    );
   });
 
   // Manually verified (not automated: the library rejects this deep inside

@@ -330,6 +330,11 @@ class ApiClient {
     return _decodeOrThrow(resp) as Map<String, dynamic>;
   }
 
+  Future<List<dynamic>> getUserDeviceBundles(String userId) async {
+    final resp = await _get(_homeUri('/users/$userId/devices'));
+    return _decodeOrThrow(resp) as List<dynamic>;
+  }
+
   Future<List<dynamic>> listConversations() async {
     final resp = await _get(_homeUri('/conversations'));
     return _decodeOrThrow(resp) as List<dynamic>;
@@ -354,6 +359,7 @@ class ApiClient {
     required String contentType,
     String cryptoVersion = 'signal-v1',
     String? clientMsgId,
+    List<Map<String, String>>? deviceEnvelopes,
   }) async {
     final resp =
         await _postJson(_homeUri('/conversations/$conversationId/messages'), {
@@ -361,6 +367,8 @@ class ApiClient {
           'content_type': contentType,
           'crypto_version': cryptoVersion,
           'client_msg_id': clientMsgId,
+          if (deviceEnvelopes != null && deviceEnvelopes.isNotEmpty)
+            'device_envelopes': deviceEnvelopes,
         });
     return _decodeOrThrow(resp) as Map<String, dynamic>;
   }

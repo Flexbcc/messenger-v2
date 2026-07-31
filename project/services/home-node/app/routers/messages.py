@@ -37,16 +37,29 @@ async def _assert_participant(db: AsyncSession, conversation_id: str, user_id: s
     return conv
 
 
-def _to_response(m: Message, sender_display_name: Optional[str] = None) -> MessageResponse:
+def _to_response(
+    m: Message,
+    sender_display_name: Optional[str] = None,
+    recipient_device_id: Optional[str] = None,
+) -> MessageResponse:
     def _utc(dt: Optional[datetime]) -> Optional[datetime]:
         if dt is None:
             return None
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
+    ciphertext = m.ciphertext
+    if recipient_device_id and m.device_envelopes:
+        targeted = next(
+            (item for item in m.device_envelopes if item.get("device_id") == recipient_device_id),
+            None,
+        )
+        if targeted and targeted.get("ciphertext"):
+            ciphertext = targeted["ciphertext"]
+
     return MessageResponse(
         id=m.id, conversation_id=m.conversation_id, sender_user_id=m.sender_user_id,
         sender_device_id=m.sender_device_id, sender_display_name=sender_display_name,
-        ciphertext=m.ciphertext,
+        ciphertext=ciphertext,
         content_type=m.content_type, crypto_version=m.crypto_version,
         created_at=_utc(m.created_at),
         delivery_status=getattr(m, "delivery_status", "sent") or "sent",
@@ -118,7 +131,7 @@ async def get_messages(
     сообщения с created_at > after, сортировка asc. Возвращает MessagePage с
     has_more=True и next_cursor когда есть ещё страницы.
     max limit=200."""
-    user_id, _device_id = current
+    user_id, current_device_id = current
     await _assert_participant(db, conversation_id, user_id)
 
     capped = min(max(1, limit), 200)
@@ -160,7 +173,10 @@ async def get_messages(
     )
     display_names = {row[0]: row[1] for row in names_result.all()}
 
-    items = [_to_response(m, display_names.get(m.sender_user_id)) for m in messages]
+    items = [
+        _to_response(m, display_names.get(m.sender_user_id), current_device_id)
+        for m in messages
+    ]
     return MessagePage(items=items, has_more=has_more, next_cursor=next_cursor)
 
 

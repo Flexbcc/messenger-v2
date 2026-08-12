@@ -21,12 +21,12 @@ class DeviceSessionMeta {
   }
 
   String encode() => [
-        appVersion ?? '',
-        osName ?? '',
-        osVersion ?? '',
-        connectionType ?? '',
-        updatedAt?.toIso8601String() ?? '',
-      ].join('|');
+    appVersion ?? '',
+    osName ?? '',
+    osVersion ?? '',
+    connectionType ?? '',
+    updatedAt?.toIso8601String() ?? '',
+  ].join('|');
 
   static DeviceSessionMeta decode(String? raw) {
     if (raw == null || raw.isEmpty) return const DeviceSessionMeta();

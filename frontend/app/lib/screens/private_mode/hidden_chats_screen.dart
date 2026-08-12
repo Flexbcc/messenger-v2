@@ -21,6 +21,7 @@ import '../../utils/message_format.dart';
 import '../chat_screen.dart';
 import 'hidden_chat_dialog_screen.dart';
 import 'hidden_chats_settings_screen.dart';
+import 'private_feature_route.dart';
 
 /// Secret conversations — vault chats + server chats hidden from main list.
 class HiddenChatsScreen extends ConsumerStatefulWidget {
@@ -40,7 +41,10 @@ class _HiddenChatsScreenState extends ConsumerState<HiddenChatsScreen> {
   void initState() {
     super.initState();
     _vault.addListener(_onVaultChanged);
-    _searchController.addListener(() => setState(() => _query = _searchController.text.trim().toLowerCase()));
+    _searchController.addListener(
+      () =>
+          setState(() => _query = _searchController.text.trim().toLowerCase()),
+    );
     _armAutolock();
   }
 
@@ -66,9 +70,11 @@ class _HiddenChatsScreenState extends ConsumerState<HiddenChatsScreen> {
   void dispose() {
     _autolockTimer?.cancel();
     // immediately / leaving the section
-    unawaited(HiddenChatsStore.instance.autolockDuration().then((d) {
-      if (d == Duration.zero) _vault.lock();
-    }));
+    unawaited(
+      HiddenChatsStore.instance.autolockDuration().then((d) {
+        if (d == Duration.zero) _vault.lock();
+      }),
+    );
     _vault.removeListener(_onVaultChanged);
     _searchController.dispose();
     super.dispose();
@@ -80,14 +86,20 @@ class _HiddenChatsScreenState extends ConsumerState<HiddenChatsScreen> {
 
   List<HiddenChat> get _vaultFiltered {
     if (_query.isEmpty) return _vault.chats;
-    return _vault.chats.where((c) => c.name.toLowerCase().contains(_query)).toList();
+    return _vault.chats
+        .where((c) => c.name.toLowerCase().contains(_query))
+        .toList();
   }
 
   List<Conversation> get _serverFiltered {
     final controller = ref.read(appControllerProvider);
     final list = controller.secretHiddenConversations;
     if (_query.isEmpty) return list;
-    return list.where((c) => controller.conversationTitle(c).toLowerCase().contains(_query)).toList();
+    return list
+        .where(
+          (c) => controller.conversationTitle(c).toLowerCase().contains(_query),
+        )
+        .toList();
   }
 
   String _vaultPreview(HiddenChat chat) {
@@ -104,74 +116,99 @@ class _HiddenChatsScreenState extends ConsumerState<HiddenChatsScreen> {
     return Listener(
       onPointerDown: (_) => _bumpAutolock(),
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Скрытые чаты'),
-        actions: [
-          AppIconButton(
-            icon: Icons.settings_outlined,
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const HiddenChatsSettingsScreen()),
+        appBar: AppBar(
+          title: const Text('Скрытые чаты'),
+          actions: [
+            AppIconButton(
+              icon: Icons.settings_outlined,
+              onPressed: () => Navigator.of(context).push(
+                privateSecretRoute((_) => const HiddenChatsSettingsScreen()),
+              ),
             ),
-          ),
-          AppIconButton(
-            icon: Icons.add,
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _NewVaultChatScreen())),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.screenPadding,
-              AppSpacing.md,
-              AppSpacing.screenPadding,
-              AppSpacing.sm,
+            AppIconButton(
+              icon: Icons.add,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const _NewVaultChatScreen()),
+              ),
             ),
-            child: AppSearchField(controller: _searchController, hintText: 'Поиск в скрытых'),
-          ),
-          Expanded(
-            child: empty
-                ? const AppEmptyState(
-                    icon: Icons.visibility_off_outlined,
-                    title: 'Нет скрытых чатов',
-                    subtitle: 'Скройте диалог в информации о чате или создайте vault-чат',
-                  )
-                : ListView(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-                    children: [
-                      if (serverHidden.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(AppSpacing.screenPadding, AppSpacing.sm, AppSpacing.screenPadding, 4),
-                          child: Text('Зашифрованные диалоги', style: context.textStyles.caption),
-                        ),
-                        for (final conv in serverHidden)
-                          _ServerHiddenTile(conversation: conv),
-                      ],
-                      if (vaultChats.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(AppSpacing.screenPadding, AppSpacing.md, AppSpacing.screenPadding, 4),
-                          child: Text('Локальный vault', style: context.textStyles.caption),
-                        ),
-                        for (final chat in vaultChats)
-                          AppTile(
-                            leading: AppAvatar(label: chat.name),
-                            title: chat.name,
-                            subtitle: _vaultPreview(chat),
-                            trailingText: formatTime(chat.updatedAt),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => HiddenChatDialogScreen(chatId: chat.id, contactName: chat.name),
-                              ),
+          ],
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenPadding,
+                AppSpacing.md,
+                AppSpacing.screenPadding,
+                AppSpacing.sm,
+              ),
+              child: AppSearchField(
+                controller: _searchController,
+                hintText: 'Поиск в скрытых',
+              ),
+            ),
+            Expanded(
+              child: empty
+                  ? const AppEmptyState(
+                      icon: Icons.visibility_off_outlined,
+                      title: 'Нет скрытых чатов',
+                      subtitle:
+                          'Скройте диалог в информации о чате или создайте vault-чат',
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                      children: [
+                        if (serverHidden.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.screenPadding,
+                              AppSpacing.sm,
+                              AppSpacing.screenPadding,
+                              4,
+                            ),
+                            child: Text(
+                              'Зашифрованные диалоги',
+                              style: context.textStyles.caption,
                             ),
                           ),
+                          for (final conv in serverHidden)
+                            _ServerHiddenTile(conversation: conv),
+                        ],
+                        if (vaultChats.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.screenPadding,
+                              AppSpacing.md,
+                              AppSpacing.screenPadding,
+                              4,
+                            ),
+                            child: Text(
+                              'Локальный vault',
+                              style: context.textStyles.caption,
+                            ),
+                          ),
+                          for (final chat in vaultChats)
+                            AppTile(
+                              leading: AppAvatar(label: chat.name),
+                              title: chat.name,
+                              subtitle: _vaultPreview(chat),
+                              trailingText: formatTime(chat.updatedAt),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => HiddenChatDialogScreen(
+                                    chatId: chat.id,
+                                    contactName: chat.name,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ],
-                    ],
-                  ),
-          ),
-        ],
+                    ),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -190,8 +227,14 @@ class _ServerHiddenTile extends ConsumerWidget {
         title: const Text('Вернуть в основной список?'),
         content: Text('Чат «$title» снова появится на вкладке «Чаты».'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Вернуть')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Вернуть'),
+          ),
         ],
       ),
     );
@@ -214,11 +257,21 @@ class _ServerHiddenTile extends ConsumerWidget {
             child: ChatListTile(
               title: title,
               subtitle: last != null
-                  ? formatListPreview(message: last, controller: controller, previewMode: 'Полный текст')
+                  ? formatListPreview(
+                      message: last,
+                      controller: controller,
+                      previewMode: 'Полный текст',
+                    )
                   : 'Скрытый диалог',
-              timeLabel: last != null ? formatMessageTime(last.createdAt) : null,
+              timeLabel: last != null
+                  ? formatMessageTime(last.createdAt)
+                  : null,
               isGroup: conversation.isGroup,
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatScreen(conversation: conversation))),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChatScreen(conversation: conversation),
+                ),
+              ),
             ),
           ),
           IconButton(
@@ -252,16 +305,23 @@ class _NewVaultChatScreenState extends State<_NewVaultChatScreen> {
   Future<void> _create() async {
     if (_saving) return;
     setState(() => _saving = true);
-    final chat = await HiddenVaultSession.instance.createChat(_nameController.text);
+    final chat = await HiddenVaultSession.instance.createChat(
+      _nameController.text,
+    );
     if (!mounted) return;
     setState(() => _saving = false);
     if (chat == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Введите имя чата')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Введите имя чата')));
       return;
     }
     Navigator.of(context).pop();
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => HiddenChatDialogScreen(chatId: chat.id, contactName: chat.name)),
+      MaterialPageRoute(
+        builder: (_) =>
+            HiddenChatDialogScreen(chatId: chat.id, contactName: chat.name),
+      ),
     );
   }
 
@@ -270,7 +330,12 @@ class _NewVaultChatScreenState extends State<_NewVaultChatScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Новый vault-чат'),
-        actions: [TextButton(onPressed: _saving ? null : _create, child: const Text('Создать'))],
+        actions: [
+          TextButton(
+            onPressed: _saving ? null : _create,
+            child: const Text('Создать'),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(AppSpacing.screenPadding),

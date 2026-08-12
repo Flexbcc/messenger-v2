@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/extensions/context_extensions.dart';
 import '../models/conversation.dart';
 import '../state/notification_settings.dart';
 import '../state/app_controller.dart';
-import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
 import '../utils/message_format.dart';
@@ -23,10 +23,12 @@ class ConversationListScreen extends ConsumerStatefulWidget {
   const ConversationListScreen({super.key});
 
   @override
-  ConsumerState<ConversationListScreen> createState() => _ConversationListScreenState();
+  ConsumerState<ConversationListScreen> createState() =>
+      _ConversationListScreenState();
 }
 
-class _ConversationListScreenState extends ConsumerState<ConversationListScreen> {
+class _ConversationListScreenState
+    extends ConsumerState<ConversationListScreen> {
   final _searchController = TextEditingController();
   String _query = '';
   String _secretCmd = '.скрытые';
@@ -37,7 +39,9 @@ class _ConversationListScreenState extends ConsumerState<ConversationListScreen>
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() => setState(() => _query = _searchController.text));
+    _searchController.addListener(
+      () => setState(() => _query = _searchController.text),
+    );
     Future.microtask(() async {
       final controller = ref.read(appControllerProvider);
       await controller.refreshConversations();
@@ -74,11 +78,15 @@ class _ConversationListScreenState extends ConsumerState<ConversationListScreen>
   }
 
   void _openNewChat() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewChatScreen()));
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const NewChatScreen()));
   }
 
   void _openNewGroup() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewGroupScreen()));
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const NewGroupScreen()));
   }
 
   @override
@@ -87,6 +95,7 @@ class _ConversationListScreenState extends ConsumerState<ConversationListScreen>
     final notifSettings = ref.watch(notificationSettingsProvider);
     final previewMode = notifSettings.effectivePreview;
     final conversations = controller.conversationsForList;
+    final colors = context.colors;
 
     final filtered = _query.trim().isEmpty
         ? conversations
@@ -101,7 +110,7 @@ class _ConversationListScreenState extends ConsumerState<ConversationListScreen>
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.add_circle_outline),
-            color: AppColors.surface,
+            color: colors.surfaceElevated,
             onSelected: (value) {
               if (value == 'direct') {
                 _openNewChat();
@@ -117,7 +126,7 @@ class _ConversationListScreenState extends ConsumerState<ConversationListScreen>
         ],
       ),
       body: RefreshIndicator(
-        color: AppColors.accentBlue,
+        color: colors.primary,
         onRefresh: controller.refreshConversations,
         child: Column(
           children: [
@@ -131,7 +140,11 @@ class _ConversationListScreenState extends ConsumerState<ConversationListScreen>
               child: AppTextField(
                 controller: _searchController,
                 hintText: 'Поиск',
-                leading: const Icon(Icons.search_outlined, color: AppColors.textMuted, size: 20),
+                leading: Icon(
+                  Icons.search_outlined,
+                  color: colors.textMuted,
+                  size: 20,
+                ),
                 onSubmitted: (v) {
                   if (_isSecretCommand) _openHiddenChats();
                 },
@@ -139,27 +152,43 @@ class _ConversationListScreenState extends ConsumerState<ConversationListScreen>
             ),
             if (_isSecretCommand)
               Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.screenPadding, 0, AppSpacing.screenPadding, AppSpacing.sm),
-                child: AppButton(label: 'Открыть скрытые чаты', onPressed: _openHiddenChats, expanded: false),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenPadding,
+                  0,
+                  AppSpacing.screenPadding,
+                  AppSpacing.sm,
+                ),
+                child: AppButton(
+                  label: 'Открыть скрытые чаты',
+                  onPressed: _openHiddenChats,
+                  expanded: false,
+                ),
               ),
             Expanded(
               child: conversations.isEmpty
                   ? _EmptyState(onCreateChat: _openNewChat)
                   : filtered.isEmpty
-                      ? ListView(
-                          children: [
-                            const SizedBox(height: 120),
-                            Center(child: Text('Ничего не найдено', style: AppTypography.secondary)),
-                          ],
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.sectionGap),
-                          itemCount: filtered.length,
-                          itemBuilder: (context, i) => _ConversationTile(
-                            conversation: filtered[i],
-                            previewMode: previewMode,
+                  ? ListView(
+                      children: [
+                        const SizedBox(height: 120),
+                        Center(
+                          child: Text(
+                            'Ничего не найдено',
+                            style: AppTypography.secondary,
                           ),
                         ),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.only(
+                        bottom: AppSpacing.sectionGap,
+                      ),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) => _ConversationTile(
+                        conversation: filtered[i],
+                        previewMode: previewMode,
+                      ),
+                    ),
             ),
           ],
         ),
@@ -174,15 +203,26 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return ListView(
       children: [
         const SizedBox(height: 100),
-        Icon(Icons.lock_outline, size: 64, color: AppColors.accentBlue.withValues(alpha: 0.6)),
+        Icon(
+          Icons.lock_outline,
+          size: 64,
+          color: colors.primary.withValues(alpha: 0.6),
+        ),
         const SizedBox(height: AppSpacing.largeGap),
-        Text('Пока нет чатов', textAlign: TextAlign.center, style: AppTypography.largeTitle),
+        Text(
+          'Пока нет чатов',
+          textAlign: TextAlign.center,
+          style: AppTypography.largeTitle,
+        ),
         const SizedBox(height: AppSpacing.smallGap),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sectionGap * 2),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sectionGap * 2,
+          ),
           child: Text(
             'Создайте защищённый диалог — переписка шифруется на устройстве.',
             textAlign: TextAlign.center,
@@ -191,7 +231,9 @@ class _EmptyState extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sectionGap),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sectionGap * 2),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sectionGap * 2,
+          ),
           child: AppButton(label: 'Создать чат', onPressed: onCreateChat),
         ),
       ],
@@ -200,7 +242,10 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ConversationTile extends ConsumerWidget {
-  const _ConversationTile({required this.conversation, required this.previewMode});
+  const _ConversationTile({
+    required this.conversation,
+    required this.previewMode,
+  });
   final Conversation conversation;
   final String previewMode;
 
@@ -210,12 +255,16 @@ class _ConversationTile extends ConsumerWidget {
     final isFavorites = FavoritesChat.isId(conversation.id);
     final title = controller.conversationTitle(conversation);
     final last = controller.lastMessageForListPreview(conversation.id);
-    final unread = isFavorites ? 0 : (controller.unreadCounts[conversation.id] ?? 0);
+    final unread = isFavorites
+        ? 0
+        : (controller.unreadCounts[conversation.id] ?? 0);
     final isMuted = controller.chatMuted[conversation.id] ?? false;
     final reachable = controller.isConversationReachable(conversation);
 
     String subtitle;
-    final draftPreview = isFavorites ? '' : ChatDraftStore.instance.previewFor(conversation.id);
+    final draftPreview = isFavorites
+        ? ''
+        : ChatDraftStore.instance.previewFor(conversation.id);
     if (isFavorites) {
       subtitle = last != null
           ? '${last.plaintext ?? '…'}${last.favoriteSourceTitle != null ? ' · ${last.favoriteSourceTitle}' : ''}'
@@ -229,8 +278,11 @@ class _ConversationTile extends ConsumerWidget {
           ? 'Группа · ${conversation.participantUserIds.length} участников'
           : 'Начните переписку';
     } else {
-      final prefix = last.senderUserId == controller.session?.userId ? 'Вы: ' : '';
-      subtitle = '$prefix${formatListPreview(message: last, controller: controller, previewMode: previewMode)}';
+      final prefix = last.senderUserId == controller.session?.userId
+          ? 'Вы: '
+          : '';
+      subtitle =
+          '$prefix${formatListPreview(message: last, controller: controller, previewMode: previewMode)}';
     }
 
     String? peerId;
@@ -256,10 +308,14 @@ class _ConversationTile extends ConsumerWidget {
       avatarLabel: isFavorites ? '★' : null,
       onTap: () async {
         await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ChatScreen(conversation: conversation)),
+          MaterialPageRoute(
+            builder: (_) => ChatScreen(conversation: conversation),
+          ),
         );
         if (!isFavorites) {
-          await ref.read(appControllerProvider).recomputeUnread(conversation.id);
+          await ref
+              .read(appControllerProvider)
+              .recomputeUnread(conversation.id);
         }
       },
     );

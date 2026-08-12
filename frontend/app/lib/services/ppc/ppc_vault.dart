@@ -55,7 +55,8 @@ class PpcVault {
     final peerNodeId = await _prefs.read(_kPeerNodeId);
     if (routeKindRaw == null || peerNodeId == null) return null;
 
-    final routeKind = PpcRouteKind.values.asNameMap()[routeKindRaw] ??
+    final routeKind =
+        PpcRouteKind.values.asNameMap()[routeKindRaw] ??
         (routeKindRaw == 'lan' ? PpcRouteKind.lan : PpcRouteKind.relay);
 
     return PpcVaultState(

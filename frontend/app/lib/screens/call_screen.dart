@@ -49,7 +49,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   void _attachIfNeeded() {
     final media = ref.read(appControllerProvider).currentCall?.media;
-    if (!_renderersReady || media == null || identical(media, _wiredMedia)) return;
+    if (!_renderersReady || media == null || identical(media, _wiredMedia)) {
+      return;
+    }
     _wiredMedia = media;
     _localRenderer.srcObject = media.localStream;
     _remoteRenderer.srcObject = media.remoteStream;
@@ -102,12 +104,18 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   Widget build(BuildContext context) {
     final controller = ref.watch(appControllerProvider);
     final call = controller.currentCall;
-    if (call == null || controller.callUiMinimized) return const SizedBox.shrink();
+    if (call == null || controller.callUiMinimized) {
+      return const SizedBox.shrink();
+    }
     _attachIfNeeded();
 
     final peerName = controller.labelFor(call.peerUserId);
     final media = call.media;
-    final liveVideo = call.kind == CallKind.video && call.answered && media != null && _renderersReady;
+    final liveVideo =
+        call.kind == CallKind.video &&
+        call.answered &&
+        media != null &&
+        _renderersReady;
 
     return CallStage(
       peerName: peerName,
@@ -119,9 +127,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       muted: media?.isMuted ?? false,
       speakerOn: media?.isSpeakerOn ?? false,
       onHold: media?.onHold ?? false,
-      showVideoPlaceholder: call.kind == CallKind.video && call.answered && !liveVideo,
+      showVideoPlaceholder:
+          call.kind == CallKind.video && call.answered && !liveVideo,
       background: liveVideo
-          ? _VideoLayer(localRenderer: _localRenderer, remoteRenderer: _remoteRenderer)
+          ? _VideoLayer(
+              localRenderer: _localRenderer,
+              remoteRenderer: _remoteRenderer,
+            )
           : null,
       onToggleMute: _toggleMute,
       onToggleSpeaker: _toggleSpeaker,
@@ -136,7 +148,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 }
 
 class _VideoLayer extends StatelessWidget {
-  const _VideoLayer({required this.localRenderer, required this.remoteRenderer});
+  const _VideoLayer({
+    required this.localRenderer,
+    required this.remoteRenderer,
+  });
   final RTCVideoRenderer localRenderer;
   final RTCVideoRenderer remoteRenderer;
 
@@ -146,8 +161,13 @@ class _VideoLayer extends StatelessWidget {
       children: [
         Positioned.fill(
           child: DecoratedBox(
-            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35)),
-            child: RTCVideoView(remoteRenderer, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+            ),
+            child: RTCVideoView(
+              remoteRenderer,
+              objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+            ),
           ),
         ),
         Positioned(
@@ -157,7 +177,11 @@ class _VideoLayer extends StatelessWidget {
           height: 150,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: RTCVideoView(localRenderer, mirror: true, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
+            child: RTCVideoView(
+              localRenderer,
+              mirror: true,
+              objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+            ),
           ),
         ),
       ],

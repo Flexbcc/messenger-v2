@@ -65,6 +65,12 @@ def _migrate_columns(connection):
             connection.execute(sa.text(
                 "ALTER TABLE messages ADD COLUMN origin_media_node_url TEXT"
             ))
+        # Per-device Signal envelopes. Existing development databases created
+        # before Task #57 need the JSON column as well as fresh installations.
+        if "device_envelopes" not in cols:
+            connection.execute(sa.text(
+                "ALTER TABLE messages ADD COLUMN device_envelopes JSON"
+            ))
 
     # conversations table — TTL исчезающих (Task #70)
     if "conversations" in tables:

@@ -13,7 +13,12 @@
 - **Client**: Flutter (web-first сейчас, mobile/desktop — позже, ничего не собираем под них пока).
   - Дизайн-система: `lib/theme/`, `lib/widgets/` (чёрно-белый, Apple HIG).
   - E2EE 1:1 и группы — реально работают (libsignal_protocol_dart, sender-key для групп).
-  - Private Mode/Secret Room — mock UI, PIN хэшируется (Argon2id) и персистентен, хранилище скрытых чатов НЕ зашифровано отдельно.
+  - Private Mode/Secret Room — рабочая PIN-защита, ложный PIN, скрытые чаты,
+    duress-сценарии и защищённая навигация. PIN хранится как Argon2id-хэш в
+    secure storage; отдельный vault скрытых данных реализован платформенными
+    хранилищами и остаётся зоной обязательного security review.
+  - Звонки подключены к AppController и WebRTC: входящий/исходящий экран,
+    аудио/видео, mute, speaker, hold, сворачивание и восстановление сети.
 
 ## Текущий статус (проверено тестами/вручную)
 - Backend: регистрация (телефон+имя, пароль), вход по идентификатору, чаты/группы, E2EE 1:1 и групповое, федерация между Home Node, relay-fallback, self-registration+heartbeat — всё работает.
@@ -33,9 +38,9 @@
 9. Групповое E2EE — sender-key через libsignal, не своя схема.
 
 ## TODO
-- [ ] Android/iOS сборка и permissions — отложено, не сейчас.
-- [ ] Настройки: Аккаунт/Оформление/Помощь/О приложении — ещё заглушки.
-- [ ] Private Mode: реальное шифрование хранилища — нужен отдельный security review перед стартом.
+- [ ] PWA остаётся production-каналом; macOS и Android собираются как
+      внутренние артефакты без store signing/notarization.
+- [ ] Private Mode: провести отдельный security review платформенных vault-хранилищ.
 - [ ] Групповое E2EE: нет add/remove участников, нет ротации ключа при выходе.
 - [x] Многонодовый живой тест: 3 relay-node (разные версии 0.1.0/0.2.0) + home/storage/media/discovery — все 7 видны в Node Monitor (`project/admin/`), каждый relay независимо работает как микрохаб (проверено прямым вызовом `/relay/forward`).
 - [ ] Найден пробел: `_find_relay_url` в federation.py берёт первый "online" relay из списка discovery, но не проверяет реальную доступность и не переключается на другой relay при обрыве связи с уже выбранным — если он вдруг стал недоступен, но discovery ещё не пометил его offline (heartbeat не протух), доставка зафейлится вместо ретрая на другой relay. Нужно чинить отдельной задачей (retry across relays).

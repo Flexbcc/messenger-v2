@@ -11,7 +11,11 @@ class TrustedContactsStore {
   Future<List<String>> load() => _store.getStringList(_key);
 
   Future<void> save(List<String> userIds) async {
-    final unique = userIds.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet().toList();
+    final unique = userIds
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
     await _store.setStringList(_key, unique);
   }
 

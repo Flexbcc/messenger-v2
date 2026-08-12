@@ -18,7 +18,8 @@ class DebugLog {
   }
 
   void _add(String level, String tag, String message) {
-    final line = '${DateTime.now().toIso8601String().substring(11, 19)} [$level] $tag: $message';
+    final line =
+        '${DateTime.now().toIso8601String().substring(11, 19)} [$level] $tag: $message';
     _lines.add(line);
     if (_lines.length > _max) _lines.removeAt(0);
     debugPrint(line);

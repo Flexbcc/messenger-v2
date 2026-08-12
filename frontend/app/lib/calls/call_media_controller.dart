@@ -5,7 +5,13 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 /// Simplified connection-state surface for the app — collapses
 /// flutter_webrtc's ICE states down to what spec/0303_CALLS.md →
 /// Устойчивость соединения actually needs to react to.
-enum MediaConnectionState { connecting, connected, disconnected, failed, closed }
+enum MediaConnectionState {
+  connecting,
+  connected,
+  disconnected,
+  failed,
+  closed,
+}
 
 /// Wraps one `RTCPeerConnection` for the call in progress — the only module
 /// that touches flutter_webrtc directly (Single Responsibility, same
@@ -60,8 +66,10 @@ class CallMediaController {
     } catch (_) {}
   }
 
-  final _connectionStateController = StreamController<MediaConnectionState>.broadcast();
-  Stream<MediaConnectionState> get connectionState => _connectionStateController.stream;
+  final _connectionStateController =
+      StreamController<MediaConnectionState>.broadcast();
+  Stream<MediaConnectionState> get connectionState =>
+      _connectionStateController.stream;
 
   /// Fired for every locally-gathered ICE candidate — the caller is
   /// responsible for delivering it (over the existing E2EE signaling
@@ -93,9 +101,13 @@ class CallMediaController {
         'noiseSuppression': noiseSuppression,
         'echoCancellation': echoCancellation,
       },
-      'video': video ? _videoConstraints(quality: quality, dataSaver: dataSaver) : false,
+      'video': video
+          ? _videoConstraints(quality: quality, dataSaver: dataSaver)
+          : false,
     };
-    final localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+    final localStream = await navigator.mediaDevices.getUserMedia(
+      mediaConstraints,
+    );
     for (final track in localStream.getTracks()) {
       await pc.addTrack(track, localStream);
     }
@@ -111,26 +123,28 @@ class CallMediaController {
     final effective = dataSaver ? 'low' : quality;
     return switch (effective) {
       'high' => {
-          'width': {'ideal': 1280},
-          'height': {'ideal': 720},
-          'frameRate': {'ideal': 30},
-        },
+        'width': {'ideal': 1280},
+        'height': {'ideal': 720},
+        'frameRate': {'ideal': 30},
+      },
       'low' => {
-          'width': {'ideal': 320},
-          'height': {'ideal': 240},
-          'frameRate': {'ideal': 15},
-        },
+        'width': {'ideal': 320},
+        'height': {'ideal': 240},
+        'frameRate': {'ideal': 15},
+      },
       _ => {
-          'width': {'ideal': 640},
-          'height': {'ideal': 480},
-          'frameRate': {'ideal': 24},
-        },
+        'width': {'ideal': 640},
+        'height': {'ideal': 480},
+        'frameRate': {'ideal': 24},
+      },
     };
   }
 
   void _wire() {
     _pc.onIceCandidate = (candidate) {
-      if (candidate.candidate == null) return; // end-of-candidates marker, nothing to send
+      if (candidate.candidate == null) {
+        return; // end-of-candidates marker, nothing to send
+      }
       onLocalIceCandidate?.call(candidate.toMap());
     };
     _pc.onTrack = (event) {
@@ -180,7 +194,8 @@ class CallMediaController {
     return desc.sdp!;
   }
 
-  Future<void> applyRemoteAnswer(String sdp) => setRemoteDescription(sdp, 'answer');
+  Future<void> applyRemoteAnswer(String sdp) =>
+      setRemoteDescription(sdp, 'answer');
 
   Future<void> setRemoteDescription(String sdp, String type) async {
     await _pc.setRemoteDescription(RTCSessionDescription(sdp, type));
@@ -194,7 +209,11 @@ class CallMediaController {
   /// Buffers the candidate if the remote description isn't set yet — ICE
   /// candidates can arrive before setRemoteDescription() completes.
   Future<void> addRemoteIceCandidate(Map<String, dynamic> candidate) async {
-    final ice = RTCIceCandidate(candidate['candidate'] as String?, candidate['sdpMid'] as String?, candidate['sdpMLineIndex'] as int?);
+    final ice = RTCIceCandidate(
+      candidate['candidate'] as String?,
+      candidate['sdpMid'] as String?,
+      candidate['sdpMLineIndex'] as int?,
+    );
     if (!_remoteDescriptionSet) {
       _pendingRemoteCandidates.add(ice);
       return;

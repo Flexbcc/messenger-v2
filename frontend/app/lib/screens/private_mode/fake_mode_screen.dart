@@ -1,21 +1,37 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/colors.dart';
+import '../../core/extensions/context_extensions.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/app_list_tile.dart';
 import 'panic.dart';
 
 class _FakeChat {
-  const _FakeChat({required this.name, required this.lastMessage, required this.time});
+  const _FakeChat({
+    required this.name,
+    required this.lastMessage,
+    required this.time,
+  });
   final String name;
   final String lastMessage;
   final String time;
 }
 
 const _fakeChats = [
-  _FakeChat(name: 'Мама', lastMessage: 'Позвони, когда будет время', time: '09:14'),
-  _FakeChat(name: 'Работа', lastMessage: 'Созвон перенесли на 15:00', time: 'вчера'),
-  _FakeChat(name: 'Аптека на углу', lastMessage: 'Заказ готов к выдаче', time: 'пн'),
+  _FakeChat(
+    name: 'Мама',
+    lastMessage: 'Позвони, когда будет время',
+    time: '09:14',
+  ),
+  _FakeChat(
+    name: 'Работа',
+    lastMessage: 'Созвон перенесли на 15:00',
+    time: 'вчера',
+  ),
+  _FakeChat(
+    name: 'Аптека на углу',
+    lastMessage: 'Заказ готов к выдаче',
+    time: 'пн',
+  ),
 ];
 
 /// Decoy view opened by entering the Fake PIN instead of the real Private
@@ -27,12 +43,13 @@ class FakeModeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.backgroundLight,
+        backgroundColor: colors.background,
         elevation: 0,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: colors.textPrimary,
         title: const Text('Чаты'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),

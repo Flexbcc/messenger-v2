@@ -95,4 +95,73 @@ void main() {
       );
     },
   );
+
+  test(
+    'all visibility dependencies reference existing settings and are acyclic',
+    () {
+      final raw = File(
+        'assets/settings/ouo-settings-spec.json',
+      ).readAsStringSync();
+      final catalog = SettingsCatalog.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      ).withoutSettings(SettingsImplStatus.retiredIds);
+      final settings = {
+        for (final def in catalog.sections.expand((s) => s.settings))
+          def.id: def,
+      };
+
+      for (final def in settings.values) {
+        final dependency = def.visibleIf?.setting;
+        if (dependency == null) continue;
+        expect(
+          settings.containsKey(dependency),
+          isTrue,
+          reason: '${def.id} depends on missing $dependency',
+        );
+
+        final visited = <String>{def.id};
+        var current = dependency;
+        while (settings[current]?.visibleIf != null) {
+          expect(
+            visited.add(current),
+            isTrue,
+            reason: 'visibility dependency cycle at ${def.id}',
+          );
+          current = settings[current]!.visibleIf!.setting;
+        }
+      }
+    },
+  );
+
+  test(
+    'private settings follow primary PIN, additional PIN, secret features',
+    () {
+      final raw = File(
+        'assets/settings/ouo-settings-spec.json',
+      ).readAsStringSync();
+      final catalog = SettingsCatalog.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      ).withoutSettings(SettingsImplStatus.retiredIds);
+
+      expect(
+        catalog.settingById('security.fake_pin_enabled')?.visibleIf?.setting,
+        'security.pin_enabled',
+      );
+      expect(
+        catalog.settingById('security.fake_pin')?.visibleIf?.setting,
+        'security.fake_pin_enabled',
+      );
+      expect(
+        catalog.settingById('hidden.enabled')?.visibleIf?.setting,
+        'security.fake_pin_enabled',
+      );
+      expect(
+        catalog
+            .settingById('devices.hidden_access_default')
+            ?.visibleIf
+            ?.setting,
+        'security.fake_pin_enabled',
+      );
+    },
+  );
 }

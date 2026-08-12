@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/extensions/context_extensions.dart';
 import '../state/app_controller.dart';
-import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
 import '../widgets/app_button.dart';
@@ -31,7 +31,12 @@ class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
     final groupName = _groupNameController.text.trim();
     final members = _members
         .where((m) => m.idController.text.trim().isNotEmpty)
-        .map((m) => MapEntry(m.idController.text.trim(), m.nameController.text.trim()))
+        .map(
+          (m) => MapEntry(
+            m.idController.text.trim(),
+            m.nameController.text.trim(),
+          ),
+        )
         .toList();
     if (groupName.isEmpty || members.isEmpty) return;
 
@@ -43,7 +48,9 @@ class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
       final controller = ref.read(appControllerProvider);
       final conv = await controller.startGroupChat(groupName, members);
       if (mounted) {
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)));
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)),
+        );
       }
     } catch (e) {
       setState(() => _error = 'Не удалось создать группу: $e');
@@ -54,30 +61,45 @@ class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(title: const Text('Новая группа')),
       body: Padding(
         padding: const EdgeInsets.all(AppSpacing.screenPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AppTextField(controller: _groupNameController, hintText: 'Название группы'),
+            AppTextField(
+              controller: _groupNameController,
+              hintText: 'Название группы',
+            ),
             const SizedBox(height: AppSpacing.largeGap),
-            Text('Участники (User ID + подпись):', style: AppTypography.secondary),
+            Text(
+              'Участники (User ID + подпись):',
+              style: AppTypography.secondary.copyWith(
+                color: colors.textSecondary,
+              ),
+            ),
             const SizedBox(height: AppSpacing.smallGap),
             Expanded(
               child: ListView.separated(
                 itemCount: _members.length,
-                separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.smallGap),
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: AppSpacing.smallGap),
                 itemBuilder: (context, i) => Row(
                   children: [
                     Expanded(
-                      child: AppTextField(controller: _members[i].idController, hintText: 'user id'),
+                      child: AppTextField(
+                        controller: _members[i].idController,
+                        hintText: 'user id',
+                      ),
                     ),
                     const SizedBox(width: AppSpacing.smallGap),
                     Expanded(
-                      child: AppTextField(controller: _members[i].nameController, hintText: 'имя'),
+                      child: AppTextField(
+                        controller: _members[i].nameController,
+                        hintText: 'имя',
+                      ),
                     ),
                   ],
                 ),
@@ -85,24 +107,32 @@ class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
             ),
             TextButton.icon(
               onPressed: () => setState(() => _members.add(_Member())),
-              icon: const Icon(Icons.add, color: AppColors.accentBlue),
-              label: Text('Добавить участника', style: AppTypography.body.copyWith(color: AppColors.accentBlue)),
+              icon: Icon(Icons.add, color: colors.primary),
+              label: Text(
+                'Добавить участника',
+                style: AppTypography.body.copyWith(color: colors.primary),
+              ),
             ),
             Container(
               padding: const EdgeInsets.all(AppSpacing.cardPadding),
               decoration: BoxDecoration(
-                color: AppColors.surfaceLight,
+                color: colors.card,
                 borderRadius: BorderRadius.circular(AppRadii.medium),
               ),
               child: Text(
                 'Групповые сообщения шифруются end-to-end по sender-key схеме '
                 '(см. spec/0301_GROUP_MESSAGING.md).',
-                style: AppTypography.caption,
+                style: AppTypography.caption.copyWith(
+                  color: colors.textSecondary,
+                ),
               ),
             ),
             if (_error != null) ...[
               const SizedBox(height: AppSpacing.mediumGap),
-              Text(_error!, style: AppTypography.caption.copyWith(color: AppColors.dangerRed)),
+              Text(
+                _error!,
+                style: AppTypography.caption.copyWith(color: colors.danger),
+              ),
             ],
             const SizedBox(height: AppSpacing.mediumGap),
             AppButton(

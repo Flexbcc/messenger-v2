@@ -46,7 +46,9 @@ class SettingsCatalogBlockScreen extends ConsumerWidget {
             children: [
               const SizedBox(height: AppSpacing.md),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screenPadding,
+                ),
                 child: AppCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,7 +82,9 @@ class SettingsCatalogBlockScreen extends ConsumerWidget {
                       trailing: AppTile.chevron(context),
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => SettingsCatalogSectionScreen(sectionId: sections[i].id),
+                          builder: (_) => SettingsCatalogSectionScreen(
+                            sectionId: sections[i].id,
+                          ),
                         ),
                       ),
                     ),

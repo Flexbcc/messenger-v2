@@ -8,8 +8,7 @@ import '../core/ui/app_tile.dart';
 import '../models/settings_catalog.dart';
 import '../state/settings_catalog_controller.dart';
 import '../state/theme_settings.dart';
-import '../widgets/setting_title_label.dart';
-import 'settings_catalog_section_screen.dart';
+import '../utils/setting_option_labels.dart';
 
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
@@ -32,20 +31,6 @@ class AppearanceScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: AppSpacing.xl),
         children: [
           const SizedBox(height: AppSpacing.md),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-            child: AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SettingsStubLegend(),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text('Тема — рабочая. Остальное из спеки.', style: context.textStyles.caption),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
           AppSettingsGroup(
             title: 'Тема',
             children: [
@@ -54,10 +39,15 @@ class AppearanceScreen extends ConsumerWidget {
                   leading: Icon(_options[i].$3, color: colors.textSecondary),
                   title: _options[i].$2,
                   trailing: themeSettings.mode == _options[i].$1
-                      ? Icon(Icons.check_circle, color: colors.primary, size: 20)
+                      ? Icon(
+                          Icons.check_circle,
+                          color: colors.primary,
+                          size: 20,
+                        )
                       : null,
                   showDivider: i < _options.length - 1,
-                  onTap: () => ref.read(themeSettingsProvider).setMode(_options[i].$1),
+                  onTap: () =>
+                      ref.read(themeSettingsProvider).setMode(_options[i].$1),
                 ),
             ],
           ),
@@ -71,45 +61,69 @@ class AppearanceScreen extends ConsumerWidget {
                 ref.read(settingsCatalogValuesProvider).load(catalog);
               }
               return AppSettingsGroup(
-                title: 'Дополнительно (спека)',
+                title: 'Интерфейс',
                 children: [
-                  _catalogSelect(context, ref, catalog, 'appearance.text_size', 'Размер текста'),
-                  _catalogBool(context, ref, catalog, 'appearance.compact', 'Компактный режим'),
-                  _catalogBool(context, ref, catalog, 'appearance.animations', 'Анимации'),
-                  _catalogBool(context, ref, catalog, 'appearance.reduce_motion', 'Уменьшить движение'),
-                  _catalogSelect(context, ref, catalog, 'appearance.chat_bubbles', 'Пузыри чата', last: true),
+                  _catalogSelect(
+                    context,
+                    ref,
+                    catalog,
+                    'appearance.text_size',
+                    'Размер текста',
+                  ),
+                  _catalogBool(
+                    context,
+                    ref,
+                    catalog,
+                    'appearance.compact',
+                    'Компактный режим',
+                  ),
+                  _catalogBool(
+                    context,
+                    ref,
+                    catalog,
+                    'appearance.animations',
+                    'Анимации',
+                  ),
+                  _catalogBool(
+                    context,
+                    ref,
+                    catalog,
+                    'appearance.reduce_motion',
+                    'Уменьшить движение',
+                  ),
+                  _catalogSelect(
+                    context,
+                    ref,
+                    catalog,
+                    'appearance.chat_bubbles',
+                    'Пузыри чата',
+                    last: true,
+                  ),
                 ],
               );
             },
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-            child: AppCard(
-              padding: EdgeInsets.zero,
-              child: AppTile(
-                title: 'Все настройки раздела',
-                subtitle: 'appearance — полный список из каталога',
-                trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SettingsCatalogSectionScreen(sectionId: 'appearance')),
-                ),
-              ),
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _catalogBool(BuildContext context, WidgetRef ref, SettingsCatalog catalog, String id, String label, {bool last = false}) {
+  Widget _catalogBool(
+    BuildContext context,
+    WidgetRef ref,
+    SettingsCatalog catalog,
+    String id,
+    String label, {
+    bool last = false,
+  }) {
     final def = catalog.settingById(id);
     if (def == null) return const SizedBox.shrink();
     final values = ref.watch(settingsCatalogValuesProvider);
-    final value = values.loaded ? values.valueOf(def) == true : def.defaultValue == true;
+    final value = values.loaded
+        ? values.valueOf(def) == true
+        : def.defaultValue == true;
     return AppTile(
       title: label,
-      titleWidget: SettingTitleLabel(settingId: id, title: label),
       trailing: Switch.adaptive(
         value: value,
         onChanged: values.loaded
@@ -123,20 +137,66 @@ class AppearanceScreen extends ConsumerWidget {
     );
   }
 
-  Widget _catalogSelect(BuildContext context, WidgetRef ref, SettingsCatalog catalog, String id, String label, {bool last = false}) {
+  Widget _catalogSelect(
+    BuildContext context,
+    WidgetRef ref,
+    SettingsCatalog catalog,
+    String id,
+    String label, {
+    bool last = false,
+  }) {
     final def = catalog.settingById(id);
     if (def == null) return const SizedBox.shrink();
     final values = ref.watch(settingsCatalogValuesProvider);
-    final raw = values.loaded ? values.valueOf(def)?.toString() ?? '' : def.defaultValue?.toString() ?? '';
+    final raw = values.loaded
+        ? values.valueOf(def)?.toString() ?? ''
+        : def.defaultValue?.toString() ?? '';
     return AppTile(
       title: label,
-      titleWidget: SettingTitleLabel(settingId: id, title: label),
-      trailingText: raw,
+      trailingText: settingOptionLabel(raw),
       trailing: AppTile.chevron(context),
       showDivider: !last,
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const SettingsCatalogSectionScreen(sectionId: 'appearance')),
-      ),
+      onTap: values.loaded
+          ? () async {
+              final selected = await showDialog<String>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: Text(label),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final option in def.options)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(settingOptionLabel(option)),
+                            trailing: option == raw
+                                ? Icon(
+                                    Icons.check,
+                                    color: context.colors.primary,
+                                  )
+                                : null,
+                            onTap: () =>
+                                Navigator.of(dialogContext).pop(option),
+                          ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: const Text('Отмена'),
+                    ),
+                  ],
+                ),
+              );
+              if (selected != null) {
+                await ref
+                    .read(settingsCatalogValuesProvider)
+                    .setValue(def, selected);
+              }
+            }
+          : null,
     );
   }
 }

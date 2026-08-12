@@ -2,6 +2,36 @@ import 'package:flutter/material.dart';
 
 import 'settings_catalog.dart';
 
+/// Catalog sections represented by a richer first-class screen on the main
+/// settings hub. These sections must not be listed there a second time.
+const kDedicatedSettingsSections = <String, String>{
+  'profile': 'profile',
+  'identity': 'profile',
+  'appearance': 'appearance',
+  'devices': 'devices',
+  'notifications': 'notifications',
+  'data': 'data_storage',
+  'backup': 'data_storage',
+  'security': 'security',
+  'hidden_chats': 'security',
+};
+
+/// Settings that remain visible when a catalog section is embedded in a
+/// richer first-class screen. Navigation actions owned by the parent are
+/// deliberately excluded to prevent parent -> catalog -> parent cycles.
+const kEmbeddedCatalogSettingIds = <String, Set<String>>{
+  'profile': {'profile.language', 'profile.time_format', 'profile.date_format'},
+};
+
+/// Internal controls hidden from the everyday settings surface. They are
+/// exposed only after explicitly unlocking the service mode from the title.
+const kServiceSettingsSectionIds = <String>{
+  'node',
+  'sync',
+  'storage_ownership',
+  'developer',
+};
+
 /// Thematic grouping of catalog sections for settings navigation.
 class SettingsBlock {
   const SettingsBlock({

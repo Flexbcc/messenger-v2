@@ -8,20 +8,33 @@ import '../core/ui/app_card.dart';
 import '../core/ui/app_switch_tile.dart';
 import '../core/ui/app_tile.dart';
 import '../models/settings_catalog.dart';
+import '../models/settings_blocks.dart';
 import '../services/catalog_list_store.dart';
 import '../services/settings_catalog_actions.dart';
 import '../state/catalog_runtime_values.dart';
 import '../state/settings_catalog_controller.dart';
 import '../utils/setting_option_labels.dart';
+import '../utils/contact_field_format.dart';
 import '../widgets/setting_title_label.dart';
 
 /// Renders a single catalog section: every setting becomes the right control
 /// for its `type`, honoring `visible_if` dependencies. Values persist via
 /// [SettingsCatalogValues] and sync to runtime through the catalog bridge.
 class SettingsCatalogSectionScreen extends ConsumerWidget {
-  const SettingsCatalogSectionScreen({super.key, required this.sectionId});
+  const SettingsCatalogSectionScreen({
+    super.key,
+    required this.sectionId,
+    this.visibleSettingIds,
+    this.titleOverride,
+  });
 
   final String sectionId;
+
+  /// Optional presentation filter for a dedicated parent screen. This keeps
+  /// the catalog as the source of setting definitions without exposing
+  /// actions that navigate back to that parent and create a route cycle.
+  final Set<String>? visibleSettingIds;
+  final String? titleOverride;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,7 +62,7 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
         if (!values.loaded) {
           ref.read(settingsCatalogValuesProvider).load(catalog);
           return Scaffold(
-            appBar: AppBar(title: Text(section.title)),
+            appBar: AppBar(title: Text(titleOverride ?? section.title)),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
@@ -57,6 +70,17 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
         final runtime =
             runtimeAsync.valueOrNull ?? const CatalogRuntimeValues();
         var visible = section.settings.where(values.isVisible).toList();
+        final embeddedIds = kEmbeddedCatalogSettingIds[sectionId];
+        if (embeddedIds != null) {
+          visible = visible
+              .where((setting) => embeddedIds.contains(setting.id))
+              .toList();
+        }
+        if (visibleSettingIds != null) {
+          visible = visible
+              .where((setting) => visibleSettingIds!.contains(setting.id))
+              .toList();
+        }
         if (sectionId == 'developer' &&
             values.valueById('developer.enabled') != true) {
           visible = visible
@@ -73,7 +97,7 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
           listStore: CatalogListStore(),
         );
         return Scaffold(
-          appBar: AppBar(title: Text(section.title)),
+          appBar: AppBar(title: Text(titleOverride ?? section.title)),
           body: ListView(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.screenPadding,
@@ -143,6 +167,50 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
         );
 
       case 'single_select':
+        if (def.options.length <= 5) {
+          return AppCard(
+            padding: EdgeInsets.zero,
+            child: AppTile(
+              title: def.title,
+              titleWidget: titleW,
+              subtitle: _subtitle(def),
+              trailing: PopupMenuButton<String>(
+                tooltip: def.title,
+                initialValue: value?.toString(),
+                position: PopupMenuPosition.under,
+                onSelected: (picked) => controller.setValue(def, picked),
+                itemBuilder: (menuContext) => [
+                  for (final option in def.options)
+                    PopupMenuItem<String>(
+                      value: option,
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(_labelForOption(def, option))),
+                          if (option == value?.toString())
+                            Icon(Icons.check, color: context.colors.primary),
+                        ],
+                      ),
+                    ),
+                ],
+                child: Padding(
+                  padding: const EdgeInsets.only(left: AppSpacing.sm),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _labelForOption(def, value?.toString()),
+                        style: context.textStyles.caption.copyWith(
+                          color: context.colors.textMuted,
+                        ),
+                      ),
+                      const Icon(Icons.arrow_drop_down),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
         return AppCard(
           padding: EdgeInsets.zero,
           child: AppTile(
@@ -161,6 +229,46 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
         final selected = (value is List)
             ? value.map((e) => e.toString()).toList()
             : <String>[];
+        if (def.options.length <= 5) {
+          return AppCard(
+            padding: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.cardPadding,
+                12,
+                AppSpacing.cardPadding,
+                12,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  titleW,
+                  if (_subtitle(def) != null) ...[
+                    const SizedBox(height: 2),
+                    Text(_subtitle(def)!, style: context.textStyles.caption),
+                  ],
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      for (final option in def.options)
+                        FilterChip(
+                          label: Text(_labelForOption(def, option)),
+                          selected: selected.contains(option),
+                          onSelected: (enabled) {
+                            final next = [...selected];
+                            enabled ? next.add(option) : next.remove(option);
+                            controller.setValue(def, next);
+                          },
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         return AppCard(
           padding: EdgeInsets.zero,
           child: AppTile(
@@ -252,10 +360,7 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
           child: AppTile(
             title: def.title,
             titleWidget: titleW,
-            subtitle: _subtitle(
-              def,
-              fallback: 'Нажмите для редактирования списка',
-            ),
+            subtitle: _subtitle(def, fallback: _listPrompt(def.id)),
             trailing: AppTile.chevron(context),
             onTap: () => actions.editList(def),
           ),
@@ -282,7 +387,12 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
     if (lower.startsWith('switch ') ||
         lower.startsWith('choice of ') ||
         lower.startsWith('information description') ||
+        lower.startsWith('переключатель') ||
+        lower.startsWith('управляемый список') ||
+        lower.startsWith('выбор из') ||
         lower.contains('value true') ||
+        lower.contains('значение true') ||
+        lower.contains('false отключает') ||
         lower.contains('json_type') ||
         lower.contains('из фиксированного списка')) {
       return null;
@@ -292,6 +402,22 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
 
   String? _subtitle(SettingDef def, {String? fallback}) {
     return _friendlyDescription(def) ?? fallback;
+  }
+
+  String _listPrompt(String id) {
+    if (id.contains('users') ||
+        id.contains('contacts') ||
+        id.contains('allowlist') ||
+        id.contains('trusted') ||
+        id.contains('blocked') ||
+        id.contains('visibility_list') ||
+        id.contains('last_seen_list')) {
+      return 'Выбрать контакты';
+    }
+    if (id.contains('chat')) return 'Выбрать чаты';
+    if (id.contains('schedule')) return 'Настроить расписание';
+    if (id.contains('node')) return 'Выбрать узлы';
+    return 'Настроить список';
   }
 
   String _labelForOption(SettingDef def, String? raw) {
@@ -403,7 +529,9 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
     String current, {
     bool number = false,
   }) {
-    final ctrl = TextEditingController(text: current);
+    final ctrl = TextEditingController(
+      text: def.format == 'phone' ? formatPhoneNumber(current) : current,
+    );
     String? error;
     return showDialog<String>(
       context: context,
@@ -423,10 +551,21 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
                   : TextInputType.text,
               inputFormatters: number
                   ? [FilteringTextInputFormatter.digitsOnly]
+                  : def.format == 'phone'
+                  ? const [PhoneNumberInputFormatter()]
                   : null,
               maxLength: def.maxLength,
               decoration: InputDecoration(
-                hintText: def.description,
+                hintText: def.format == 'phone'
+                    ? '+7 999 123-45-67'
+                    : def.format == 'email'
+                    ? 'name@example.com'
+                    : def.description,
+                helperText: def.format == 'phone'
+                    ? 'Код страны определяется по международному префиксу'
+                    : def.format == 'email'
+                    ? 'Например: name@example.com'
+                    : null,
                 errorText: error,
               ),
             ),
@@ -437,15 +576,18 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
               ),
               TextButton(
                 onPressed: () {
+                  final normalized = def.format == 'phone'
+                      ? normalizePhoneNumber(ctrl.text)
+                      : ctrl.text.trim();
                   final validation = def.validateInput(
-                    ctrl.text,
+                    normalized,
                     number: number,
                   );
                   if (validation != null) {
                     setLocal(() => error = validation);
                     return;
                   }
-                  Navigator.of(ctx).pop(ctrl.text.trim());
+                  Navigator.of(ctx).pop(normalized);
                 },
                 child: const Text('OK'),
               ),

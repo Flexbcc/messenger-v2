@@ -330,9 +330,40 @@ class ApiClient {
     return _decodeOrThrow(resp) as Map<String, dynamic>;
   }
 
-  Future<List<dynamic>> getUserDeviceBundles(String userId) async {
-    final resp = await _get(_homeUri('/users/$userId/devices'));
+  Future<List<dynamic>> getUserDeviceBundles(
+    String userId, {
+    String? excludeDeviceId,
+  }) async {
+    final uri = _homeUri('/users/$userId/devices').replace(
+      queryParameters: {
+        if (excludeDeviceId != null) 'exclude_device_id': excludeDeviceId,
+      },
+    );
+    final resp = await _get(uri);
     return _decodeOrThrow(resp) as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getDevicePreKeyBundle(
+    String userId,
+    String deviceId,
+  ) async {
+    final resp = await _get(
+      _homeUri('/users/$userId/devices/$deviceId/prekey-bundle'),
+    );
+    final data = _decodeOrThrow(resp) as Map<String, dynamic>;
+    return data['bundle'] as Map<String, dynamic>;
+  }
+
+  Future<void> publishIdentityBundle(
+    String deviceId,
+    Map<String, dynamic> bundle,
+  ) async {
+    final resp = await http.put(
+      _homeUri('/devices/$deviceId/identity-bundle'),
+      headers: _headers,
+      body: jsonEncode({'identity_key_bundle': bundle}),
+    );
+    _decodeOrThrow(resp);
   }
 
   Future<List<dynamic>> listConversations() async {

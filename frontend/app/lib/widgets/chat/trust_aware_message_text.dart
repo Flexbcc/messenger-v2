@@ -5,7 +5,10 @@ import 'package:flutter/services.dart';
 import '../../models/contact_trust.dart';
 import '../../services/settings_runtime.dart';
 
-final _urlPattern = RegExp(r'https?://[^\s<>"{}|\\^`\[\]]+', caseSensitive: false);
+final _urlPattern = RegExp(
+  r'https?://[^\s<>"{}|\\^`\[\]]+',
+  caseSensitive: false,
+);
 
 Iterable<RegExpMatch> findUrls(String text) => _urlPattern.allMatches(text);
 
@@ -73,11 +76,18 @@ class _TrustAwareMessageTextState extends State<TrustAwareMessageText> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.link_off, size: 12, color: widget.style.color?.withValues(alpha: 0.6)),
+              Icon(
+                Icons.link_off,
+                size: 12,
+                color: widget.style.color?.withValues(alpha: 0.6),
+              ),
               const SizedBox(width: 4),
               Text(
                 'Ссылка скрыта — повысьте уровень доверия',
-                style: widget.style.copyWith(fontSize: 11, fontStyle: FontStyle.italic),
+                style: widget.style.copyWith(
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ),
@@ -112,8 +122,11 @@ class _TrustAwareMessageTextState extends State<TrustAwareMessageText> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        RichText(text: TextSpan(style: widget.style, children: spans)),
-        for (final url in urls.take(3)) _LocalLinkPreviewChip(url: url, style: widget.style),
+        RichText(
+          text: TextSpan(style: widget.style, children: spans),
+        ),
+        for (final url in urls.take(3))
+          _LocalLinkPreviewChip(url: url, style: widget.style),
       ],
     );
   }
@@ -135,7 +148,9 @@ class _TrustAwareMessageTextState extends State<TrustAwareMessageText> {
               onTap: () {
                 Clipboard.setData(ClipboardData(text: url));
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ссылка скопирована')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Ссылка скопирована')),
+                );
               },
             ),
           ],
@@ -167,12 +182,19 @@ class _LocalLinkPreviewChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.link, size: 14, color: style.color?.withValues(alpha: 0.7)),
+            Icon(
+              Icons.link,
+              size: 14,
+              color: style.color?.withValues(alpha: 0.7),
+            ),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
                 host,
-                style: style.copyWith(fontSize: 12, fontWeight: FontWeight.w500),
+                style: style.copyWith(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

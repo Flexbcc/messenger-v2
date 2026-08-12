@@ -26,7 +26,9 @@ class DeviceSessionMetaStore {
   }
 
   /// Snapshot for this install — called after login / on resume.
-  Future<DeviceSessionMeta> captureCurrent({required bool websocketConnected}) async {
+  Future<DeviceSessionMeta> captureCurrent({
+    required bool websocketConnected,
+  }) async {
     final os = defaultTargetPlatform.name;
     String? osVersion;
     if (!kIsWeb) {

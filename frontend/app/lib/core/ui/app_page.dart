@@ -28,20 +28,13 @@ class AppPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final body = Padding(
-      padding: padding ?? EdgeInsets.zero,
-      child: child,
-    );
+    final body = Padding(padding: padding ?? EdgeInsets.zero, child: child);
 
     return Scaffold(
       backgroundColor: context.colors.background,
       appBar: title == null
           ? null
-          : AppBar(
-              title: Text(title!),
-              leading: leading,
-              actions: actions,
-            ),
+          : AppBar(title: Text(title!), leading: leading, actions: actions),
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,
       body: scroll

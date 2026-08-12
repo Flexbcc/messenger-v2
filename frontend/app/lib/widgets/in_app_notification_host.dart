@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/extensions/context_extensions.dart';
 import '../services/in_app_notification_service.dart';
 import '../services/notification_navigation_service.dart';
-import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
 
@@ -46,6 +46,7 @@ class _InAppNotificationHostState extends State<InAppNotificationHost> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Stack(
       children: [
         widget.child,
@@ -57,14 +58,19 @@ class _InAppNotificationHostState extends State<InAppNotificationHost> {
             child: Material(
               elevation: 4,
               borderRadius: BorderRadius.circular(AppRadii.medium),
-              color: AppColors.textPrimary,
+              color: colors.surfaceElevated,
               child: InkWell(
                 borderRadius: BorderRadius.circular(AppRadii.medium),
                 onTap: () {
-                  final convId = _current!.conversationId;
+                  final event = _current!;
                   setState(() => _current = null);
-                  if (convId != null) {
-                    NotificationNavigationService.instance.openConversation(convId);
+                  if (event.conversationId != null) {
+                    NotificationNavigationService.instance.openConversation(
+                      event.conversationId!,
+                    );
+                  } else if (event.action ==
+                      InAppNotificationAction.openLoginApproval) {
+                    NotificationNavigationService.instance.openLoginApproval();
                   }
                 },
                 child: Padding(
@@ -74,7 +80,11 @@ class _InAppNotificationHostState extends State<InAppNotificationHost> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.notifications_none, color: AppColors.textInverse, size: 20),
+                      Icon(
+                        Icons.notifications_none,
+                        color: colors.primary,
+                        size: 20,
+                      ),
                       const SizedBox(width: AppSpacing.smallGap),
                       Expanded(
                         child: Column(
@@ -83,13 +93,17 @@ class _InAppNotificationHostState extends State<InAppNotificationHost> {
                           children: [
                             Text(
                               _current!.title,
-                              style: AppTypography.subtitle.copyWith(color: AppColors.textInverse),
+                              style: AppTypography.subtitle.copyWith(
+                                color: colors.textPrimary,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               _current!.body,
-                              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                              style: AppTypography.caption.copyWith(
+                                color: colors.textSecondary,
+                              ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -97,7 +111,11 @@ class _InAppNotificationHostState extends State<InAppNotificationHost> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: AppColors.textMuted, size: 18),
+                        icon: Icon(
+                          Icons.close,
+                          color: colors.textMuted,
+                          size: 18,
+                        ),
                         onPressed: () => setState(() => _current = null),
                       ),
                     ],

@@ -29,10 +29,10 @@ class AppAvatar extends StatelessWidget {
   final bool showOnline;
 
   double get _diameter => switch (size) {
-        AppAvatarSize.small => AppAvatarSizes.small,
-        AppAvatarSize.medium => AppAvatarSizes.medium,
-        AppAvatarSize.large => AppAvatarSizes.large,
-      };
+    AppAvatarSize.small => AppAvatarSizes.small,
+    AppAvatarSize.medium => AppAvatarSizes.medium,
+    AppAvatarSize.large => AppAvatarSizes.large,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -40,14 +40,23 @@ class AppAvatar extends StatelessWidget {
 
     Widget avatar;
     if (imageProvider != null) {
-      avatar = CircleAvatar(radius: _diameter / 2, backgroundImage: imageProvider);
+      avatar = CircleAvatar(
+        radius: _diameter / 2,
+        backgroundImage: imageProvider,
+      );
     } else {
-      final initials = (label != null && label!.isNotEmpty) ? label!.characters.first.toUpperCase() : '';
+      final initials = (label != null && label!.isNotEmpty)
+          ? label!.characters.first.toUpperCase()
+          : '';
       avatar = CircleAvatar(
         radius: _diameter / 2,
         backgroundColor: colors.cardSoft,
         child: isGroup
-            ? Icon(Icons.groups_outlined, color: colors.textSecondary, size: _diameter * 0.45)
+            ? Icon(
+                Icons.groups_outlined,
+                color: colors.textSecondary,
+                size: _diameter * 0.45,
+              )
             : Text(
                 initials,
                 style: TextStyle(

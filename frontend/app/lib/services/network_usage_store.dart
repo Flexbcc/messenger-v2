@@ -32,7 +32,8 @@ class NetworkUsageStore {
   Future<void> _rollPeriodIfNeeded() async {
     final startMs = await _store.getInt(_periodStartKey, 0);
     final now = DateTime.now().millisecondsSinceEpoch;
-    if (startMs == 0 || now - startMs > const Duration(days: 30).inMilliseconds) {
+    if (startMs == 0 ||
+        now - startMs > const Duration(days: 30).inMilliseconds) {
       await _store.setInt(_periodStartKey, now);
       await _store.setInt(_sentKey, 0);
       await _store.setInt(_receivedKey, 0);

@@ -24,7 +24,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// `loadSignedPreKey` throw `InvalidKeyIdException` when absent; identity
 /// trust is trust-on-first-use per contact device.
 class PersistentSignalProtocolStore implements SignalProtocolStore {
-  PersistentSignalProtocolStore(this._prefs, this._identityKeyPair, this._registrationId);
+  PersistentSignalProtocolStore(
+    this._prefs,
+    this._identityKeyPair,
+    this._registrationId,
+  );
 
   final SharedPreferences _prefs;
   final IdentityKeyPair _identityKeyPair;
@@ -35,8 +39,10 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
   static const _signedPreKeyPrefix = 'sp_signedprekey_v1::';
   static const _identityPrefix = 'sp_identity_v1::';
 
-  String _sessionKey(SignalProtocolAddress a) => '$_sessionPrefix${a.getName()}::${a.getDeviceId()}';
-  String _identityKey(SignalProtocolAddress a) => '$_identityPrefix${a.getName()}::${a.getDeviceId()}';
+  String _sessionKey(SignalProtocolAddress a) =>
+      '$_sessionPrefix${a.getName()}::${a.getDeviceId()}';
+  String _identityKey(SignalProtocolAddress a) =>
+      '$_identityPrefix${a.getName()}::${a.getDeviceId()}';
 
   // --- IdentityKeyStore ---
 
@@ -54,16 +60,26 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
   }
 
   @override
-  Future<bool> saveIdentity(SignalProtocolAddress address, IdentityKey? identityKey) async {
+  Future<bool> saveIdentity(
+    SignalProtocolAddress address,
+    IdentityKey? identityKey,
+  ) async {
     if (identityKey == null) return false;
     final existing = await getIdentity(address);
     if (existing == identityKey) return false;
-    await _prefs.setString(_identityKey(address), base64Encode(identityKey.serialize()));
+    await _prefs.setString(
+      _identityKey(address),
+      base64Encode(identityKey.serialize()),
+    );
     return true;
   }
 
   @override
-  Future<bool> isTrustedIdentity(SignalProtocolAddress address, IdentityKey? identityKey, Direction direction) async {
+  Future<bool> isTrustedIdentity(
+    SignalProtocolAddress address,
+    IdentityKey? identityKey,
+    Direction direction,
+  ) async {
     if (identityKey == null) return false;
     final trusted = await getIdentity(address);
     return trusted == null || trusted == identityKey;
@@ -74,48 +90,69 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
   @override
   Future<PreKeyRecord> loadPreKey(int preKeyId) async {
     final b64 = _prefs.getString('$_preKeyPrefix$preKeyId');
-    if (b64 == null) throw InvalidKeyIdException('No such prekeyrecord! - $preKeyId');
+    if (b64 == null) {
+      throw InvalidKeyIdException('No such prekeyrecord! - $preKeyId');
+    }
     return PreKeyRecord.fromBuffer(base64Decode(b64));
   }
 
   @override
   Future<void> storePreKey(int preKeyId, PreKeyRecord record) async {
-    await _prefs.setString('$_preKeyPrefix$preKeyId', base64Encode(record.serialize()));
+    await _prefs.setString(
+      '$_preKeyPrefix$preKeyId',
+      base64Encode(record.serialize()),
+    );
   }
 
   @override
-  Future<bool> containsPreKey(int preKeyId) async => _prefs.containsKey('$_preKeyPrefix$preKeyId');
+  Future<bool> containsPreKey(int preKeyId) async =>
+      _prefs.containsKey('$_preKeyPrefix$preKeyId');
 
   @override
-  Future<void> removePreKey(int preKeyId) async => _prefs.remove('$_preKeyPrefix$preKeyId');
+  Future<void> removePreKey(int preKeyId) async =>
+      _prefs.remove('$_preKeyPrefix$preKeyId');
 
   // --- SignedPreKeyStore ---
 
   @override
   Future<SignedPreKeyRecord> loadSignedPreKey(int signedPreKeyId) async {
     final b64 = _prefs.getString('$_signedPreKeyPrefix$signedPreKeyId');
-    if (b64 == null) throw InvalidKeyIdException('No such signedprekeyrecord! $signedPreKeyId');
+    if (b64 == null) {
+      throw InvalidKeyIdException(
+        'No such signedprekeyrecord! $signedPreKeyId',
+      );
+    }
     return SignedPreKeyRecord.fromSerialized(base64Decode(b64));
   }
 
   @override
   Future<List<SignedPreKeyRecord>> loadSignedPreKeys() async {
     return [
-      for (final key in _prefs.getKeys().where((k) => k.startsWith(_signedPreKeyPrefix)))
+      for (final key in _prefs.getKeys().where(
+        (k) => k.startsWith(_signedPreKeyPrefix),
+      ))
         SignedPreKeyRecord.fromSerialized(base64Decode(_prefs.getString(key)!)),
     ];
   }
 
   @override
-  Future<void> storeSignedPreKey(int signedPreKeyId, SignedPreKeyRecord record) async {
-    await _prefs.setString('$_signedPreKeyPrefix$signedPreKeyId', base64Encode(record.serialize()));
+  Future<void> storeSignedPreKey(
+    int signedPreKeyId,
+    SignedPreKeyRecord record,
+  ) async {
+    await _prefs.setString(
+      '$_signedPreKeyPrefix$signedPreKeyId',
+      base64Encode(record.serialize()),
+    );
   }
 
   @override
-  Future<bool> containsSignedPreKey(int signedPreKeyId) async => _prefs.containsKey('$_signedPreKeyPrefix$signedPreKeyId');
+  Future<bool> containsSignedPreKey(int signedPreKeyId) async =>
+      _prefs.containsKey('$_signedPreKeyPrefix$signedPreKeyId');
 
   @override
-  Future<void> removeSignedPreKey(int signedPreKeyId) async => _prefs.remove('$_signedPreKeyPrefix$signedPreKeyId');
+  Future<void> removeSignedPreKey(int signedPreKeyId) async =>
+      _prefs.remove('$_signedPreKeyPrefix$signedPreKeyId');
 
   // --- SessionStore ---
 
@@ -131,25 +168,36 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
     final prefix = '$_sessionPrefix$name::';
     return [
       for (final key in _prefs.getKeys().where((k) => k.startsWith(prefix)))
-        if (int.tryParse(key.substring(prefix.length)) case final deviceId? when deviceId != 1) deviceId,
+        if (int.tryParse(key.substring(prefix.length)) case final deviceId?
+            when deviceId != 1)
+          deviceId,
     ];
   }
 
   @override
-  Future<void> storeSession(SignalProtocolAddress address, SessionRecord record) async {
-    await _prefs.setString(_sessionKey(address), base64Encode(record.serialize()));
+  Future<void> storeSession(
+    SignalProtocolAddress address,
+    SessionRecord record,
+  ) async {
+    await _prefs.setString(
+      _sessionKey(address),
+      base64Encode(record.serialize()),
+    );
   }
 
   @override
-  Future<bool> containsSession(SignalProtocolAddress address) async => _prefs.containsKey(_sessionKey(address));
+  Future<bool> containsSession(SignalProtocolAddress address) async =>
+      _prefs.containsKey(_sessionKey(address));
 
   @override
-  Future<void> deleteSession(SignalProtocolAddress address) async => _prefs.remove(_sessionKey(address));
+  Future<void> deleteSession(SignalProtocolAddress address) async =>
+      _prefs.remove(_sessionKey(address));
 
   @override
   Future<void> deleteAllSessions(String name) async {
     final prefix = '$_sessionPrefix$name::';
-    for (final key in _prefs.getKeys().where((k) => k.startsWith(prefix)).toList()) {
+    for (final key
+        in _prefs.getKeys().where((k) => k.startsWith(prefix)).toList()) {
       await _prefs.remove(key);
     }
   }

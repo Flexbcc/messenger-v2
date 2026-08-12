@@ -102,11 +102,17 @@ class _JoinNetworkScreenState extends State<JoinNetworkScreen> {
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: AppSpacing.md),
-                    Text(_error!, style: text.caption.copyWith(color: colors.danger)),
+                    Text(
+                      _error!,
+                      style: text.caption.copyWith(color: colors.danger),
+                    ),
                   ],
                   if (_success != null) ...[
                     const SizedBox(height: AppSpacing.md),
-                    Text(_success!, style: text.caption.copyWith(color: colors.success)),
+                    Text(
+                      _success!,
+                      style: text.caption.copyWith(color: colors.success),
+                    ),
                   ],
                 ],
               ),

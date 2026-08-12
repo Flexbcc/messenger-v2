@@ -11,7 +11,11 @@ import '../../state/app_controller.dart';
 
 /// Key verification UI — safety number / fingerprint (crypto wiring later).
 class VerifyContactScreen extends ConsumerWidget {
-  const VerifyContactScreen({super.key, required this.userId, required this.displayName});
+  const VerifyContactScreen({
+    super.key,
+    required this.userId,
+    required this.displayName,
+  });
 
   final String userId;
   final String displayName;
@@ -55,9 +59,15 @@ class VerifyContactScreen extends ConsumerWidget {
                   ),
                   Divider(height: 1, color: colors.divider),
                   ListTile(
-                    leading: Icon(Icons.fingerprint, color: colors.textSecondary),
+                    leading: Icon(
+                      Icons.fingerprint,
+                      color: colors.textSecondary,
+                    ),
                     title: Text('Сравнить отпечаток', style: text.subtitle),
-                    subtitle: Text('Скоро — требуется backend', style: text.caption),
+                    subtitle: Text(
+                      'Скоро — требуется backend',
+                      style: text.caption,
+                    ),
                   ),
                 ],
               ),
@@ -67,11 +77,15 @@ class VerifyContactScreen extends ConsumerWidget {
               AppButton(
                 label: 'Отметить как доверенный',
                 onPressed: () async {
-                  await ref.read(appControllerProvider).setContactTrustLevel(userId, TrustLevel.trusted);
+                  await ref
+                      .read(appControllerProvider)
+                      .setContactTrustLevel(userId, TrustLevel.trusted);
                   await SecurityMetaStore.instance.recordContactVerification();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Контакт отмечен как доверенный')),
+                      const SnackBar(
+                        content: Text('Контакт отмечен как доверенный'),
+                      ),
                     );
                     Navigator.pop(context);
                   }

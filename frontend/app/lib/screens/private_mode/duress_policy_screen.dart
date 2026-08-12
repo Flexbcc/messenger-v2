@@ -39,7 +39,9 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
     if (!mounted) return;
     setState(() {
       _presetId = data?.presetId ?? 'P2';
-      _channels = List.from(data?.trustedChannels ?? DuressTrustedChannels.both);
+      _channels = List.from(
+        data?.trustedChannels ?? DuressTrustedChannels.both,
+      );
       _loading = false;
     });
   }
@@ -86,9 +88,9 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
       if (!mounted) return;
       setState(() => _presetId = DuressPresets.customId);
     }
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DuressRulesEditorScreen()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const DuressRulesEditorScreen()));
     if (mounted) await _load();
   }
 
@@ -111,7 +113,9 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
             ListTile(
               title: Text(DuressTrustedChannels.label(ch)),
               subtitle: Text(DuressTrustedChannels.description(ch)),
-              trailing: _channelsMatch(ch, _channels) ? const Icon(Icons.check) : null,
+              trailing: _channelsMatch(ch, _channels)
+                  ? const Icon(Icons.check)
+                  : null,
               onTap: () => Navigator.pop(ctx, ch),
             ),
         ],
@@ -136,9 +140,7 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
   Future<void> _testSignal() async {
     final result = await ref.read(appControllerProvider).testDuressDelivery();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result)));
   }
 
   @override
@@ -153,7 +155,9 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
     if (!DuressPolicySession.instance.isUnlocked) {
       return Scaffold(
         appBar: AppBar(title: const Text('Политика безопасности')),
-        body: const Center(child: Text('Сначала разблокируйте защищённый раздел')),
+        body: const Center(
+          child: Text('Сначала разблокируйте защищённый раздел'),
+        ),
       );
     }
 
@@ -176,7 +180,10 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
             title: 'Пресет',
             children: [
               AppTile(
-                leading: Icon(Icons.policy_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.policy_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: DuressPresets.label(_presetId),
                 subtitle: DuressPresets.description(_presetId),
                 trailing: AppTile.chevron(context),
@@ -212,21 +219,32 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
             title: 'Доверенные лица',
             children: [
               AppTile(
-                leading: Icon(Icons.verified_user_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.verified_user_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Список контактов',
-                subtitle: '${DuressPolicySession.instance.data?.trustedUserIds.length ?? 0} выбрано',
+                subtitle:
+                    '${DuressPolicySession.instance.data?.trustedUserIds.length ?? 0} выбрано',
                 trailing: AppTile.chevron(context),
                 onTap: () async {
-                  final enabled = await SettingsRuntime.instance.contactsTrustedEnabled();
+                  final enabled = await SettingsRuntime.instance
+                      .contactsTrustedEnabled();
                   if (!context.mounted) return;
                   if (!enabled) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Список доверенных отключён в настройках контактов')),
+                      const SnackBar(
+                        content: Text(
+                          'Список доверенных отключён в настройках контактов',
+                        ),
+                      ),
                     );
                     return;
                   }
                   await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const TrustedContactsScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const TrustedContactsScreen(),
+                    ),
                   );
                 },
               ),

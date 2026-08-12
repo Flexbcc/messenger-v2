@@ -25,7 +25,12 @@ class NotesStore {
 
   Future<UserNote> create({String body = '', String? title}) async {
     final id = _uuid.v4();
-    final note = UserNote(id: id, body: body, title: title, updatedAt: DateTime.now());
+    final note = UserNote(
+      id: id,
+      body: body,
+      title: title,
+      updatedAt: DateTime.now(),
+    );
     await _persist(note);
     return note;
   }

@@ -60,10 +60,11 @@ class _LoginApprovalScreenState extends ConsumerState<LoginApprovalScreen> {
         );
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      }
     }
   }
 
@@ -132,7 +133,6 @@ class _LoginApprovalScreenState extends ConsumerState<LoginApprovalScreen> {
               children: [
                 AppSwitchTile(
                   title: 'Требовать подтверждение',
-                  subtitle: 'Новые устройства ждут разрешения',
                   value: _enabled,
                   onChanged: _toggleEnabled,
                   showDivider: false,

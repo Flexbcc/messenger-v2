@@ -19,14 +19,14 @@ class ScheduledMessage {
   final String? replyPreview;
 
   String encode() => [
-        id,
-        conversationId,
-        text.replaceAll('|', '/'),
-        sendAt.toIso8601String(),
-        createdAt.toIso8601String(),
-        replyToMessageId ?? '',
-        (replyPreview ?? '').replaceAll('|', '/'),
-      ].join('|');
+    id,
+    conversationId,
+    text.replaceAll('|', '/'),
+    sendAt.toIso8601String(),
+    createdAt.toIso8601String(),
+    replyToMessageId ?? '',
+    (replyPreview ?? '').replaceAll('|', '/'),
+  ].join('|');
 
   factory ScheduledMessage.decode(String raw) {
     final parts = raw.split('|');
@@ -39,7 +39,9 @@ class ScheduledMessage {
       text: parts[2],
       sendAt: DateTime.parse(parts[3]),
       createdAt: DateTime.parse(parts[4]),
-      replyToMessageId: parts.length > 5 && parts[5].isNotEmpty ? parts[5] : null,
+      replyToMessageId: parts.length > 5 && parts[5].isNotEmpty
+          ? parts[5]
+          : null,
       replyPreview: parts.length > 6 && parts[6].isNotEmpty ? parts[6] : null,
     );
   }

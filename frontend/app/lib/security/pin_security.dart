@@ -34,14 +34,23 @@ class PinSecurity {
     return '${base}_u_$uid';
   }
 
-  static final _argon2 = Argon2id(parallelism: 1, memory: 19456, iterations: 2, hashLength: 32);
+  static final _argon2 = Argon2id(
+    parallelism: 1,
+    memory: 19456,
+    iterations: 2,
+    hashLength: 32,
+  );
   static final _secure = SecurePrefs.instance;
   static final _secureRandom = Random.secure();
 
-  static List<int> newSalt() => List<int>.generate(16, (_) => _secureRandom.nextInt(256));
+  static List<int> newSalt() =>
+      List<int>.generate(16, (_) => _secureRandom.nextInt(256));
 
   static Future<List<int>> deriveKeyBytes(String pin, List<int> salt) async {
-    final key = await _argon2.deriveKey(secretKey: SecretKey(utf8.encode(pin)), nonce: salt);
+    final key = await _argon2.deriveKey(
+      secretKey: SecretKey(utf8.encode(pin)),
+      nonce: salt,
+    );
     return key.extractBytes();
   }
 
@@ -73,7 +82,8 @@ class PinSecurity {
     return PinUnlockResult.invalid;
   }
 
-  static Future<bool> isRealPinConfigured() async => _secure.containsKey(realPinHashKey);
+  static Future<bool> isRealPinConfigured() async =>
+      _secure.containsKey(realPinHashKey);
 
   static Future<bool> hasRealPin() => isRealPinConfigured();
 
@@ -102,7 +112,12 @@ class PinSecurity {
 
   /// Clear PIN for the **active** user (or unscoped keys if none).
   static Future<void> clearAll() async {
-    await _secure.clearKeys([realPinHashKey, realPinSaltKey, fakePinHashKey, fakePinSaltKey]);
+    await _secure.clearKeys([
+      realPinHashKey,
+      realPinSaltKey,
+      fakePinHashKey,
+      fakePinSaltKey,
+    ]);
   }
 
   /// Clear legacy unscoped PIN keys left from before account scoping.

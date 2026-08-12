@@ -33,6 +33,7 @@ class SettingsImplStatus {
     'identity.security_notifications',
     'privacy.voice_record_status',
     'node.mode',
+    'node.allow_fallback',
     'node.proxy_enabled',
     'node.proxy_type',
     'node.proxy_address',

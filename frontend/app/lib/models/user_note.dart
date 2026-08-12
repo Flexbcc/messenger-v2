@@ -14,12 +14,16 @@ class UserNote {
 
   String get displayTitle {
     if (title != null && title!.trim().isNotEmpty) return title!.trim();
-    final line = body.trim().split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => '');
+    final line = body
+        .trim()
+        .split('\n')
+        .firstWhere((l) => l.trim().isNotEmpty, orElse: () => '');
     if (line.isEmpty) return 'Без названия';
     return line.length > 48 ? '${line.substring(0, 48)}…' : line;
   }
 
-  String encode() => '${updatedAt.toIso8601String()}|${title ?? ''}|${body.replaceAll('\n', '\\n')}';
+  String encode() =>
+      '${updatedAt.toIso8601String()}|${title ?? ''}|${body.replaceAll('\n', '\\n')}';
 
   factory UserNote.decode(String id, String raw) {
     final sep = raw.indexOf('|');

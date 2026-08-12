@@ -14,10 +14,12 @@ class SettingsAppearanceWrapper extends ConsumerStatefulWidget {
   final Widget child;
 
   @override
-  ConsumerState<SettingsAppearanceWrapper> createState() => _SettingsAppearanceWrapperState();
+  ConsumerState<SettingsAppearanceWrapper> createState() =>
+      _SettingsAppearanceWrapperState();
 }
 
-class _SettingsAppearanceWrapperState extends ConsumerState<SettingsAppearanceWrapper> {
+class _SettingsAppearanceWrapperState
+    extends ConsumerState<SettingsAppearanceWrapper> {
   double _textScale = 1.0;
   bool _reduceMotion = false;
   bool _compact = false;
@@ -31,7 +33,8 @@ class _SettingsAppearanceWrapperState extends ConsumerState<SettingsAppearanceWr
   Future<void> _reload() async {
     final runtime = SettingsRuntime.instance;
     final scale = await runtime.textScaleFactor();
-    final reduce = await runtime.reduceMotion() || !await runtime.animationsEnabled();
+    final reduce =
+        await runtime.reduceMotion() || !await runtime.animationsEnabled();
     final compact = await runtime.compactMode();
     if (!mounted) return;
     setState(() {
@@ -50,7 +53,9 @@ class _SettingsAppearanceWrapperState extends ConsumerState<SettingsAppearanceWr
       visualDensity: _compact ? VisualDensity.compact : VisualDensity.standard,
       listTileTheme: base.listTileTheme.copyWith(
         dense: _compact,
-        visualDensity: _compact ? VisualDensity.compact : VisualDensity.standard,
+        visualDensity: _compact
+            ? VisualDensity.compact
+            : VisualDensity.standard,
         minVerticalPadding: _compact ? 4 : null,
       ),
     );

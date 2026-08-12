@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../theme/colors.dart';
+import '../../core/extensions/context_extensions.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
 import '../../widgets/app_button.dart';
@@ -128,14 +128,12 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen>
       await DuressPolicySession.instance.unlock(_pendingRealPin!);
       if (!mounted) return;
       final decoyDone = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => const DecoyPinSetupScreen(showSkip: true),
-        ),
+        MaterialPageRoute(builder: (_) => const DecoyPinSetupScreen()),
       );
       if (!mounted) return;
-      if (decoyDone != true) {
-        await PrivacyPreferencesStore().setDecoyPinStepComplete(true);
-      }
+      // Closing this step is allowed, but secret features stay completely
+      // unavailable until the additional PIN is actually configured.
+      if (decoyDone == true) await state.load();
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
@@ -166,12 +164,13 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.backgroundLight,
+        backgroundColor: colors.background,
         elevation: 0,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: colors.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.close),
           tooltip: 'Закрыть',
@@ -198,7 +197,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.sectionGap),
-              Expanded(child: _buildStepBody()),
+              Expanded(child: _buildStepBody(context)),
             ],
           ),
         ),
@@ -206,7 +205,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen>
     );
   }
 
-  Widget _buildStepBody() {
+  Widget _buildStepBody(BuildContext context) {
     if (_isPinStep) {
       if (_alphanumeric) {
         return Column(
@@ -271,7 +270,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen>
                 ? Text(
                     _error!,
                     style: AppTypography.caption.copyWith(
-                      color: AppColors.dangerRed,
+                      color: context.colors.danger,
                     ),
                   )
                 : null,

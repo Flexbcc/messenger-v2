@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/extensions/context_extensions.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
 import '../state/app_controller.dart';
-import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../utils/message_format.dart';
 
@@ -25,7 +25,9 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
   @override
   void initState() {
     super.initState();
-    _queryController.addListener(() => setState(() => _query = _queryController.text));
+    _queryController.addListener(
+      () => setState(() => _query = _queryController.text),
+    );
   }
 
   @override
@@ -38,6 +40,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
   Widget build(BuildContext context) {
     final controller = ref.watch(appControllerProvider);
     final results = controller.searchMessages(widget.conversation.id, _query);
+    final colors = context.colors;
 
     return Scaffold(
       appBar: AppBar(
@@ -47,19 +50,26 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
           style: AppTypography.body,
           decoration: InputDecoration(
             hintText: 'Поиск в чате',
-            hintStyle: AppTypography.body.copyWith(color: AppColors.textSecondary),
+            hintStyle: AppTypography.body.copyWith(color: colors.textSecondary),
             border: InputBorder.none,
           ),
         ),
       ),
       body: _query.trim().isEmpty
-          ? Center(child: Text('Введите текст для поиска', style: AppTypography.caption))
+          ? Center(
+              child: Text(
+                'Введите текст для поиска',
+                style: AppTypography.caption,
+              ),
+            )
           : results.isEmpty
-              ? Center(child: Text('Ничего не найдено', style: AppTypography.caption))
-              : ListView.builder(
-                  itemCount: results.length,
-                  itemBuilder: (context, i) => _ResultTile(message: results[i]),
-                ),
+          ? Center(
+              child: Text('Ничего не найдено', style: AppTypography.caption),
+            )
+          : ListView.builder(
+              itemCount: results.length,
+              itemBuilder: (context, i) => _ResultTile(message: results[i]),
+            ),
     );
   }
 }
@@ -85,7 +95,10 @@ class _ResultTile extends ConsumerWidget {
         overflow: TextOverflow.ellipsis,
         style: AppTypography.caption,
       ),
-      trailing: Text(formatMessageTime(message.createdAt), style: AppTypography.caption),
+      trailing: Text(
+        formatMessageTime(message.createdAt),
+        style: AppTypography.caption,
+      ),
     );
   }
 }

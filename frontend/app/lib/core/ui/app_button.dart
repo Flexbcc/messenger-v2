@@ -31,13 +31,19 @@ class AppButton extends StatefulWidget {
   State<AppButton> createState() => _AppButtonState();
 }
 
-class _AppButtonState extends State<AppButton> with SingleTickerProviderStateMixin {
+class _AppButtonState extends State<AppButton>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _press;
 
   @override
   void initState() {
     super.initState();
-    _press = AnimationController(vsync: this, duration: AppMotion.fast, lowerBound: 0.96, upperBound: 1);
+    _press = AnimationController(
+      vsync: this,
+      duration: AppMotion.fast,
+      lowerBound: 0.96,
+      upperBound: 1,
+    );
     _press.value = 1;
   }
 
@@ -72,16 +78,28 @@ class _AppButtonState extends State<AppButton> with SingleTickerProviderStateMix
                     ? SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: _foreground(colors, disabled)),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: _foreground(colors, disabled),
+                        ),
                       )
                     : Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (widget.icon != null) ...[
-                            Icon(widget.icon, size: 18, color: _foreground(colors, disabled)),
+                            Icon(
+                              widget.icon,
+                              size: 18,
+                              color: _foreground(colors, disabled),
+                            ),
                             const SizedBox(width: 8),
                           ],
-                          Text(widget.label, style: text.subtitle.copyWith(color: _foreground(colors, disabled))),
+                          Text(
+                            widget.label,
+                            style: text.subtitle.copyWith(
+                              color: _foreground(colors, disabled),
+                            ),
+                          ),
                         ],
                       ),
               ),
@@ -107,7 +125,11 @@ class _AppButtonState extends State<AppButton> with SingleTickerProviderStateMix
       case AppButtonVariant.secondary:
         return BoxDecoration(
           borderRadius: BorderRadius.circular(AppRadius.button),
-          border: Border.all(color: disabled ? colors.divider : colors.primary.withValues(alpha: 0.5)),
+          border: Border.all(
+            color: disabled
+                ? colors.divider
+                : colors.primary.withValues(alpha: 0.5),
+          ),
         );
       case AppButtonVariant.danger:
         return BoxDecoration(
@@ -121,7 +143,7 @@ class _AppButtonState extends State<AppButton> with SingleTickerProviderStateMix
   Color _foreground(colors, bool disabled) {
     if (disabled) return colors.textMuted;
     return switch (widget.variant) {
-      AppButtonVariant.primary => colors.textPrimary,
+      AppButtonVariant.primary => colors.onAccent,
       AppButtonVariant.secondary => colors.primary,
       AppButtonVariant.danger => colors.danger,
     };

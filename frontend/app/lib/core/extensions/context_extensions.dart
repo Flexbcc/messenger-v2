@@ -4,7 +4,8 @@ import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
 extension AppThemeContext on BuildContext {
-  AppColorScheme get colors => Theme.of(this).extension<AppColorScheme>() ?? AppColorScheme.dark;
+  AppColorScheme get colors =>
+      Theme.of(this).extension<AppColorScheme>() ?? AppColorScheme.dark;
 
   AppTextStyles get textStyles => AppTextStyles.of(this);
 

@@ -21,10 +21,12 @@ class ConnectionStatusScreen extends ConsumerStatefulWidget {
   const ConnectionStatusScreen({super.key});
 
   @override
-  ConsumerState<ConnectionStatusScreen> createState() => _ConnectionStatusScreenState();
+  ConsumerState<ConnectionStatusScreen> createState() =>
+      _ConnectionStatusScreenState();
 }
 
-class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen> {
+class _ConnectionStatusScreenState
+    extends ConsumerState<ConnectionStatusScreen> {
   ConnectionStatusSnapshot? _snapshot;
   bool _loading = true;
   String? _error;
@@ -41,7 +43,9 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
       _error = null;
     });
     try {
-      final snapshot = await ref.read(appControllerProvider).probeConnectionStatus();
+      final snapshot = await ref
+          .read(appControllerProvider)
+          .probeConnectionStatus();
       if (!mounted) return;
       setState(() {
         _snapshot = snapshot;
@@ -79,8 +83,8 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
     final text = context.textStyles;
     final controller = ref.watch(appControllerProvider);
     final snapshot = _snapshot;
-    final online = controller.websocketConnected &&
-        (snapshot?.clientReachable ?? false);
+    final online =
+        controller.websocketConnected && (snapshot?.clientReachable ?? false);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Состояние соединения')),
@@ -139,8 +143,13 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
             ),
             if (_error != null)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-                child: Text(_error!, style: text.caption.copyWith(color: colors.danger)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screenPadding,
+                ),
+                child: Text(
+                  _error!,
+                  style: text.caption.copyWith(color: colors.danger),
+                ),
               ),
             AppSection(
               title: 'Клиент',
@@ -148,36 +157,51 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
                 children: [
                   _LiveRow(
                     label: 'Статус',
-                    value: controller.session == null ? 'Не в сети' : (controller.websocketConnected ? 'Online' : 'Offline'),
-                    status: controller.session != null && controller.websocketConnected
+                    value: controller.session == null
+                        ? 'Не в сети'
+                        : (controller.websocketConnected
+                              ? 'Online'
+                              : 'Offline'),
+                    status:
+                        controller.session != null &&
+                            controller.websocketConnected
                         ? AppStatus.online
                         : AppStatus.offline,
                   ),
                   _LiveRow(
                     label: 'Home Node',
                     value: AppConfig.homeNodeUrl,
-                    status: snapshot?.endpoints.any((e) => e.id == 'home' && e.reachable) == true
+                    status:
+                        snapshot?.endpoints.any(
+                              (e) => e.id == 'home' && e.reachable,
+                            ) ==
+                            true
                         ? AppStatus.online
                         : AppStatus.warning,
                     subtitle: 'Текущий API endpoint',
                   ),
-                  Builder(builder: (context) {
-                    final backups = NodeConfigResolver().backupHomeUrls();
-                    return _LiveRow(
-                      label: 'Запасные Home-узлы',
-                      value: backups.isEmpty ? 'нет' : '${backups.length}',
-                      status: backups.isEmpty ? AppStatus.warning : AppStatus.online,
-                      subtitle: backups.isEmpty
-                          ? 'Re-bootstrap упадёт на дефолт, если primary Gateway/Home down'
-                          : backups.join(', '),
-                    );
-                  }),
+                  Builder(
+                    builder: (context) {
+                      final backups = NodeConfigResolver().backupHomeUrls();
+                      return _LiveRow(
+                        label: 'Запасные Home-узлы',
+                        value: backups.isEmpty ? 'нет' : '${backups.length}',
+                        status: backups.isEmpty
+                            ? AppStatus.warning
+                            : AppStatus.online,
+                        subtitle: backups.isEmpty
+                            ? 'Re-bootstrap упадёт на дефолт, если primary Gateway/Home down'
+                            : backups.join(', '),
+                      );
+                    },
+                  ),
                   if (controller.lastFailoverAt != null)
                     _LiveRow(
                       label: 'Failover',
                       value: formatCallHistoryTime(controller.lastFailoverAt!),
                       status: AppStatus.warning,
-                      subtitle: 'Переключились с ${controller.lastFailoverFromUrl} '
+                      subtitle:
+                          'Переключились с ${controller.lastFailoverFromUrl} '
                           'на ${controller.lastFailoverToUrl}',
                     ),
                   if (controller.lastHomeChangedEntry != null)
@@ -188,14 +212,16 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
                             controller.lastHomeChangedEntry!.cachedAt,
                       ),
                       status: AppStatus.warning,
-                      subtitle: '${controller.lastHomeChangedUserId} → '
+                      subtitle:
+                          '${controller.lastHomeChangedUserId} → '
                           '${controller.lastHomeChangedEntry!.homeUrl}',
                     ),
                   FutureBuilder<String>(
                     future: NodeConfigResolver().connectionSummary(),
                     builder: (context, snap) {
                       final summary = snap.data;
-                      final proxyOn = summary != null && summary.contains('прокси');
+                      final proxyOn =
+                          summary != null && summary.contains('прокси');
                       return _LiveRow(
                         label: 'Каталог ноды',
                         value: summary ?? '…',
@@ -205,7 +231,8 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
                     },
                   ),
                   FutureBuilder<String>(
-                    future: SettingsRuntime.instance.nodeCertificateFingerprint(),
+                    future: SettingsRuntime.instance
+                        .nodeCertificateFingerprint(),
                     builder: (context, snap) => _LiveRow(
                       label: 'Certificate fingerprint',
                       value: snap.data ?? '…',
@@ -229,16 +256,20 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
                         value: v == null
                             ? '…'
                             : '${v.$1 ? 'fallback' : 'no-fallback'} · '
-                                '${v.$2 ? 'service' : 'no-service'} · '
-                                '${v.$3 ? 'roaming' : 'no-roaming'}',
+                                  '${v.$2 ? 'service' : 'no-service'} · '
+                                  '${v.$3 ? 'roaming' : 'no-roaming'}',
                         status: AppStatus.online,
                       );
                     },
                   ),
                   _LiveRow(
                     label: 'WebSocket',
-                    value: controller.websocketConnected ? 'Подключён' : 'Отключён',
-                    status: controller.websocketConnected ? AppStatus.online : AppStatus.offline,
+                    value: controller.websocketConnected
+                        ? 'Подключён'
+                        : 'Отключён',
+                    status: controller.websocketConnected
+                        ? AppStatus.online
+                        : AppStatus.offline,
                     subtitle: AppConfig.wsUrl,
                   ),
                   _LiveRow(
@@ -246,7 +277,9 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
                     value: controller.lastConversationSyncAt == null
                         ? 'Ещё не было'
                         : formatSyncTime(controller.lastConversationSyncAt!),
-                    status: controller.lastConversationSyncAt != null ? AppStatus.online : AppStatus.warning,
+                    status: controller.lastConversationSyncAt != null
+                        ? AppStatus.online
+                        : AppStatus.warning,
                     subtitle: 'Последний запрос списка диалогов',
                   ),
                   _LiveRow(
@@ -254,9 +287,11 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
                     value: controller.failedOutboundCount > 0
                         ? '${controller.failedOutboundCount} ошибок'
                         : controller.scheduledMessageCount > 0
-                            ? '${controller.scheduledMessageCount} отложено'
-                            : 'Пусто',
-                    status: controller.failedOutboundCount > 0 ? AppStatus.error : AppStatus.online,
+                        ? '${controller.scheduledMessageCount} отложено'
+                        : 'Пусто',
+                    status: controller.failedOutboundCount > 0
+                        ? AppStatus.error
+                        : AppStatus.online,
                     subtitle: 'Локально на устройстве',
                     showDivider: false,
                   ),
@@ -309,7 +344,10 @@ class _ConnectionStatusScreenState extends ConsumerState<ConnectionStatusScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Последняя ошибка (dev)', style: text.caption.copyWith(color: colors.danger)),
+                      Text(
+                        'Последняя ошибка (dev)',
+                        style: text.caption.copyWith(color: colors.danger),
+                      ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(DebugLog.instance.lastError!, style: text.micro),
                     ],

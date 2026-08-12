@@ -24,7 +24,11 @@ class PeerHomeCache {
   String? lastUserId;
   PeerHomeEntry? lastEntry;
 
-  Future<void> set(String userId, {required String homeUrl, DateTime? updatedAt}) async {
+  Future<void> set(
+    String userId, {
+    required String homeUrl,
+    DateTime? updatedAt,
+  }) async {
     final entry = PeerHomeEntry(
       homeUrl: homeUrl,
       updatedAt: updatedAt,

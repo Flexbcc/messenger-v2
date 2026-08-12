@@ -91,7 +91,7 @@ String settingOptionLabel(String raw) {
     'messages': 'Сообщения',
     'monthly': 'Ежемесячно',
     'never': 'Никогда',
-    'nobody': 'Никому',
+    'nobody': 'Никто',
     'node_errors': 'Ошибки ноды',
     'none': 'Нет',
     'normal': 'Обычный',

@@ -11,11 +11,7 @@ enum MessageDeliveryStatus {
 }
 
 class MessageDeliveryInfo {
-  const MessageDeliveryInfo({
-    required this.status,
-    this.error,
-    this.updatedAt,
-  });
+  const MessageDeliveryInfo({required this.status, this.error, this.updatedAt});
 
   final MessageDeliveryStatus status;
   final String? error;

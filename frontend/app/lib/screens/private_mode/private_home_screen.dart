@@ -12,6 +12,8 @@ import '../secret_chat_settings_screen.dart';
 import 'duress_policy_screen.dart';
 import 'panic.dart';
 import 'privacy_settings_screen.dart';
+import 'private_feature_route.dart';
+import 'private_mode_state.dart';
 import 'private_devices_screen.dart';
 import '../security/security_log_screen.dart';
 
@@ -23,6 +25,7 @@ class PrivateHomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final text = context.textStyles;
+    final access = ref.watch(privateModeStateProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,7 +61,10 @@ class PrivateHomeScreen extends ConsumerWidget {
                   ),
                   if (PlatformCapabilities.isWeb) ...[
                     const SizedBox(height: AppSpacing.sm),
-                    Text(PlatformCapabilities.unavailableHint('Биометрия'), style: text.micro.copyWith(color: colors.warning)),
+                    Text(
+                      PlatformCapabilities.unavailableHint('Биометрия'),
+                      style: text.micro.copyWith(color: colors.warning),
+                    ),
                   ],
                 ],
               ),
@@ -67,60 +73,89 @@ class PrivateHomeScreen extends ConsumerWidget {
           AppSettingsGroup(
             title: 'Разделы',
             children: [
-              AppTile(
-                leading: Icon(Icons.chat_bubble_outline, color: colors.textSecondary),
-                title: 'Скрытые чаты',
-                subtitle: 'Диалоги вне обычного списка',
-                trailing: AppTile.chevron(context),
-                onTap: () async {
-                  final enabled = await PrivacyPreferencesStore().hiddenChatsEnabled();
-                  if (!context.mounted) return;
-                  if (!enabled) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Скрытые чаты отключены в настройках приватности')),
+              if (access.canUseSecretFeatures) ...[
+                AppTile(
+                  leading: Icon(
+                    Icons.chat_bubble_outline,
+                    color: colors.textSecondary,
+                  ),
+                  title: 'Скрытые чаты',
+                  trailing: AppTile.chevron(context),
+                  onTap: () async {
+                    final enabled = await PrivacyPreferencesStore()
+                        .hiddenChatsEnabled();
+                    if (!context.mounted) return;
+                    if (!enabled) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Скрытые чаты отключены в настройках приватности',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.of(context).push(
+                      privateSecretRoute((_) => const HiddenChatsScreen()),
                     );
-                    return;
-                  }
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HiddenChatsScreen()));
-                },
-              ),
-              AppTile(
-                leading: Icon(Icons.policy_outlined, color: colors.textSecondary),
-                title: 'Политика безопасности',
-                subtitle: 'Пресет, доверенные, реакция на PIN',
-                trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DuressPolicyScreen())),
-                showDivider: true,
-              ),
+                  },
+                ),
+                AppTile(
+                  leading: Icon(
+                    Icons.policy_outlined,
+                    color: colors.textSecondary,
+                  ),
+                  title: 'Политика безопасности',
+                  trailing: AppTile.chevron(context),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).push(privateSecretRoute((_) => const DuressPolicyScreen())),
+                  showDivider: true,
+                ),
+              ],
               AppTile(
                 leading: Icon(Icons.tune_outlined, color: colors.textSecondary),
                 title: 'Настройки приватности',
-                subtitle: 'PIN, дополнительный PIN, блокировка',
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacySettingsScreen())),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const PrivacySettingsScreen(),
+                  ),
+                ),
                 showDivider: true,
               ),
-              AppTile(
-                leading: Icon(Icons.lock_person_outlined, color: colors.textSecondary),
-                title: 'Секретная комната',
-                subtitle: 'Пароль и таймер в чатах',
-                trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SecretChatSettingsScreen())),
-                showDivider: true,
-              ),
-              AppTile(
-                leading: Icon(Icons.devices_outlined, color: colors.textSecondary),
-                title: 'Приватные устройства',
-                subtitle: 'Доступ к защищённому разделу',
-                trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivateDevicesScreen())),
-              ),
+              if (access.canUseSecretFeatures) ...[
+                AppTile(
+                  leading: Icon(
+                    Icons.lock_person_outlined,
+                    color: colors.textSecondary,
+                  ),
+                  title: 'Секретная комната',
+                  trailing: AppTile.chevron(context),
+                  onTap: () => Navigator.of(context).push(
+                    privateSecretRoute((_) => const SecretChatSettingsScreen()),
+                  ),
+                  showDivider: true,
+                ),
+                AppTile(
+                  leading: Icon(
+                    Icons.devices_outlined,
+                    color: colors.textSecondary,
+                  ),
+                  title: 'Приватные устройства',
+                  trailing: AppTile.chevron(context),
+                  onTap: () => Navigator.of(context).push(
+                    privateSecretRoute((_) => const PrivateDevicesScreen()),
+                  ),
+                ),
+              ],
               AppTile(
                 leading: Icon(Icons.history, color: colors.textSecondary),
                 title: 'Журнал безопасности',
-                subtitle: 'Локальные события',
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SecurityLogScreen())),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SecurityLogScreen()),
+                ),
               ),
             ],
           ),

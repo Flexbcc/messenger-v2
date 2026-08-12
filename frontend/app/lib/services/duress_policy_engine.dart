@@ -45,8 +45,9 @@ class DuressPolicyEngine {
     }
 
     final ruleTriggers = _ruleTriggersFor(trigger);
-    final rules = data.rules.where((r) => ruleTriggers.contains(r.trigger)).toList()
-      ..sort((a, b) => a.threshold.compareTo(b.threshold));
+    final rules =
+        data.rules.where((r) => ruleTriggers.contains(r.trigger)).toList()
+          ..sort((a, b) => a.threshold.compareTo(b.threshold));
 
     var openDecoy = false;
     var purged = false;
@@ -117,22 +118,25 @@ class DuressPolicyEngine {
   }
 
   bool _usesCounter(DuressTrigger t) => switch (t) {
-        DuressTrigger.pinUnlockFail => true,
-        DuressTrigger.decoyPinStreak => true,
-        DuressTrigger.secretRoomActivateFail => true,
-        DuressTrigger.appLockFail => true,
-        _ => false,
-      };
+    DuressTrigger.pinUnlockFail => true,
+    DuressTrigger.decoyPinStreak => true,
+    DuressTrigger.secretRoomActivateFail => true,
+    DuressTrigger.appLockFail => true,
+    _ => false,
+  };
 
   DuressTrigger _counterTrigger(DuressTrigger t) => switch (t) {
-        DuressTrigger.appLockFail => DuressTrigger.pinUnlockFail,
-        _ => t,
-      };
+    DuressTrigger.appLockFail => DuressTrigger.pinUnlockFail,
+    _ => t,
+  };
 
   List<DuressTrigger> _ruleTriggersFor(DuressTrigger t) => switch (t) {
-        DuressTrigger.appLockFail => [DuressTrigger.appLockFail, DuressTrigger.pinUnlockFail],
-        _ => [t],
-      };
+    DuressTrigger.appLockFail => [
+      DuressTrigger.appLockFail,
+      DuressTrigger.pinUnlockFail,
+    ],
+    _ => [t],
+  };
 
   int _bumpCounter(DuressPolicyData data, DuressTrigger trigger, DateTime now) {
     final windowSec = data.rules
@@ -149,7 +153,11 @@ class DuressPolicyEngine {
     return counter.count;
   }
 
-  int _currentCount(DuressPolicyData data, DuressTrigger trigger, DateTime now) {
+  int _currentCount(
+    DuressPolicyData data,
+    DuressTrigger trigger,
+    DateTime now,
+  ) {
     final windowSec = data.rules
         .where((r) => r.trigger == trigger)
         .map((r) => r.windowSec)
@@ -164,7 +172,8 @@ class DuressPolicyEngine {
   }
 
   Future<DuressPolicyData> _activeData() async {
-    if (DuressPolicySession.instance.isUnlocked && DuressPolicySession.instance.data != null) {
+    if (DuressPolicySession.instance.isUnlocked &&
+        DuressPolicySession.instance.data != null) {
       return DuressPolicySession.instance.data!;
     }
     return DuressRuntimeStore.instance.loadMirror();
@@ -177,7 +186,11 @@ class DuressPolicyEngine {
     }
   }
 
-  bool _channelEnabled(DuressPolicyData data, String channel, {List<String>? ruleChannels}) {
+  bool _channelEnabled(
+    DuressPolicyData data,
+    String channel, {
+    List<String>? ruleChannels,
+  }) {
     final ch = ruleChannels ?? data.trustedChannels;
     if (ch.contains('both')) return true;
     return ch.contains(channel);

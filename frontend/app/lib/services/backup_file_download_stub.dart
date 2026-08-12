@@ -1,1 +1,2 @@
-Future<bool> downloadBackupFile(String contents, String filename) async => false;
+Future<bool> downloadBackupFile(String contents, String filename) async =>
+    false;

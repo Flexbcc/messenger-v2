@@ -161,6 +161,8 @@ class AppController extends ChangeNotifier {
   String? phone;
   String? login;
   String? email;
+  String? bio;
+  Uint8List? profileAvatarBytes;
 
   List<DeviceInfo> devices = [];
 
@@ -244,7 +246,6 @@ class AppController extends ChangeNotifier {
   /// Groups whose sender key has already been distributed to all members
   /// this session — see 0301_GROUP_MESSAGING.md. Reset on restart (in
   /// memory only), matching CryptoService's sender-key store lifetime.
-  final Set<String> _groupKeysDistributed = {};
 
   /// Locally hidden / pinned messages (device-only).
   final Set<String> _locallyHiddenMessageIds = {};
@@ -808,8 +809,9 @@ class AppController extends ChangeNotifier {
     if (!await NodeConfigResolver().isPrimaryReachable()) {
       await _maybeFailoverHome();
     }
-    if (session == null)
+    if (session == null) {
       return; // failover moved Home but couldn't recover the session
+    }
     await _relogin();
     _connectRealtime();
     await refreshConversations();
@@ -994,6 +996,11 @@ class AppController extends ChangeNotifier {
       }
       return;
     }
+    if (type == 'session_revoked') {
+      DebugLog.instance.warn('auth', 'current device session was revoked');
+      await logout();
+      return;
+    }
     if (type != 'new_message') return;
     final envelope = event['message'] as Map<String, dynamic>;
     final convId = envelope['conversation_id'] as String;
@@ -1079,8 +1086,9 @@ class AppController extends ChangeNotifier {
   }
 
   void _maybeNotifyMessage(ChatMessage msg, String convId) {
-    if (msg.isSecret || msg.systemKind != null || msg.duressCode != null)
+    if (msg.isSecret || msg.systemKind != null || msg.duressCode != null) {
       return;
+    }
 
     final settings = notificationSettings;
     if (settings == null || session == null) return;
@@ -1197,8 +1205,9 @@ class AppController extends ChangeNotifier {
         if (DateTime.now().difference(msg.createdAt) > _callOfferMaxAge) return;
         final existing = currentCall;
         if (existing != null) {
-          if (existing.callId == signal.callId)
+          if (existing.callId == signal.callId) {
             return; // duplicate/retried offer
+          }
           try {
             await _sendCallSignal(
               peerUserId: msg.senderUserId,
@@ -1257,8 +1266,9 @@ class AppController extends ChangeNotifier {
         if (call == null ||
             call.callId != signal.callId ||
             !call.outgoing ||
-            call.media == null)
+            call.media == null) {
           return;
+        }
         call.remoteSdp = signal.sdp;
         await call.media!.applyRemoteAnswer(signal.sdp!);
         call.answered = true;
@@ -1267,8 +1277,9 @@ class AppController extends ChangeNotifier {
         final call = currentCall;
         if (call == null ||
             call.callId != signal.callId ||
-            signal.candidate == null)
+            signal.candidate == null) {
           return;
+        }
         if (call.media != null) {
           await call.media!.addRemoteIceCandidate(signal.candidate!);
         } else {
@@ -1604,6 +1615,11 @@ class AppController extends ChangeNotifier {
 
   Future<void> processTimeBasedTasks() async {
     if (session == null) return;
+    try {
+      await refreshDevices();
+    } catch (_) {
+      // Device approval discovery retries on the next background tick.
+    }
     await _processDueScheduledMessages();
     await _processDueReminders();
     scheduledMessageCount =
@@ -2318,10 +2334,12 @@ class AppController extends ChangeNotifier {
     if (q.isEmpty) return [];
     return visibleMessagesFor(conversationId).where((m) {
       if (m.decryptFailed || m.plaintext == null) return false;
-      if (m.contentType == 'text')
+      if (m.contentType == 'text') {
         return m.plaintext!.toLowerCase().contains(q);
-      if (m.contentType == 'image')
+      }
+      if (m.contentType == 'image') {
         return 'фото'.contains(q) || q.contains('photo');
+      }
       return false;
     }).toList();
   }
@@ -2399,8 +2417,11 @@ class AppController extends ChangeNotifier {
     for (final c in conversations) {
       if (c.isGroup) continue;
       final peers = c.participantUserIds.toSet();
-      if (peers.length == 2 && peers.contains(me) && peers.contains(peerUserId))
+      if (peers.length == 2 &&
+          peers.contains(me) &&
+          peers.contains(peerUserId)) {
         return c;
+      }
     }
     return null;
   }
@@ -2434,15 +2455,19 @@ class AppController extends ChangeNotifier {
       await refreshContactPresence(peer);
       DebugLog.instance.info('prekey', 'OK for $peer');
     } on ApiException catch (e) {
-      conversationReachable[conversation.id] = false;
-      conversationReachabilityError[conversation.id] =
-          'Собеседник $peer не найден на сервере (${e.statusCode}: ${e.message})';
-      DebugLog.instance.error('prekey', 'failed for $peer', e);
+      if (e.statusCode == 404) {
+        conversationReachable[conversation.id] = false;
+        conversationReachabilityError[conversation.id] =
+            'Собеседник больше недоступен';
+      } else {
+        conversationReachable[conversation.id] ??= true;
+        conversationReachabilityError[conversation.id] = null;
+      }
+      DebugLog.instance.warn('prekey', 'temporary check failure for $peer: $e');
     } catch (e) {
-      conversationReachable[conversation.id] = false;
-      conversationReachabilityError[conversation.id] =
-          'Ошибка проверки $peer: $e';
-      DebugLog.instance.error('prekey', 'failed for $peer', e);
+      conversationReachable[conversation.id] ??= true;
+      conversationReachabilityError[conversation.id] = null;
+      DebugLog.instance.warn('prekey', 'temporary check failure for $peer: $e');
     }
     notifyListeners();
   }
@@ -2827,8 +2852,10 @@ class AppController extends ChangeNotifier {
       }
     }
 
-    // Outgoing messages cannot be Signal-decrypted on this device — plaintext from cache only.
-    if (m.senderUserId == session?.userId) {
+    // Only the originating device relies on its local plaintext cache. A
+    // linked device must decrypt the sender-specific envelope addressed to it.
+    if (m.senderUserId == session?.userId &&
+        m.senderDeviceId == session?.deviceId) {
       return;
     }
 
@@ -2837,7 +2864,10 @@ class AppController extends ChangeNotifier {
     await _cryptoDecryptQueue.run(queueKey, () async {
       if (m.plaintext != null) return;
       try {
-        final plaintextBytes = conversation?.isGroup == true
+        final groupCiphertext =
+            conversation?.isGroup == true &&
+            m.ciphertext.contains('"group":true');
+        final plaintextBytes = groupCiphertext
             ? await crypto!.decryptGroup(
                 m.conversationId,
                 m.senderUserId,
@@ -2873,40 +2903,6 @@ class AppController extends ChangeNotifier {
         );
       }
     });
-  }
-
-  /// Distributes my sender key for this group to every other member, once
-  /// per session, via their existing 1:1 pairwise session — see
-  /// 0301_GROUP_MESSAGING.md → Распространение sender key. Idempotent
-  /// per-group thanks to `_groupKeysDistributed`.
-  Future<void> _distributeGroupKeyIfNeeded(Conversation conversation) async {
-    if (_groupKeysDistributed.contains(conversation.id)) return;
-
-    final distributionB64 = await crypto!.createGroupSenderKeyDistribution(
-      conversation.id,
-      session!.userId,
-    );
-    final payload = jsonEncode({
-      'group_id': conversation.id,
-      'distribution': distributionB64,
-    });
-
-    for (final memberId in conversation.participantUserIds) {
-      if (memberId == session!.userId) continue;
-      await _ensureSessionWith(memberId);
-      final ciphertext = await crypto!.encrypt(
-        memberId,
-        Uint8List.fromList(utf8.encode(payload)),
-      );
-      final directConv = await _findOrCreateDirectConversation(memberId);
-      await _api.sendMessage(
-        conversationId: directConv.id,
-        ciphertext: ciphertext,
-        contentType: 'sender_key_distribution',
-      );
-    }
-
-    _groupKeysDistributed.add(conversation.id);
   }
 
   /// Reuses an existing direct Conversation with [otherUserId] if we
@@ -3051,8 +3047,9 @@ class AppController extends ChangeNotifier {
     if (call == null ||
         call.outgoing ||
         call.answered ||
-        call.remoteSdp == null)
+        call.remoteSdp == null) {
       return;
+    }
 
     final runtime = SettingsRuntime.instance;
     final useVideo = call.kind == CallKind.video && await runtime.callsVideo();
@@ -3145,15 +3142,17 @@ class AppController extends ChangeNotifier {
     for (final msgs in messagesByConversation.values) {
       for (final m in msgs) {
         if (m.senderUserId == userId) {
-          if (latest == null || m.createdAt.isAfter(latest))
+          if (latest == null || m.createdAt.isAfter(latest)) {
             latest = m.createdAt;
+          }
         }
       }
     }
     for (final call in callHistory) {
       if (call.peerUserId == userId) {
-        if (latest == null || call.startedAt.isAfter(latest))
+        if (latest == null || call.startedAt.isAfter(latest)) {
           latest = call.startedAt;
+        }
       }
     }
     return latest;
@@ -3264,8 +3263,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _onNetworkRecoveryTimedOut(ActiveCall call) async {
-    if (currentCall?.callId != call.callId || !call.waitingForNetwork)
+    if (currentCall?.callId != call.callId || !call.waitingForNetwork) {
       return; // recovered in the meantime
+    }
     await _teardownAfterMediaFailure(call);
   }
 
@@ -3606,13 +3606,19 @@ class AppController extends ChangeNotifier {
     Uint8List plaintext,
   ) async {
     if (conversation.isGroup) {
-      await _distributeGroupKeyIfNeeded(conversation);
-      final ciphertext = await crypto!.encryptGroup(
-        conversation.id,
-        session!.userId,
-        plaintext,
-      );
-      return _EncryptedPayload(ciphertext, const []);
+      final envelopes = <Map<String, String>>[];
+      for (final userId in conversation.participantUserIds) {
+        await _appendDeviceEnvelopes(
+          envelopes,
+          userId,
+          plaintext,
+          excludeDeviceId: userId == session!.userId ? session!.deviceId : null,
+        );
+      }
+      if (envelopes.isNotEmpty) {
+        return _EncryptedPayload(envelopes.first['ciphertext']!, envelopes);
+      }
+      throw StateError('В группе нет устройств с доступными ключами');
     }
     final other = directPeerUserId(conversation);
     if (other == null) {
@@ -3625,29 +3631,14 @@ class AppController extends ChangeNotifier {
       throw StateError(detail);
     }
     try {
-      final rawDevices = await _api.getUserDeviceBundles(other);
       final envelopes = <Map<String, String>>[];
-      for (final raw in rawDevices) {
-        final device = raw as Map<String, dynamic>;
-        final deviceId = device['device_id']?.toString() ?? '';
-        final bundle = device['identity_key_bundle'];
-        if (deviceId.isEmpty || bundle is! Map<String, dynamic>) continue;
-        if (!await crypto!.hasSessionWith(other, deviceId: deviceId)) {
-          await crypto!.establishSessionFromBundle(
-            other,
-            bundle,
-            deviceId: deviceId,
-          );
-        }
-        envelopes.add({
-          'device_id': deviceId,
-          'ciphertext': await crypto!.encrypt(
-            other,
-            plaintext,
-            recipientDeviceId: deviceId,
-          ),
-        });
-      }
+      await _appendDeviceEnvelopes(envelopes, other, plaintext);
+      await _appendDeviceEnvelopes(
+        envelopes,
+        session!.userId,
+        plaintext,
+        excludeDeviceId: session!.deviceId,
+      );
       if (envelopes.isNotEmpty) {
         return _EncryptedPayload(envelopes.first['ciphertext']!, envelopes);
       }
@@ -3660,6 +3651,39 @@ class AppController extends ChangeNotifier {
     await _ensureSessionWith(other);
     final ciphertext = await crypto!.encrypt(other, plaintext);
     return _EncryptedPayload(ciphertext, const []);
+  }
+
+  Future<void> _appendDeviceEnvelopes(
+    List<Map<String, String>> target,
+    String userId,
+    Uint8List plaintext, {
+    String? excludeDeviceId,
+  }) async {
+    final devices = await _api.getUserDeviceBundles(
+      userId,
+      excludeDeviceId: excludeDeviceId,
+    );
+    for (final raw in devices) {
+      final device = raw as Map<String, dynamic>;
+      final deviceId = device['device_id']?.toString() ?? '';
+      if (deviceId.isEmpty) continue;
+      if (!await crypto!.hasSessionWith(userId, deviceId: deviceId)) {
+        final bundle = await _api.getDevicePreKeyBundle(userId, deviceId);
+        await crypto!.establishSessionFromBundle(
+          userId,
+          bundle,
+          deviceId: deviceId,
+        );
+      }
+      target.add({
+        'device_id': deviceId,
+        'ciphertext': await crypto!.encrypt(
+          userId,
+          plaintext,
+          recipientDeviceId: deviceId,
+        ),
+      });
+    }
   }
 
   Future<Uint8List> _decryptDirectMessage(ChatMessage message) async {
@@ -3728,19 +3752,61 @@ class AppController extends ChangeNotifier {
     if (!forceDownload) {
       throw StateError('autodownload_disabled');
     }
-    var cipherBytes = await PersistentMediaStore.instance.getCiphertext(
-      session!.userId,
-      mediaId,
-    );
-    if (cipherBytes == null) {
-      cipherBytes = await _downloadChatMedia(mediaId);
-      await PersistentMediaStore.instance.putCiphertext(
+    Uint8List? cipherBytes;
+    try {
+      cipherBytes = await PersistentMediaStore.instance.getCiphertext(
         session!.userId,
         mediaId,
-        cipherBytes,
+      );
+    } catch (e) {
+      DebugLog.instance.warn(
+        'media',
+        'local ciphertext read failed media=$mediaId: $e',
       );
     }
-    final plain = await MediaCrypto.decrypt(cipherBytes, pointer);
+    if (cipherBytes == null) {
+      Object? lastError;
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          cipherBytes = await _downloadChatMedia(mediaId);
+          break;
+        } catch (e) {
+          lastError = e;
+          if (attempt == 0) {
+            await Future<void>.delayed(const Duration(milliseconds: 250));
+          }
+        }
+      }
+      if (cipherBytes == null) {
+        DebugLog.instance.error(
+          'media',
+          'download failed media=$mediaId',
+          lastError,
+        );
+        throw StateError('Не удалось загрузить вложение: $lastError');
+      }
+      try {
+        await PersistentMediaStore.instance.putCiphertext(
+          session!.userId,
+          mediaId,
+          cipherBytes,
+        );
+      } catch (e) {
+        // Network bytes are still usable for this render. A transient local
+        // database failure must not turn a visible attachment into an error.
+        DebugLog.instance.warn(
+          'media',
+          'local ciphertext write failed media=$mediaId: $e',
+        );
+      }
+    }
+    late final Uint8List plain;
+    try {
+      plain = await MediaCrypto.decrypt(cipherBytes, pointer);
+    } catch (e) {
+      DebugLog.instance.error('media', 'decrypt failed media=$mediaId', e);
+      rethrow;
+    }
     if (!await SettingsRuntime.instance.shouldIsolateHiddenMedia(
       isSecretHidden: isSecretHidden(message.conversationId),
     )) {
@@ -3754,6 +3820,9 @@ class AppController extends ChangeNotifier {
     phone = me['phone'] as String?;
     login = me['login'] as String?;
     email = me['email'] as String?;
+    bio = me['bio'] as String?;
+    final avatar = await _localSettings.getString('profile.avatar.bytes', '');
+    profileAvatarBytes = avatar.isEmpty ? null : base64Decode(avatar);
     notifyListeners();
   }
 
@@ -3878,6 +3947,7 @@ class AppController extends ChangeNotifier {
           title: 'Новый вход',
           body: 'Подтвердите вход: ${next.first.deviceName}',
           playSound: true,
+          action: InAppNotificationAction.openLoginApproval,
         ),
       );
     }
@@ -4205,6 +4275,43 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateOwnProfile({
+    required String displayName,
+    required String login,
+    required String phone,
+    required String email,
+    required String bio,
+  }) async {
+    await _api.updateProfile(
+      displayName: displayName,
+      login: login,
+      phone: phone,
+      email: email,
+      bio: bio,
+    );
+    session!.displayName = displayName;
+    this.login = login.isEmpty ? null : login;
+    this.phone = phone.isEmpty ? null : phone;
+    this.email = email.isEmpty ? null : email;
+    this.bio = bio.isEmpty ? null : bio;
+    knownDisplayNames[session!.userId] = displayName;
+    await _sessionStore.saveDisplayName(displayName);
+    notifyListeners();
+  }
+
+  Future<void> setProfileAvatar(Uint8List? bytes) async {
+    profileAvatarBytes = bytes;
+    if (bytes == null) {
+      await _localSettings.remove('profile.avatar.bytes');
+    } else {
+      await _localSettings.setString(
+        'profile.avatar.bytes',
+        base64Encode(bytes),
+      );
+    }
+    notifyListeners();
+  }
+
   Future<void> enableWebPush() async {
     if (session == null) throw StateError('Сначала войдите в аккаунт');
     if (!WebPushService.instance.isSupported) {
@@ -4233,12 +4340,21 @@ class AppController extends ChangeNotifier {
     final userId = session?.userId;
     final keepLocalData = await SettingsRuntime.instance
         .keepLocalDataOnLogout();
-    await disableWebPush();
+    final pushCleanup = disableWebPush();
     _timeTasksTimer?.cancel();
     _timeTasksTimer = null;
     _realtimeSub?.cancel();
     _realtimeSub = null;
     _realtime.disconnect();
+    session = null;
+    _api.accessToken = null;
+    loginApprovalPending = false;
+    pendingLoginApprovals = [];
+    activeConversationId = null;
+    notifyListeners();
+    try {
+      await pushCleanup;
+    } catch (_) {}
     if (userId != null && !keepLocalData) {
       await _messageCache.clearUser(userId);
       await PersistentMediaStore.instance.clearUser(userId);
@@ -4248,9 +4364,6 @@ class AppController extends ChangeNotifier {
     await _sessionStore.clear();
     _hiddenConversationIds.clear();
     if (currentCall != null) await _clearCall(currentCall!);
-    loginApprovalPending = false;
-    pendingLoginApprovals = [];
-    session = null;
     conversations = [];
     messagesByConversation.clear();
     devices = [];

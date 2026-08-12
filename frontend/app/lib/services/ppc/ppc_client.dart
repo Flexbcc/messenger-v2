@@ -28,11 +28,11 @@ class PpcClient {
     required String deviceName,
     PpcTransport? transport,
     String? storagePubkey,
-  })  : _nodeId = nodeId,
-        _deviceName = deviceName,
-        _signer = PpcSigner(authKeyPair: authKeyPair, nodeId: nodeId),
-        _transport = transport,
-        _storagePubkey = storagePubkey;
+  }) : _nodeId = nodeId,
+       _deviceName = deviceName,
+       _signer = PpcSigner(authKeyPair: authKeyPair, nodeId: nodeId),
+       _transport = transport,
+       _storagePubkey = storagePubkey;
 
   factory PpcClient.fromAuth({
     required AuthKeyPair authKeyPair,
@@ -150,7 +150,10 @@ class PpcClient {
 
     final relay = payload.reach.relay;
     final allowRelays = await SettingsRuntime.instance.nodeAllowRelays();
-    if (pairResponse == null && allowRelays && relay != null && relay.isComplete) {
+    if (pairResponse == null &&
+        allowRelays &&
+        relay != null &&
+        relay.isComplete) {
       try {
         final transport = RelayPpcTransport(
           relayUrl: relay.relayUrl,
@@ -228,10 +231,7 @@ class PpcClient {
   }
 
   /// GET blob bytes; null when not found (404).
-  Future<List<int>?> get({
-    required String userId,
-    required String key,
-  }) async {
+  Future<List<int>?> get({required String userId, required String key}) async {
     final transport = _requireTransport();
     final path = '/ppc/blob/$userId/$key';
     final resp = await transport.request(method: 'GET', path: path);
@@ -241,10 +241,7 @@ class PpcClient {
   }
 
   /// DELETE blob (idempotent — 404 treated as success).
-  Future<void> delete({
-    required String userId,
-    required String key,
-  }) async {
+  Future<void> delete({required String userId, required String key}) async {
     final transport = _requireTransport();
     final path = '/ppc/blob/$userId/$key';
     final resp = await transport.request(method: 'DELETE', path: path);
@@ -255,7 +252,10 @@ class PpcClient {
   PpcTransport _requireTransport() {
     final transport = _transport;
     if (transport == null) {
-      throw PpcException(0, 'not paired — call resolveAndPair or restoreFromVault');
+      throw PpcException(
+        0,
+        'not paired — call resolveAndPair or restoreFromVault',
+      );
     }
     return transport;
   }
@@ -278,10 +278,7 @@ class PpcClient {
 
     if (lanHint != null && lanHint.isNotEmpty) {
       transports.add(
-        LanPpcTransport(
-          baseUri: parseLanBase(lanHint),
-          signer: _signer,
-        ),
+        LanPpcTransport(baseUri: parseLanBase(lanHint), signer: _signer),
       );
     }
 

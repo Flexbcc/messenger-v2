@@ -22,7 +22,8 @@ class PrivateDevicesScreen extends ConsumerStatefulWidget {
   const PrivateDevicesScreen({super.key});
 
   @override
-  ConsumerState<PrivateDevicesScreen> createState() => _PrivateDevicesScreenState();
+  ConsumerState<PrivateDevicesScreen> createState() =>
+      _PrivateDevicesScreenState();
 }
 
 class _PrivateDevicesScreenState extends ConsumerState<PrivateDevicesScreen> {
@@ -42,7 +43,10 @@ class _PrivateDevicesScreenState extends ConsumerState<PrivateDevicesScreen> {
           'Secret Room будет заблокирован на этом устройстве. Доступ на других устройствах зависит от их настроек.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child: Text('Завершить', style: TextStyle(color: colors.danger)),
@@ -56,14 +60,18 @@ class _PrivateDevicesScreenState extends ConsumerState<PrivateDevicesScreen> {
     final currentId = ref.read(appControllerProvider).session?.deviceId;
     if (currentId != null) {
       final profile = ref.read(appControllerProvider).deviceTrustFor(currentId);
-      await ref.read(appControllerProvider).setDeviceTrustProfile(
+      await ref
+          .read(appControllerProvider)
+          .setDeviceTrustProfile(
             currentId,
             profile.copyWith(secretRoomAccess: false),
           );
     }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Приватная сессия завершена на этом устройстве')),
+        const SnackBar(
+          content: Text('Приватная сессия завершена на этом устройстве'),
+        ),
       );
     }
   }
@@ -98,15 +106,22 @@ class _PrivateDevicesScreenState extends ConsumerState<PrivateDevicesScreen> {
                     profile: controller.deviceTrustFor(devices[i].id),
                     showDivider: i < devices.length - 1,
                     onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => DeviceDetailScreen(device: devices[i])),
+                      MaterialPageRoute(
+                        builder: (_) => DeviceDetailScreen(device: devices[i]),
+                      ),
                     ),
-                    onPrivateModeChanged: (v) => controller.setDevicePrivateModeAccess(devices[i].id, v),
-                    onSecretRoomChanged: (v) => controller.setDeviceSecretRoomAccess(devices[i].id, v),
+                    onPrivateModeChanged: (v) =>
+                        controller.setDevicePrivateModeAccess(devices[i].id, v),
+                    onSecretRoomChanged: (v) =>
+                        controller.setDeviceSecretRoomAccess(devices[i].id, v),
                   ),
                 if (devices.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Text('Нет зарегистрированных устройств', style: text.secondary),
+                    child: Text(
+                      'Нет зарегистрированных устройств',
+                      style: text.secondary,
+                    ),
                   ),
               ],
             ),
@@ -145,8 +160,12 @@ class _DeviceRow extends StatelessWidget {
     final colors = context.colors;
     final text = context.textStyles;
     final online = isDeviceOnline(device);
-    final pmLabel = profile.privateModeAccess ? 'Private Mode: да' : 'Private Mode: нет';
-    final srLabel = profile.secretRoomAccess ? 'Secret Room: да' : 'Secret Room: нет';
+    final pmLabel = profile.privateModeAccess
+        ? 'Private Mode: да'
+        : 'Private Mode: нет';
+    final srLabel = profile.secretRoomAccess
+        ? 'Secret Room: да'
+        : 'Secret Room: нет';
 
     return Column(
       children: [
@@ -169,7 +188,10 @@ class _DeviceRow extends StatelessWidget {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              StatusDot(status: online ? AppStatus.online : AppStatus.offline, diameter: 8),
+              StatusDot(
+                status: online ? AppStatus.online : AppStatus.offline,
+                diameter: 8,
+              ),
               const SizedBox(width: 8),
               AppTile.chevron(context),
             ],
@@ -203,7 +225,8 @@ class _DeviceRow extends StatelessWidget {
               ),
             ),
           ),
-        if (!profile.trusted && showDivider) Divider(height: 1, color: colors.divider),
+        if (!profile.trusted && showDivider)
+          Divider(height: 1, color: colors.divider),
       ],
     );
   }

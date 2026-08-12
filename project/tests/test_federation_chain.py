@@ -14,9 +14,12 @@ from __future__ import annotations
 
 import asyncio
 import collections
+import importlib
+import sys
 import time
 import tempfile
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -27,6 +30,18 @@ from nacl.signing import SigningKey
 
 from shared.security.record_verifier import verify_user_record_response
 from shared.security.keys import public_key_b64
+
+
+def _service_module(service: str, module: str):
+    """Import a service's top-level ``app`` package despite hyphens in its directory."""
+    service_root = Path(__file__).parents[1] / "services" / service
+    for name in [name for name in sys.modules if name == "app" or name.startswith("app.")]:
+        del sys.modules[name]
+    sys.path.insert(0, str(service_root))
+    try:
+        return importlib.import_module(f"app.{module}")
+    finally:
+        sys.path.remove(str(service_root))
 
 
 def _sign_record(key: SigningKey, user_id: str, home_url: str, updated_at: str) -> str:
@@ -161,7 +176,7 @@ class TestTrustDegradation:
         }
 
     def test_l2_degrades_after_7_days(self):
-        from services.discovery_node.app import trust_degradation as td  # type: ignore
+        td = _service_module("discovery-node", "trust_degradation")
         row = self._make_row("hub-1", trust_level=2, offline_days=8)
         offline = td._offline_since(row["last_heartbeat"])
         assert offline >= timedelta(days=7)
@@ -170,20 +185,20 @@ class TestTrustDegradation:
         assert offline.days >= td.DEGRADE_L2_AFTER_DAYS
 
     def test_l2_not_degrades_before_threshold(self):
-        from services.discovery_node.app import trust_degradation as td  # type: ignore
+        td = _service_module("discovery-node", "trust_degradation")
         row = self._make_row("hub-2", trust_level=2, offline_days=5)
         offline = td._offline_since(row["last_heartbeat"])
         assert offline.days < td.DEGRADE_L2_AFTER_DAYS
 
     def test_l1_degrades_after_14_days(self):
-        from services.discovery_node.app import trust_degradation as td  # type: ignore
+        td = _service_module("discovery-node", "trust_degradation")
         row = self._make_row("relay-old", trust_level=1, offline_days=15)
         offline = td._offline_since(row["last_heartbeat"])
         assert offline.days >= td.DEGRADE_L1_AFTER_DAYS
 
     def test_l0_not_degraded(self):
         """L0 ноды не деградируются (уже минимум)."""
-        from services.discovery_node.app import trust_degradation as td  # type: ignore
+        td = _service_module("discovery-node", "trust_degradation")
         row = self._make_row("node-zero", trust_level=0, offline_days=30)
         # Логика: trust_level >= 1 только деградируется
         assert row["trust_level"] < 1  # L0 не должна попасть в запрос деградации
@@ -387,7 +402,7 @@ class TestBufferFallback:
             "participant_user_ids": ["alice", "bob", "carol"],
         }
 
-        from services.home_node.app import federation  # type: ignore
+        federation = _service_module("home-node", "federation")
         with patch.object(federation, "buffer_for_offline_user", side_effect=fake_buffer):
             await federation._buffer_envelope_for_recipients(envelope, conversation_meta)
 

@@ -13,6 +13,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.db import async_session, init_db
+from app.fed_security import require_federation
 from app.main import app
 from app.models import Conversation, ConversationParticipant, Message, MessageDeliveryAck, User
 from app.security import create_access_token
@@ -258,8 +259,12 @@ async def test_internal_delivery_ack_pushes_ws_to_local_sender(monkeypatch):
         "envelope": {"packet_id": packet_id, "ciphertext": ""},
     }
 
-    async with await _client() as client:
-        resp = await client.post("/internal/delivery-ack", json=body)
+    app.dependency_overrides[require_federation] = lambda: "peer-home"
+    try:
+        async with await _client() as client:
+            resp = await client.post("/internal/delivery-ack", json=body)
+    finally:
+        app.dependency_overrides.pop(require_federation, None)
 
     assert resp.status_code == 200
     send_mock.assert_awaited_once_with(

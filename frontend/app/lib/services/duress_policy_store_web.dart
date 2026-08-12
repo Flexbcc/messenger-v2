@@ -53,7 +53,9 @@ class DuressPolicyStore {
         SecretBox(cipher, nonce: nonce, mac: mac),
         secretKey: SecretKey(keyBytes),
       );
-      return DuressPolicyData.fromJson(jsonDecode(utf8.decode(clear)) as Map<String, dynamic>);
+      return DuressPolicyData.fromJson(
+        jsonDecode(utf8.decode(clear)) as Map<String, dynamic>,
+      );
     } catch (e) {
       debugPrint('DuressPolicyStore.load web failed: $e');
       return null;
@@ -68,7 +70,9 @@ class DuressPolicyStore {
       utf8.encode(jsonEncode(data.toJson())),
       secretKey: SecretKey(keyBytes),
     );
-    await _storage.write(base64Encode([...box.nonce, ...box.cipherText, ...box.mac.bytes]));
+    await _storage.write(
+      base64Encode([...box.nonce, ...box.cipherText, ...box.mac.bytes]),
+    );
   }
 
   Future<void> wipe() async => _storage.delete();

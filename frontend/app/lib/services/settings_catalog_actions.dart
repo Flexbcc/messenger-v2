@@ -10,17 +10,14 @@ import '../config.dart';
 import '../models/settings_catalog.dart';
 import '../screens/debug_log_screen.dart';
 import '../screens/devices_screen.dart';
-import '../screens/diagnostics_screen.dart';
 import '../screens/private_mode/decoy_pin_setup_screen.dart';
 import '../screens/private_mode/pin_setup_screen.dart';
-import '../screens/profile_qr_screen.dart';
-import '../screens/profile_screen.dart';
-import '../screens/security/connection_status_screen.dart';
 import '../services/account_settings_scope.dart';
 import '../services/backup_crypto.dart';
 import '../services/backup_file_download.dart';
 import '../services/catalog_list_store.dart';
 import '../services/catalog_seed_service.dart';
+import '../services/database_init.dart';
 import '../services/hidden_chats_store.dart';
 import '../services/in_app_notification_service.dart';
 import '../services/local_identity_backup.dart';
@@ -42,6 +39,15 @@ import '../state/settings_catalog_controller.dart';
 
 /// Executes catalog `action` settings and navigates for `secret` settings.
 class SettingsCatalogActions {
+  static const _userListSettingIds = <String>{
+    'privacy.phone_visibility_list',
+    'privacy.email_visibility_list',
+    'privacy.last_seen_list',
+    'privacy.calls_allowlist',
+    'security.distress_contacts',
+    'contacts.trusted_list',
+    'contacts.blocked_list',
+  };
   SettingsCatalogActions({
     required this.context,
     required this.ref,
@@ -53,8 +59,9 @@ class SettingsCatalogActions {
   final CatalogListStore listStore;
 
   Future<bool> _ensureCriticalPin(String actionToken) async {
-    if (!await SettingsRuntime.instance.requiresPinFor(actionToken))
+    if (!await SettingsRuntime.instance.requiresPinFor(actionToken)) {
       return true;
+    }
     final configured = await PinSecurity.isRealPinConfigured();
     if (!configured) return true;
     if (!context.mounted) return false;
@@ -134,19 +141,9 @@ class SettingsCatalogActions {
         if (!await _ensureCriticalPin('export')) return;
         await _restoreBackup();
       case 'storage.integrity_check':
-        if (context.mounted) {
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const DiagnosticsScreen()),
-          );
-        }
+        await _runIntegrityCheck();
       case 'storage.route_audit':
-        if (context.mounted) {
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const ConnectionStatusScreen(),
-            ),
-          );
-        }
+        await _runRouteAudit();
       case 'storage.delete_local':
         if (!await _ensureCriticalPin('delete_profile')) return;
         MediaCache.instance.clear();
@@ -172,21 +169,13 @@ class SettingsCatalogActions {
           );
         }
       case 'developer.network_debug':
-        if (context.mounted) {
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const DiagnosticsScreen()),
-          );
-        }
+        await _showNetworkCheck();
       case 'developer.test_notifications':
         InAppNotificationService.instance.notify(
           InAppNotificationEvent(title: 'Тест', body: 'Тестовое уведомление'),
         );
       case 'developer.test_crypto':
-        if (context.mounted) {
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const DiagnosticsScreen()),
-          );
-        }
+        await _runCryptoSelfTest();
       case 'devices.list':
         if (!await _ensureCriticalPin('add_device')) return;
         if (context.mounted) {
@@ -196,29 +185,172 @@ class SettingsCatalogActions {
         }
       case 'storage.access_devices':
         if (!await _ensureCriticalPin('add_device')) return;
-        if (context.mounted) {
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const DevicesScreen()),
-          );
-        }
-      case 'profile.avatar':
-        if (context.mounted) {
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
-          );
-        }
-      case 'profile.qr':
-        if (context.mounted) {
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const ProfileQrScreen()),
-          );
-        }
+        await _showStorageAccessDevices();
       default:
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('«${def.title}» — в разработке')),
           );
         }
+    }
+  }
+
+  Future<void> _runIntegrityCheck() async {
+    final controller = ref.read(appControllerProvider);
+    final checks = <String, bool>{
+      'Локальная база': DatabaseInit.isInitialized,
+      'Сеанс пользователя': controller.session != null,
+      'Хранилище шифрования': controller.crypto != null,
+      'Ключ устройства': controller.authKeyPair != null,
+    };
+    final failed = checks.entries.where((entry) => !entry.value).toList();
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          failed.isEmpty ? 'Целостность подтверждена' : 'Найдены проблемы',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final entry in checks.entries)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      entry.value
+                          ? Icons.check_circle_outline
+                          : Icons.error_outline,
+                      color: entry.value
+                          ? Colors.green
+                          : Theme.of(dialogContext).colorScheme.error,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(entry.key)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Готово'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runRouteAudit() async {
+    final controller = ref.read(appControllerProvider);
+    await controller.validateAllConversationsReachability();
+    if (!context.mounted) return;
+    final failed = controller.failedOutboundCount;
+    await _showResultDialog(
+      title: failed == 0 ? 'Маршруты доступны' : 'Есть проблемы с доставкой',
+      message: failed == 0
+          ? 'Недоступных исходящих маршрутов не найдено.'
+          : 'В очереди осталось сообщений без доступного маршрута: $failed.',
+      ok: failed == 0,
+    );
+  }
+
+  Future<void> _showNetworkCheck() async {
+    final controller = ref.read(appControllerProvider);
+    await _showResultDialog(
+      title: controller.websocketConnected
+          ? 'Соединение активно'
+          : 'Соединение ограничено',
+      message: [
+        'Домашний узел: ${AppConfig.homeNodeUrl}',
+        'Шлюз: ${AppConfig.gatewayNodeUrl}',
+        'Поиск узлов: ${AppConfig.discoveryNodeUrl}',
+        'Канал событий: ${controller.websocketConnected ? 'подключён' : 'не подключён'}',
+        'Неотправленных сообщений: ${controller.failedOutboundCount}',
+      ].join('\n'),
+      ok: controller.websocketConnected,
+    );
+  }
+
+  Future<void> _showStorageAccessDevices() async {
+    final devices = ref.read(appControllerProvider).devices;
+    await _showResultDialog(
+      title: 'Доступ к локальным данным',
+      message: devices.isEmpty
+          ? 'Зарегистрированных устройств нет.'
+          : devices
+                .map(
+                  (device) =>
+                      '${device.deviceName} · ${device.deviceType}${device.isCurrent ? ' · это устройство' : ''}',
+                )
+                .join('\n'),
+      ok: true,
+    );
+  }
+
+  Future<void> _showResultDialog({
+    required String title,
+    required String message,
+    required bool ok,
+  }) async {
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(
+          ok ? Icons.check_circle_outline : Icons.warning_amber_outlined,
+          color: ok ? Colors.green : Theme.of(dialogContext).colorScheme.error,
+        ),
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Готово'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runCryptoSelfTest() async {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Проверяем локальное шифрование…')),
+      );
+    }
+    try {
+      final first = CryptoService.ephemeral();
+      final second = CryptoService.ephemeral();
+      await first.establishSessionFromBundle(
+        'test-device-2',
+        await second.generatePublishableBundle(preKeyCount: 1),
+      );
+      const source = 'local encryption self-test';
+      final encrypted = await first.encrypt(
+        'test-device-2',
+        utf8.encode(source),
+      );
+      final decrypted = await second.decrypt('test-device-1', encrypted);
+      final passed =
+          utf8.decode(decrypted) == source && !encrypted.contains(source);
+      if (!passed) throw StateError('Результат расшифровки не совпал');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Шифрование работает корректно')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка проверки шифрования: $error')),
+        );
+      }
     }
   }
 
@@ -317,9 +449,24 @@ class SettingsCatalogActions {
   Future<void> editList(SettingDef def) async {
     final items = await listStore.load(def.id);
     if (!context.mounted) return;
+    final app = ref.read(appControllerProvider);
     final edited = await showDialog<List<String>>(
       context: context,
-      builder: (ctx) => _ListEditorDialog(title: def.title, items: items),
+      builder: (ctx) => _userListSettingIds.contains(def.id)
+          ? _UserListPickerDialog(
+              title: def.title,
+              selectedIds: items,
+              contacts: {
+                for (final entry in app.knownDisplayNames.entries)
+                  if (entry.key != app.session?.userId &&
+                      RegExp(
+                        r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                        caseSensitive: false,
+                      ).hasMatch(entry.key))
+                    entry.key: entry.value,
+              },
+            )
+          : _ListEditorDialog(title: def.title, items: items),
     );
     if (edited != null) {
       await listStore.save(def.id, edited);
@@ -518,8 +665,9 @@ class SettingsCatalogActions {
       var decoded = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
       if (decoded['kind'] == 'encrypted_settings_backup') {
         var password = await SettingsRuntime.instance.backupPassword();
-        if (password.trim().isEmpty)
+        if (password.trim().isEmpty) {
           password = await _askBackupPassword() ?? '';
+        }
         if (password.isEmpty) return;
         decoded = await BackupCrypto.decryptJson(decoded, password);
       }
@@ -742,6 +890,112 @@ class SettingsCatalogActions {
       ),
     );
     return result == true;
+  }
+}
+
+class _UserListPickerDialog extends StatefulWidget {
+  const _UserListPickerDialog({
+    required this.title,
+    required this.selectedIds,
+    required this.contacts,
+  });
+
+  final String title;
+  final List<String> selectedIds;
+  final Map<String, String> contacts;
+
+  @override
+  State<_UserListPickerDialog> createState() => _UserListPickerDialogState();
+}
+
+class _UserListPickerDialogState extends State<_UserListPickerDialog> {
+  final _searchController = TextEditingController();
+  late final Set<String> _selected = {...widget.selectedIds};
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final contacts =
+        widget.contacts.entries
+            .where(
+              (entry) =>
+                  _query.isEmpty ||
+                  entry.value.toLowerCase().contains(_query) ||
+                  entry.key.toLowerCase().contains(_query),
+            )
+            .toList()
+          ..sort((a, b) => a.value.compareTo(b.value));
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 520,
+        height: 460,
+        child: Column(
+          children: [
+            TextField(
+              controller: _searchController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Найти контакт',
+              ),
+              onChanged: (value) =>
+                  setState(() => _query = value.trim().toLowerCase()),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: contacts.isEmpty
+                  ? Center(
+                      child: Text(
+                        widget.contacts.isEmpty
+                            ? 'Контактов пока нет. Сначала начните переписку или добавьте контакт.'
+                            : 'Ничего не найдено',
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: contacts.length,
+                      itemBuilder: (context, index) {
+                        final contact = contacts[index];
+                        return CheckboxListTile(
+                          value: _selected.contains(contact.key),
+                          title: Text(contact.value),
+                          subtitle: Text(
+                            contact.key,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onChanged: (selected) => setState(() {
+                            if (selected == true) {
+                              _selected.add(contact.key);
+                            } else {
+                              _selected.remove(contact.key);
+                            }
+                          }),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _selected.toList()),
+          child: Text('Готово · ${_selected.length}'),
+        ),
+      ],
+    );
   }
 }
 

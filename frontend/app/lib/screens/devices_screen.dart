@@ -136,15 +136,17 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
 
     try {
       await ref.read(appControllerProvider).revokeOtherDevices();
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Другие сеансы завершены')),
         );
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      }
     }
   }
 

@@ -45,6 +45,7 @@ operator-console/certs/*
 # --- Runtime данные и БД ---
 data/
 **/data/
+project/data.backup-before-clean-*/
 *.db
 *.db-shm
 *.db-wal

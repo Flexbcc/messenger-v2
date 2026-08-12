@@ -8,17 +8,23 @@ class EmergencyLockService {
 
   final _store = LocalSettingsStore();
 
-  Future<bool> areNewLoginsBlocked() => _store.getBool('emergency_block_logins', false);
+  Future<bool> areNewLoginsBlocked() =>
+      _store.getBool('emergency_block_logins', false);
 
-  Future<void> setNewLoginsBlocked(bool value) => _store.setBool('emergency_block_logins', value);
+  Future<void> setNewLoginsBlocked(bool value) =>
+      _store.setBool('emergency_block_logins', value);
 
-  Future<bool> areNotificationsSilenced() => _store.getBool('emergency_silence_notif', false);
+  Future<bool> areNotificationsSilenced() =>
+      _store.getBool('emergency_silence_notif', false);
 
-  Future<void> setNotificationsSilenced(bool value) => _store.setBool('emergency_silence_notif', value);
+  Future<void> setNotificationsSilenced(bool value) =>
+      _store.setBool('emergency_silence_notif', value);
 
-  Future<bool> isRecoveryLockActive() => _store.getBool('emergency_recovery_lock', false);
+  Future<bool> isRecoveryLockActive() =>
+      _store.getBool('emergency_recovery_lock', false);
 
-  Future<void> setRecoveryLock(bool value) => _store.setBool('emergency_recovery_lock', value);
+  Future<void> setRecoveryLock(bool value) =>
+      _store.setBool('emergency_recovery_lock', value);
 
   Future<DateTime?> lastLockAt() async {
     final raw = await _store.getString('emergency_last_lock_at', '');
@@ -28,10 +34,14 @@ class EmergencyLockService {
 
   Future<void> recordLock(EmergencyLockLevel level) async {
     await _store.setString('emergency_last_lock_level', level.name);
-    await _store.setString('emergency_last_lock_at', DateTime.now().toIso8601String());
+    await _store.setString(
+      'emergency_last_lock_at',
+      DateTime.now().toIso8601String(),
+    );
   }
 
-  Future<String?> lastLockLevel() => _store.getString('emergency_last_lock_level', '');
+  Future<String?> lastLockLevel() =>
+      _store.getString('emergency_last_lock_level', '');
 
   Future<void> clearAllFlags() async {
     await setNewLoginsBlocked(false);

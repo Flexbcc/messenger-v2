@@ -21,34 +21,90 @@ class CallSignalingService {
   /// True for any `content_type` this service understands — callers use
   /// this to route incoming messages away from the chat-bubble path,
   /// mirroring the `contentType == 'sender_key_distribution'` check.
-  static bool isCallSignal(String contentType) => CallSignalTypeContentType.fromContentType(contentType) != null;
+  static bool isCallSignal(String contentType) =>
+      CallSignalTypeContentType.fromContentType(contentType) != null;
 
-  Future<String> encodeOffer({required String peerUserId, required String callId, required CallKind kind, required String sdp}) {
-    return _encrypt(peerUserId, CallSignal(type: CallSignalType.offer, callId: callId, kind: kind, sdp: sdp));
+  Future<String> encodeOffer({
+    required String peerUserId,
+    required String callId,
+    required CallKind kind,
+    required String sdp,
+  }) {
+    return _encrypt(
+      peerUserId,
+      CallSignal(
+        type: CallSignalType.offer,
+        callId: callId,
+        kind: kind,
+        sdp: sdp,
+      ),
+    );
   }
 
-  Future<String> encodeAnswer({required String peerUserId, required String callId, required String sdp}) {
-    return _encrypt(peerUserId, CallSignal(type: CallSignalType.answer, callId: callId, sdp: sdp));
+  Future<String> encodeAnswer({
+    required String peerUserId,
+    required String callId,
+    required String sdp,
+  }) {
+    return _encrypt(
+      peerUserId,
+      CallSignal(type: CallSignalType.answer, callId: callId, sdp: sdp),
+    );
   }
 
-  Future<String> encodeIceCandidate({required String peerUserId, required String callId, required Map<String, dynamic> candidate}) {
-    return _encrypt(peerUserId, CallSignal(type: CallSignalType.iceCandidate, callId: callId, candidate: candidate));
+  Future<String> encodeIceCandidate({
+    required String peerUserId,
+    required String callId,
+    required Map<String, dynamic> candidate,
+  }) {
+    return _encrypt(
+      peerUserId,
+      CallSignal(
+        type: CallSignalType.iceCandidate,
+        callId: callId,
+        candidate: candidate,
+      ),
+    );
   }
 
-  Future<String> encodeReject({required String peerUserId, required String callId}) {
-    return _encrypt(peerUserId, CallSignal(type: CallSignalType.reject, callId: callId));
+  Future<String> encodeReject({
+    required String peerUserId,
+    required String callId,
+  }) {
+    return _encrypt(
+      peerUserId,
+      CallSignal(type: CallSignalType.reject, callId: callId),
+    );
   }
 
-  Future<String> encodeCancel({required String peerUserId, required String callId}) {
-    return _encrypt(peerUserId, CallSignal(type: CallSignalType.cancel, callId: callId));
+  Future<String> encodeCancel({
+    required String peerUserId,
+    required String callId,
+  }) {
+    return _encrypt(
+      peerUserId,
+      CallSignal(type: CallSignalType.cancel, callId: callId),
+    );
   }
 
-  Future<String> encodeEnd({required String peerUserId, required String callId}) {
-    return _encrypt(peerUserId, CallSignal(type: CallSignalType.end, callId: callId));
+  Future<String> encodeEnd({
+    required String peerUserId,
+    required String callId,
+  }) {
+    return _encrypt(
+      peerUserId,
+      CallSignal(type: CallSignalType.end, callId: callId),
+    );
   }
 
-  Future<String> encodeBusy({required String peerUserId, required String callId}) {
-    return _encrypt(peerUserId, CallSignal(type: CallSignalType.busy, callId: callId));
+  Future<String> encodeBusy({
+    required String peerUserId,
+    required String callId,
+  }) {
+    return _encrypt(
+      peerUserId,
+      CallSignal(type: CallSignalType.busy, callId: callId),
+    );
   }
 
   Future<String> _encrypt(String peerUserId, CallSignal signal) async {
@@ -59,13 +115,18 @@ class CallSignalingService {
   /// Decrypts and parses a signaling message received from [senderUserId].
   /// Throws if `contentType` isn't a recognized call-signal type — check
   /// [isCallSignal] first, same as the `sender_key_distribution` check.
-  Future<CallSignal> decode({required String senderUserId, required String contentType, required String ciphertext}) async {
+  Future<CallSignal> decode({
+    required String senderUserId,
+    required String contentType,
+    required String ciphertext,
+  }) async {
     final type = CallSignalTypeContentType.fromContentType(contentType);
     if (type == null) {
       throw ArgumentError('not a call-signaling content_type: $contentType');
     }
     final plaintextBytes = await _crypto.decrypt(senderUserId, ciphertext);
-    final json = jsonDecode(utf8.decode(plaintextBytes)) as Map<String, dynamic>;
+    final json =
+        jsonDecode(utf8.decode(plaintextBytes)) as Map<String, dynamic>;
     return CallSignal.fromJson(type, json);
   }
 }

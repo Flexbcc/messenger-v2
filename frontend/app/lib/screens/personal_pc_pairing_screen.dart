@@ -22,10 +22,12 @@ class PersonalPcPairingScreen extends ConsumerStatefulWidget {
   const PersonalPcPairingScreen({super.key});
 
   @override
-  ConsumerState<PersonalPcPairingScreen> createState() => _PersonalPcPairingScreenState();
+  ConsumerState<PersonalPcPairingScreen> createState() =>
+      _PersonalPcPairingScreenState();
 }
 
-class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScreen> {
+class _PersonalPcPairingScreenState
+    extends ConsumerState<PersonalPcPairingScreen> {
   final _userIdController = TextEditingController();
   final _payloadController = TextEditingController();
   final _scannerController = MobileScannerController();
@@ -44,7 +46,9 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
     super.initState();
     final userId = ref.read(appControllerProvider).session?.userId;
     if (userId != null) _userIdController.text = userId;
-    _payloadController.addListener(() => _onPayloadChanged(_payloadController.text));
+    _payloadController.addListener(
+      () => _onPayloadChanged(_payloadController.text),
+    );
     PpcVault().isPaired().then((paired) {
       if (mounted) setState(() => _alreadyPairedDirect = paired);
     });
@@ -105,7 +109,8 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
         m.contains('не достучалась')) {
       return 'Нода не достучалась до ПК';
     }
-    if (m.contains('invalid or expired token') || m.contains('missing bearer token')) {
+    if (m.contains('invalid or expired token') ||
+        m.contains('missing bearer token')) {
       return 'Войдите в аккаунт и попробуйте снова';
     }
     if (m.contains('invalid json') || m.contains('unexpected kind')) {
@@ -123,7 +128,10 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
 
   Future<void> _pair({required bool isLoggedIn, String? sessionUserId}) async {
     final payloadRaw = _payloadController.text.trim();
-    final userId = _resolveUserId(isLoggedIn: isLoggedIn, sessionUserId: sessionUserId);
+    final userId = _resolveUserId(
+      isLoggedIn: isLoggedIn,
+      sessionUserId: sessionUserId,
+    );
 
     if (userId.isEmpty) {
       setState(() {
@@ -161,7 +169,8 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
     try {
       if (payload.intent == 'direct') {
         final controller = ref.read(appControllerProvider);
-        final authKeyPair = controller.authKeyPair ?? await AuthKeyPair.loadOrCreate();
+        final authKeyPair =
+            controller.authKeyPair ?? await AuthKeyPair.loadOrCreate();
         final client = PpcClient.fromAuth(
           authKeyPair: authKeyPair,
           nodeId: userId,
@@ -239,7 +248,9 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
             ),
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screenPadding,
+                ),
                 child: Text(
                   'Отсканируйте QR-код с домашнего ПК или вставьте код вручную.',
                   style: text.secondary,
@@ -248,7 +259,9 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
               if (intentHint != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.screenPadding,
+                  ),
                   child: AppCard(
                     color: colors.cardSoft,
                     child: Text(intentHint, style: text.body),
@@ -258,7 +271,9 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
               const SizedBox(height: AppSpacing.lg),
               if (!_mediaOnSenderDevice) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.screenPadding,
+                  ),
                   child: AppCard(
                     color: colors.warning.withValues(alpha: 0.08),
                     child: Text(
@@ -273,15 +288,17 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
               ],
               if (_alreadyPairedDirect) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.screenPadding,
+                  ),
                   child: AppCard(
                     color: colors.success.withValues(alpha: 0.08),
                     child: Text(
                       _mediaOnSenderDevice
                           ? 'ПК уже подключён напрямую к этому телефону. '
-                              'Новые изображения будут загружаться на ваш ПК.'
+                                'Новые изображения будут загружаться на ваш ПК.'
                           : 'ПК подключён напрямую, но новые изображения не будут '
-                              'загружаться на ПК, пока не выбран режим «На устройстве отправителя».',
+                                'загружаться на ПК, пока не выбран режим «На устройстве отправителя».',
                       style: text.body.copyWith(color: colors.success),
                     ),
                   ),
@@ -289,7 +306,9 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
                 const SizedBox(height: AppSpacing.md),
               ],
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screenPadding,
+                ),
                 child: AppCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -318,8 +337,12 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                _detectedIntent == 'direct' ? 'напрямую' : 'через ноду',
-                                style: text.micro.copyWith(color: colors.primary),
+                                _detectedIntent == 'direct'
+                                    ? 'напрямую'
+                                    : 'через ноду',
+                                style: text.micro.copyWith(
+                                  color: colors.primary,
+                                ),
                               ),
                             ),
                         ],
@@ -338,10 +361,10 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
                         onPressed: _loading
                             ? null
                             : () => setState(() {
-                                  _scanning = true;
-                                  _scanHandled = false;
-                                  _error = null;
-                                }),
+                                _scanning = true;
+                                _scanHandled = false;
+                                _error = null;
+                              }),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       AppButton(
@@ -349,7 +372,10 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
                         loading: _loading,
                         onPressed: _loading
                             ? null
-                            : () => _pair(isLoggedIn: isLoggedIn, sessionUserId: session?.userId),
+                            : () => _pair(
+                                isLoggedIn: isLoggedIn,
+                                sessionUserId: session?.userId,
+                              ),
                       ),
                     ],
                   ),
@@ -358,17 +384,27 @@ class _PersonalPcPairingScreenState extends ConsumerState<PersonalPcPairingScree
               if (_error != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-                  child: Text(_error!, style: text.caption.copyWith(color: colors.danger)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.screenPadding,
+                  ),
+                  child: Text(
+                    _error!,
+                    style: text.caption.copyWith(color: colors.danger),
+                  ),
                 ),
               ],
               if (_success != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.screenPadding,
+                  ),
                   child: AppCard(
                     color: colors.success.withValues(alpha: 0.08),
-                    child: Text(_success!, style: text.body.copyWith(color: colors.success)),
+                    child: Text(
+                      _success!,
+                      style: text.body.copyWith(color: colors.success),
+                    ),
                   ),
                 ),
               ],

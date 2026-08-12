@@ -13,7 +13,8 @@ class MessageReminder {
   final String preview;
   final DateTime remindAt;
 
-  String encode() => '$id|$conversationId|$messageId|${preview.replaceAll('|', '/')}|${remindAt.toIso8601String()}';
+  String encode() =>
+      '$id|$conversationId|$messageId|${preview.replaceAll('|', '/')}|${remindAt.toIso8601String()}';
 
   factory MessageReminder.decode(String raw) {
     final parts = raw.split('|');

@@ -47,41 +47,46 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _items.isEmpty
-              ? Center(child: Text('Пока пусто', style: text.caption))
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+          ? Center(child: Text('Пока пусто', style: text.caption))
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                children: [
+                  AppSettingsGroup(
+                    margin: const EdgeInsets.all(AppSpacing.screenPadding),
                     children: [
-                      AppSettingsGroup(
-                        margin: const EdgeInsets.all(AppSpacing.screenPadding),
-                        children: [
-                          for (var i = 0; i < _items.length; i++)
-                            AppTile(
-                              leading: Icon(
-                                _items[i].contentType == 'image' ? Icons.image_outlined : Icons.chat_bubble_outline,
-                                color: colors.textSecondary,
+                      for (var i = 0; i < _items.length; i++)
+                        AppTile(
+                          leading: Icon(
+                            _items[i].contentType == 'image'
+                                ? Icons.image_outlined
+                                : Icons.chat_bubble_outline,
+                            color: colors.textSecondary,
+                          ),
+                          title: _items[i].conversationTitle,
+                          subtitle:
+                              '${_items[i].preview}\n${formatSyncTime(_items[i].savedAt)}',
+                          trailing: AppTile.chevron(context),
+                          showDivider: i < _items.length - 1,
+                          onTap: () async {
+                            final controller = ref.read(appControllerProvider);
+                            final conv = controller.conversations
+                                .where((c) => c.id == _items[i].conversationId)
+                                .firstOrNull;
+                            if (conv == null || !mounted) return;
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ChatScreen(conversation: conv),
                               ),
-                              title: _items[i].conversationTitle,
-                              subtitle: '${_items[i].preview}\n${formatSyncTime(_items[i].savedAt)}',
-                              trailing: AppTile.chevron(context),
-                              showDivider: i < _items.length - 1,
-                              onTap: () async {
-                                final controller = ref.read(appControllerProvider);
-                                final conv = controller.conversations
-                                    .where((c) => c.id == _items[i].conversationId)
-                                    .firstOrNull;
-                                if (conv == null || !mounted) return;
-                                await Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)),
-                                );
-                              },
-                            ),
-                        ],
-                      ),
+                            );
+                          },
+                        ),
                     ],
                   ),
-                ),
+                ],
+              ),
+            ),
     );
   }
 }

@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../theme/colors.dart';
+import '../../core/extensions/context_extensions.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
 
@@ -15,25 +15,32 @@ const int kPinLength = 6;
 
 /// Row of dots showing how many digits have been entered so far.
 class PinDotsIndicator extends StatelessWidget {
-  const PinDotsIndicator({super.key, required this.filledCount, this.length = kPinLength});
+  const PinDotsIndicator({
+    super.key,
+    required this.filledCount,
+    this.length = kPinLength,
+  });
 
   final int filledCount;
   final int length;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(length, (i) {
         final filled = i < filledCount;
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: AppSpacing.smallGap / 2),
+          margin: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.smallGap / 2,
+          ),
           width: 12,
           height: 12,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: filled ? AppColors.textPrimary : AppColors.backgroundLight,
-            border: Border.all(color: AppColors.borderLight, width: filled ? 0 : 1.5),
+            color: filled ? colors.textPrimary : colors.background,
+            border: Border.all(color: colors.divider, width: filled ? 0 : 1.5),
           ),
         );
       }),
@@ -44,7 +51,11 @@ class PinDotsIndicator extends StatelessWidget {
 /// Wraps [child] with a horizontal shake — used to signal a wrong PIN
 /// without any other visual drama (per spec: stay calm/neutral).
 class ShakeOnError extends StatefulWidget {
-  const ShakeOnError({super.key, required this.controller, required this.child});
+  const ShakeOnError({
+    super.key,
+    required this.controller,
+    required this.child,
+  });
 
   final AnimationController controller;
   final Widget child;
@@ -100,7 +111,10 @@ class PinKeypad extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: AppSpacing.mediumGap),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [for (final d in row) _KeypadButton(label: d, onTap: () => onDigit(d))],
+              children: [
+                for (final d in row)
+                  _KeypadButton(label: d, onTap: () => onDigit(d)),
+              ],
             ),
           ),
         Row(
@@ -140,7 +154,7 @@ class _KeypadButton extends StatelessWidget {
           child: Center(
             child: label != null
                 ? Text(label!, style: AppTypography.largeTitle)
-                : Icon(icon, color: AppColors.textPrimary, size: 26),
+                : Icon(icon, color: context.colors.textPrimary, size: 26),
           ),
         ),
       ),

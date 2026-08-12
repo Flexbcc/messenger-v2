@@ -13,7 +13,8 @@ export 'panic.dart';
 /// Route that opens the whole Private Mode module (starting at the PIN unlock screen).
 Route<void> privateModeEntryRoute() {
   return PageRouteBuilder<void>(
-    pageBuilder: (context, animation, secondaryAnimation) => const PrivateModeEntry(),
+    pageBuilder: (context, animation, secondaryAnimation) =>
+        const PrivateModeEntry(),
     transitionDuration: Duration.zero,
     reverseTransitionDuration: Duration.zero,
   );
@@ -27,7 +28,8 @@ class PrivateModeEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     return ProviderScope(
       child: Navigator(
-        onGenerateRoute: (settings) => MaterialPageRoute(builder: (_) => const UnlockScreen()),
+        onGenerateRoute: (settings) =>
+            MaterialPageRoute(builder: (_) => const UnlockScreen()),
       ),
     );
   }

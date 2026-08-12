@@ -17,6 +17,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     required this.textPrimary,
     required this.textSecondary,
     required this.textMuted,
+    required this.onAccent,
     required this.divider,
     required this.shadow,
     required this.chatIncoming,
@@ -37,6 +38,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
   final Color textPrimary;
   final Color textSecondary;
   final Color textMuted;
+  final Color onAccent;
   final Color divider;
   final Color shadow;
   final Color chatIncoming;
@@ -49,19 +51,20 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     surfaceElevated: Color(0xFF121D2B),
     card: Color(0xFF182231),
     cardSoft: Color(0xFF202B3A),
-    primary: Color(0xFF4F6BFF),
-    secondary: Color(0xFF8B5CF6),
+    primary: Color(0xFF425CE5),
+    secondary: Color(0xFF7048D8),
     success: Color(0xFF35D07F),
     warning: Color(0xFFFFB020),
     danger: Color(0xFFFF4D5E),
     textPrimary: Color(0xFFF4F7FB),
     textSecondary: Color(0xFF9AA6B5),
     textMuted: Color(0xFF667085),
+    onAccent: Color(0xFFFFFFFF),
     divider: Color.fromRGBO(255, 255, 255, 0.06),
     shadow: Colors.black,
     chatIncoming: Color(0xFF182231),
-    chatOutgoingStart: Color(0xFF4F6BFF),
-    chatOutgoingEnd: Color(0xFF8B5CF6),
+    chatOutgoingStart: Color(0xFF425CE5),
+    chatOutgoingEnd: Color(0xFF7048D8),
   );
 
   static const light = AppColorScheme(
@@ -71,31 +74,32 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     card: Color(0xFFFFFFFF),
     cardSoft: Color(0xFFF1F3F7),
     primary: Color(0xFF2563EB),
-    secondary: Color(0xFF7C3AED),
+    secondary: Color(0xFF6D36D1),
     success: Color(0xFF16A34A),
     warning: Color(0xFFD97706),
-    danger: Color(0xFFEF4444),
+    danger: Color(0xFFD3263A),
     textPrimary: Color(0xFF0F172A),
-    textSecondary: Color(0xFF64748B),
-    textMuted: Color(0xFF94A3B8),
+    textSecondary: Color(0xFF58697F),
+    textMuted: Color(0xFF7D8DA3),
+    onAccent: Color(0xFFFFFFFF),
     divider: Color.fromRGBO(15, 23, 42, 0.08),
     shadow: Color(0xFF0F172A),
     chatIncoming: Color(0xFFF1F3F7),
     chatOutgoingStart: Color(0xFF2563EB),
-    chatOutgoingEnd: Color(0xFF7C3AED),
+    chatOutgoingEnd: Color(0xFF6D36D1),
   );
 
   LinearGradient get outgoingGradient => LinearGradient(
-        colors: [chatOutgoingStart, chatOutgoingEnd],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
+    colors: [chatOutgoingStart, chatOutgoingEnd],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   LinearGradient get accentGradient => LinearGradient(
-        colors: [primary, secondary],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-      );
+    colors: [primary, secondary],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
 
   @override
   AppColorScheme copyWith({
@@ -112,32 +116,33 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     Color? textPrimary,
     Color? textSecondary,
     Color? textMuted,
+    Color? onAccent,
     Color? divider,
     Color? shadow,
     Color? chatIncoming,
     Color? chatOutgoingStart,
     Color? chatOutgoingEnd,
-  }) =>
-      AppColorScheme(
-        background: background ?? this.background,
-        surface: surface ?? this.surface,
-        surfaceElevated: surfaceElevated ?? this.surfaceElevated,
-        card: card ?? this.card,
-        cardSoft: cardSoft ?? this.cardSoft,
-        primary: primary ?? this.primary,
-        secondary: secondary ?? this.secondary,
-        success: success ?? this.success,
-        warning: warning ?? this.warning,
-        danger: danger ?? this.danger,
-        textPrimary: textPrimary ?? this.textPrimary,
-        textSecondary: textSecondary ?? this.textSecondary,
-        textMuted: textMuted ?? this.textMuted,
-        divider: divider ?? this.divider,
-        shadow: shadow ?? this.shadow,
-        chatIncoming: chatIncoming ?? this.chatIncoming,
-        chatOutgoingStart: chatOutgoingStart ?? this.chatOutgoingStart,
-        chatOutgoingEnd: chatOutgoingEnd ?? this.chatOutgoingEnd,
-      );
+  }) => AppColorScheme(
+    background: background ?? this.background,
+    surface: surface ?? this.surface,
+    surfaceElevated: surfaceElevated ?? this.surfaceElevated,
+    card: card ?? this.card,
+    cardSoft: cardSoft ?? this.cardSoft,
+    primary: primary ?? this.primary,
+    secondary: secondary ?? this.secondary,
+    success: success ?? this.success,
+    warning: warning ?? this.warning,
+    danger: danger ?? this.danger,
+    textPrimary: textPrimary ?? this.textPrimary,
+    textSecondary: textSecondary ?? this.textSecondary,
+    textMuted: textMuted ?? this.textMuted,
+    onAccent: onAccent ?? this.onAccent,
+    divider: divider ?? this.divider,
+    shadow: shadow ?? this.shadow,
+    chatIncoming: chatIncoming ?? this.chatIncoming,
+    chatOutgoingStart: chatOutgoingStart ?? this.chatOutgoingStart,
+    chatOutgoingEnd: chatOutgoingEnd ?? this.chatOutgoingEnd,
+  );
 
   @override
   AppColorScheme lerp(ThemeExtension<AppColorScheme>? other, double t) {
@@ -157,6 +162,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
       textPrimary: l(textPrimary, other.textPrimary),
       textSecondary: l(textSecondary, other.textSecondary),
       textMuted: l(textMuted, other.textMuted),
+      onAccent: l(onAccent, other.onAccent),
       divider: l(divider, other.divider),
       shadow: l(shadow, other.shadow),
       chatIncoming: l(chatIncoming, other.chatIncoming),
@@ -174,8 +180,8 @@ class AppColors {
   static const surface = Color(0xFF0D1621);
   static const card = Color(0xFF182231);
   static const cardSoft = Color(0xFF202B3A);
-  static const primary = Color(0xFF4F6BFF);
-  static const secondary = Color(0xFF8B5CF6);
+  static const primary = Color(0xFF425CE5);
+  static const secondary = Color(0xFF7048D8);
   static const successGreen = Color(0xFF35D07F);
   static const warningYellow = Color(0xFFFFB020);
   static const dangerRed = Color(0xFFFF4D5E);
@@ -199,8 +205,8 @@ class AppColors {
   static const chatOutgoingText = textMain;
   static const chatIncomingText = textMain;
   static const chatOutgoing = primary;
-  static const outgoingGradientStart = Color(0xFF4F6BFF);
-  static const outgoingGradientEnd = Color(0xFF8B5CF6);
+  static const outgoingGradientStart = primary;
+  static const outgoingGradientEnd = secondary;
   static const callBackdropTop = surface;
   static const callBackdropBottom = background;
   static const cardSecondary = cardSoft;

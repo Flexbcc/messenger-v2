@@ -31,7 +31,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() => setState(() => _query = _searchController.text.trim().toLowerCase()));
+    _searchController.addListener(
+      () =>
+          setState(() => _query = _searchController.text.trim().toLowerCase()),
+    );
     Future.microtask(_loadImportPrefs);
   }
 
@@ -71,8 +74,14 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
-          TextButton(onPressed: () => Navigator.pop(ctx, phoneCtrl.text), child: const Text('Импорт')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, phoneCtrl.text),
+            child: const Text('Импорт'),
+          ),
         ],
       ),
     );
@@ -86,11 +95,19 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     if (_hashLookup) {
       // No phone-hash directory API yet — record intent + show count.
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Хэш-поиск: ${lines.length} номер(ов) подготовлено (каталог на сервере пока недоступен)')),
+        SnackBar(
+          content: Text(
+            'Хэш-поиск: ${lines.length} номер(ов) подготовлено (каталог на сервере пока недоступен)',
+          ),
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Импорт без хэш-поиска: ${lines.length} номер(ов) сохранены локально как черновик')),
+        SnackBar(
+          content: Text(
+            'Импорт без хэш-поиска: ${lines.length} номер(ов) сохранены локально как черновик',
+          ),
+        ),
       );
     }
   }
@@ -106,12 +123,23 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final controller = ref.watch(appControllerProvider);
     final selfId = controller.session?.userId;
 
-    final entries = controller.knownDisplayNames.entries
-        .where((e) => e.key != selfId)
-        .where((e) => RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', caseSensitive: false).hasMatch(e.key))
-        .where((e) => _query.isEmpty || e.value.toLowerCase().contains(_query) || e.key.toLowerCase().contains(_query))
-        .toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
+    final entries =
+        controller.knownDisplayNames.entries
+            .where((e) => e.key != selfId)
+            .where(
+              (e) => RegExp(
+                r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                caseSensitive: false,
+              ).hasMatch(e.key),
+            )
+            .where(
+              (e) =>
+                  _query.isEmpty ||
+                  e.value.toLowerCase().contains(_query) ||
+                  e.key.toLowerCase().contains(_query),
+            )
+            .toList()
+          ..sort((a, b) => a.value.compareTo(b.value));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Контакты')),
@@ -127,19 +155,25 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             child: AppSearchField(controller: _searchController),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 AppQuickAction(
                   icon: Icons.group_add_outlined,
                   label: 'Группа',
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewGroupScreen())),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const NewGroupScreen()),
+                  ),
                 ),
                 AppQuickAction(
                   icon: Icons.person_add_alt_1_outlined,
                   label: 'Контакт',
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewChatScreen())),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const NewChatScreen()),
+                  ),
                 ),
                 if (_importEnabled)
                   AppQuickAction(
@@ -155,7 +189,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             child: entries.isEmpty
                 ? AppEmptyState(
                     icon: Icons.people_outline,
-                    title: _query.isNotEmpty ? 'Ничего не найдено' : 'Пока нет контактов',
+                    title: _query.isNotEmpty
+                        ? 'Ничего не найдено'
+                        : 'Пока нет контактов',
                     subtitle: _query.isNotEmpty
                         ? null
                         : 'Контакты появятся после переписки или через «Контакт»',
@@ -194,10 +230,16 @@ class _ContactRow extends ConsumerWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ContactProfileScreen(userId: userId, displayName: name)),
+          MaterialPageRoute(
+            builder: (_) =>
+                ContactProfileScreen(userId: userId, displayName: name),
+          ),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding, vertical: 10),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.screenPadding,
+            vertical: 10,
+          ),
           child: Row(
             children: [
               AppAvatar(label: name, showOnline: online),
@@ -208,13 +250,23 @@ class _ContactRow extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        Flexible(child: Text(name, style: text.subtitle, overflow: TextOverflow.ellipsis)),
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: text.subtitle,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         if (trust != TrustLevel.normal) ...[
                           const SizedBox(width: 6),
                           AppSecurityBadge(
-                            icon: trust == TrustLevel.unknown ? Icons.help_outline : Icons.shield_outlined,
+                            icon: trust == TrustLevel.unknown
+                                ? Icons.help_outline
+                                : Icons.shield_outlined,
                             label: trust.shortLabel,
-                            color: trust == TrustLevel.unknown ? colors.warning : colors.primary,
+                            color: trust == TrustLevel.unknown
+                                ? colors.warning
+                                : colors.primary,
                           ),
                         ],
                       ],
@@ -223,9 +275,20 @@ class _ContactRow extends ConsumerWidget {
                     if (status.isNotEmpty)
                       Row(
                         children: [
-                          StatusDot(status: online ? AppStatus.online : AppStatus.offline, diameter: 8),
+                          StatusDot(
+                            status: online
+                                ? AppStatus.online
+                                : AppStatus.offline,
+                            diameter: 8,
+                          ),
                           const SizedBox(width: 6),
-                          Flexible(child: Text(status, style: text.caption, overflow: TextOverflow.ellipsis)),
+                          Flexible(
+                            child: Text(
+                              status,
+                              style: text.caption,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                   ],

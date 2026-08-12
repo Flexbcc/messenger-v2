@@ -46,10 +46,14 @@ class OsNotificationService {
       );
       if (Platform.isMacOS || Platform.isIOS) {
         await _plugin
-            .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >()
             ?.requestPermissions(alert: true, badge: true, sound: true);
         await _plugin
-            .resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>()
+            .resolvePlatformSpecificImplementation<
+              MacOSFlutterLocalNotificationsPlugin
+            >()
             ?.requestPermissions(alert: true, badge: true, sound: true);
       }
       _ready = true;
@@ -60,10 +64,28 @@ class OsNotificationService {
 
   Future<bool> requestPermission() async {
     if (Platform.isMacOS || Platform.isIOS) {
-      final mac = _plugin.resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>();
-      final ios = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
-      final okMac = await mac?.requestPermissions(alert: true, badge: true, sound: true) ?? false;
-      final okIos = await ios?.requestPermissions(alert: true, badge: true, sound: true) ?? false;
+      final mac = _plugin
+          .resolvePlatformSpecificImplementation<
+            MacOSFlutterLocalNotificationsPlugin
+          >();
+      final ios = _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      final okMac =
+          await mac?.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          ) ??
+          false;
+      final okIos =
+          await ios?.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          ) ??
+          false;
       _ready = okMac || okIos || _ready;
       return _ready;
     }

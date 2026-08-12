@@ -116,7 +116,6 @@ class NotificationsScreen extends ConsumerWidget {
                   color: colors.textSecondary,
                 ),
                 title: 'Уведомления',
-                subtitle: 'Главный переключатель уведомлений приложения',
                 value: settings.enabled,
                 onChanged: (enabled) async {
                   await settings.setEnabled(enabled);

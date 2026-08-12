@@ -1,3 +1,6 @@
+@Tags(['integration', 'live'])
+library;
+
 // Full-stack integration test using the app's real production classes
 // (ApiClient, CryptoService, SignalBundle) against the actually-running
 // Home Node/Discovery Node/Storage Node stack — everything except the

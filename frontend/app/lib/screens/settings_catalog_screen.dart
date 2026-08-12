@@ -144,7 +144,6 @@ class _SettingsCatalogScreenState extends ConsumerState<SettingsCatalogScreen> {
                           color: colors.textSecondary,
                         ),
                         title: 'JSON всех значений',
-                        subtitle: 'profile_display_name = "kekwekke" …',
                         trailing: AppTile.chevron(context),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -158,7 +157,6 @@ class _SettingsCatalogScreenState extends ConsumerState<SettingsCatalogScreen> {
                           color: colors.textSecondary,
                         ),
                         title: 'Плоский список разделов',
-                        subtitle: '18 секций спеки без группировки',
                         trailing: AppTile.chevron(context),
                         showDivider: false,
                         onTap: () => _showFlatSections(context, catalog),

@@ -34,16 +34,27 @@ class AppCard extends StatelessWidget {
     final decoration = BoxDecoration(
       color: selected ? colors.cardSoft : (color ?? colors.card),
       borderRadius: BorderRadius.circular(radius),
-      border: selected ? Border.all(color: colors.primary.withValues(alpha: 0.35)) : null,
+      border: selected
+          ? Border.all(color: colors.primary.withValues(alpha: 0.35))
+          : null,
       boxShadow: shadow ? AppShadows.subtle(colors) : null,
     );
 
-    final content = Container(margin: margin, padding: padding, decoration: decoration, child: child);
+    final content = Container(
+      margin: margin,
+      padding: padding,
+      decoration: decoration,
+      child: child,
+    );
 
     if (onTap == null) return content;
     return Material(
       color: Colors.transparent,
-      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(radius), child: content),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(radius),
+        child: content,
+      ),
     );
   }
 }
@@ -54,7 +65,9 @@ class AppSettingsGroup extends StatelessWidget {
     super.key,
     this.title,
     required this.children,
-    this.margin = const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+    this.margin = const EdgeInsets.symmetric(
+      horizontal: AppSpacing.screenPadding,
+    ),
   });
 
   final String? title;
@@ -73,10 +86,16 @@ class AppSettingsGroup extends StatelessWidget {
               padding: const EdgeInsets.only(left: 4, bottom: AppSpacing.sm),
               child: Text(
                 title!.toUpperCase(),
-                style: context.textStyles.micro.copyWith(letterSpacing: 0.8, fontWeight: FontWeight.w600),
+                style: context.textStyles.micro.copyWith(
+                  letterSpacing: 0.8,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          AppCard(padding: EdgeInsets.zero, child: Column(children: children)),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Column(children: children),
+          ),
         ],
       ),
     );

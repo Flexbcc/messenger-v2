@@ -1,19 +1,22 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../services/attachment_file_open.dart';
+import '../../services/video_blob_url.dart';
+
+import '../../core/extensions/context_extensions.dart';
 import '../../models/message.dart';
 import '../../services/autodownload_policy.dart';
 import 'duress_signal_banner.dart';
 import '../../state/app_controller.dart';
 import '../../state/settings_catalog_controller.dart';
-import '../../theme/app_decorations.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
 import '../../utils/format.dart';
@@ -34,7 +37,7 @@ class ChatTimeSeparator extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            color: AppColors.cardSecondary,
+            color: context.colors.card,
             borderRadius: BorderRadius.circular(AppRadii.medium),
           ),
           child: Text(label, style: AppTypography.caption),
@@ -137,7 +140,9 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble>
       decoration: BoxDecoration(
         color: textColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border(left: BorderSide(color: AppColors.accentBlue, width: 3)),
+        border: Border(
+          left: BorderSide(color: context.colors.primary, width: 3),
+        ),
       ),
       child: Text(
         preview,
@@ -169,9 +174,10 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble>
 
     final layout = widget.layout;
     final isMine = widget.isMine;
+    final colors = context.colors;
     final textColor = isMine
-        ? AppColors.chatOutgoingText
-        : AppColors.chatIncomingText;
+        ? colors.textPrimary.withValues(alpha: 0.97)
+        : colors.textPrimary;
     final bubbleStyle =
         ref
             .watch(settingsCatalogValuesProvider)
@@ -190,18 +196,18 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble>
 
     final bubbleDecoration = isMine
         ? BoxDecoration(
-            gradient: flat ? null : AppDecorations.outgoingBubbleGradient,
-            color: flat ? AppColors.chatOutgoing : null,
+            gradient: flat ? null : colors.outgoingGradient,
+            color: flat ? colors.chatOutgoingStart : null,
             borderRadius: radius,
             border: widget.highlighted
-                ? Border.all(color: AppColors.accentBlue, width: 2)
+                ? Border.all(color: colors.primary, width: 2)
                 : null,
           )
         : BoxDecoration(
-            color: AppColors.chatIncoming,
+            color: colors.chatIncoming,
             borderRadius: radius,
             border: widget.highlighted
-                ? Border.all(color: AppColors.accentBlue, width: 2)
+                ? Border.all(color: colors.primary, width: 2)
                 : null,
           );
 
@@ -289,9 +295,9 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble>
                           ? 'Из «$sourceLabel» · $sender'
                           : 'Из «$sourceLabel»',
                       style: AppTypography.micro.copyWith(
-                        color: AppColors.accentBlue,
+                        color: context.colors.primary,
                         decoration: TextDecoration.underline,
-                        decorationColor: AppColors.accentBlue.withValues(
+                        decorationColor: context.colors.primary.withValues(
                           alpha: 0.5,
                         ),
                       ),
@@ -343,8 +349,8 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble>
                       timeLabel,
                       style: AppTypography.micro.copyWith(
                         color: isMine
-                            ? AppColors.textMain.withValues(alpha: 0.75)
-                            : AppColors.textMuted,
+                            ? textColor.withValues(alpha: 0.65)
+                            : colors.textMuted,
                       ),
                     ),
                     if (isMine) ...[
@@ -376,11 +382,11 @@ class _ChatMessageBubbleState extends ConsumerState<ChatMessageBubble>
                             color:
                                 (widget.deliveryStatus ==
                                             MessageDeliveryStatus.read
-                                        ? AppColors.primary
+                                        ? colors.primary
                                         : widget.deliveryStatus ==
                                               MessageDeliveryStatus.failed
-                                        ? AppColors.dangerRed
-                                        : AppColors.textMain)
+                                        ? colors.danger
+                                        : textColor)
                                     .withValues(
                                       alpha: statusIconOpacity(
                                         widget.deliveryStatus ??
@@ -500,6 +506,7 @@ Widget _attachmentBlockedTapToLoad({
 
 Widget _attachmentErrorRetry({
   required Color textColor,
+  required Color actionColor,
   required String label,
   required VoidCallback onTap,
   String? error,
@@ -517,7 +524,7 @@ Widget _attachmentErrorRetry({
           const SizedBox(height: 4),
           Text(
             'Нажмите, чтобы повторить',
-            style: AppTypography.micro.copyWith(color: AppColors.accentBlue),
+            style: AppTypography.micro.copyWith(color: actionColor),
           ),
         ],
       ],
@@ -525,7 +532,7 @@ Widget _attachmentErrorRetry({
   );
 }
 
-Future<String> _writeAttachmentTempFile({
+Future<String> _writeVideoTempFile({
   required ChatMessage message,
   required Uint8List bytes,
   required String filename,
@@ -571,10 +578,10 @@ class _FileBubbleContentState extends ConsumerState<_FileBubbleContent> {
       _blocked = false;
       _error = null;
     });
-    final trust = ref
-        .read(appControllerProvider)
-        .trustLevelFor(widget.message.senderUserId);
-    if (!trust.allowsFilePreview && !force) {
+    final app = ref.read(appControllerProvider);
+    final isMine = widget.message.senderUserId == app.session?.userId;
+    final trust = app.trustLevelFor(widget.message.senderUserId);
+    if (!isMine && !trust.allowsFilePreview && !force) {
       if (mounted) {
         setState(() {
           _blocked = true;
@@ -584,6 +591,7 @@ class _FileBubbleContentState extends ConsumerState<_FileBubbleContent> {
       return;
     }
     final allowed =
+        isMine ||
         force ||
         await AutodownloadPolicy.instance.shouldDownloadForSender(
           MediaKind.files,
@@ -600,12 +608,10 @@ class _FileBubbleContentState extends ConsumerState<_FileBubbleContent> {
       return;
     }
     try {
-      final bytes = await ref
-          .read(appControllerProvider)
-          .resolveAttachmentBytes(
-            widget.message,
-            forceDownload: force || allowed,
-          );
+      final bytes = await app.resolveAttachmentBytes(
+        widget.message,
+        forceDownload: isMine || force || allowed,
+      );
       if (mounted) {
         setState(() {
           _bytes = bytes;
@@ -626,19 +632,18 @@ class _FileBubbleContentState extends ConsumerState<_FileBubbleContent> {
     if (_bytes == null) return;
     final filename = _meta?.filename ?? 'attachment';
     try {
-      final path = await _writeAttachmentTempFile(
-        message: widget.message,
-        bytes: _bytes!,
-        filename: filename,
+      final fallbackPath = await openOrDownloadAttachment(
+        _bytes!,
+        filename,
+        _meta?.mime ?? 'application/octet-stream',
       );
-      final result = await OpenFilex.open(path);
       if (!mounted) return;
-      if (result.type != ResultType.done) {
-        await Clipboard.setData(ClipboardData(text: path));
+      if (fallbackPath != null) {
+        await Clipboard.setData(ClipboardData(text: fallbackPath));
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Путь скопирован: $path'),
+            content: Text('Путь скопирован: $fallbackPath'),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -669,12 +674,12 @@ class _FileBubbleContentState extends ConsumerState<_FileBubbleContent> {
               size: 20,
             ),
             const SizedBox(width: 8),
-            const SizedBox(
+            SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: AppColors.textSecondary,
+                color: context.colors.textSecondary,
               ),
             ),
           ],
@@ -690,6 +695,7 @@ class _FileBubbleContentState extends ConsumerState<_FileBubbleContent> {
     if (_bytes == null) {
       return _attachmentErrorRetry(
         textColor: widget.textColor,
+        actionColor: context.colors.primary,
         label: '📎 Файл',
         error: _error,
         onTap: () => _load(force: true),
@@ -758,6 +764,7 @@ class _VideoBubbleContentState extends ConsumerState<_VideoBubbleContent> {
   bool _blocked = false;
   String? _error;
   VideoPlayerController? _controller;
+  String? _videoBlobUrl; // web only — revoked on dispose
   bool _videoInitializing = false;
 
   _AttachmentPointerMeta? get _meta =>
@@ -772,6 +779,9 @@ class _VideoBubbleContentState extends ConsumerState<_VideoBubbleContent> {
   @override
   void dispose() {
     _controller?.dispose();
+    if (_videoBlobUrl != null) {
+      revokeVideoBlobUrl(_videoBlobUrl!);
+    }
     super.dispose();
   }
 
@@ -784,10 +794,10 @@ class _VideoBubbleContentState extends ConsumerState<_VideoBubbleContent> {
       _error = null;
       _bytes = null;
     });
-    final trust = ref
-        .read(appControllerProvider)
-        .trustLevelFor(widget.message.senderUserId);
-    if (!trust.allowsFilePreview && !force) {
+    final app = ref.read(appControllerProvider);
+    final isMine = widget.message.senderUserId == app.session?.userId;
+    final trust = app.trustLevelFor(widget.message.senderUserId);
+    if (!isMine && !trust.allowsFilePreview && !force) {
       if (mounted) {
         setState(() {
           _blocked = true;
@@ -797,6 +807,7 @@ class _VideoBubbleContentState extends ConsumerState<_VideoBubbleContent> {
       return;
     }
     final allowed =
+        isMine ||
         force ||
         await AutodownloadPolicy.instance.shouldDownloadForSender(
           MediaKind.videos,
@@ -813,12 +824,10 @@ class _VideoBubbleContentState extends ConsumerState<_VideoBubbleContent> {
       return;
     }
     try {
-      final bytes = await ref
-          .read(appControllerProvider)
-          .resolveAttachmentBytes(
-            widget.message,
-            forceDownload: force || allowed,
-          );
+      final bytes = await app.resolveAttachmentBytes(
+        widget.message,
+        forceDownload: isMine || force || allowed,
+      );
       if (!mounted) return;
       setState(() {
         _bytes = bytes;
@@ -839,13 +848,26 @@ class _VideoBubbleContentState extends ConsumerState<_VideoBubbleContent> {
     if (!mounted) return;
     setState(() => _videoInitializing = true);
     try {
-      final filename = _meta?.filename ?? 'video.mp4';
-      final path = await _writeAttachmentTempFile(
-        message: widget.message,
-        bytes: bytes,
-        filename: filename,
-      );
-      final controller = VideoPlayerController.file(File(path));
+      final VideoPlayerController controller;
+      if (kIsWeb) {
+        // Blob URL — единственный способ воспроизвести in-memory байты
+        // через video_player в web/PWA (VideoPlayerController.file не работает).
+        final mime = _meta?.mime ?? 'video/mp4';
+        final url = createVideoBlobUrl(bytes, mime);
+        if (url == null) {
+          throw Exception('Не удалось создать blob URL для видео');
+        }
+        _videoBlobUrl = url;
+        controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      } else {
+        final filename = _meta?.filename ?? 'video.mp4';
+        final path = await _writeVideoTempFile(
+          message: widget.message,
+          bytes: bytes,
+          filename: filename,
+        );
+        controller = VideoPlayerController.file(File(path));
+      }
       await controller.initialize();
       controller.addListener(() {
         if (mounted) setState(() {});
@@ -883,13 +905,13 @@ class _VideoBubbleContentState extends ConsumerState<_VideoBubbleContent> {
   @override
   Widget build(BuildContext context) {
     if (_loading || _videoInitializing) {
-      return const SizedBox(
+      return SizedBox(
         width: 220,
         height: 120,
         child: Center(
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: AppColors.textSecondary,
+            color: context.colors.textSecondary,
           ),
         ),
       );
@@ -905,6 +927,7 @@ class _VideoBubbleContentState extends ConsumerState<_VideoBubbleContent> {
         !_controller!.value.isInitialized) {
       return _attachmentErrorRetry(
         textColor: widget.textColor,
+        actionColor: context.colors.primary,
         label: '🎬 Видео',
         error: _error,
         onTap: () => _load(force: true),
@@ -977,10 +1000,10 @@ class _ImageBubbleContentState extends ConsumerState<_ImageBubbleContent> {
       _loading = true;
       _blocked = false;
     });
-    final trust = ref
-        .read(appControllerProvider)
-        .trustLevelFor(widget.message.senderUserId);
-    if (!trust.allowsFilePreview && !force) {
+    final app = ref.read(appControllerProvider);
+    final isMine = widget.message.senderUserId == app.session?.userId;
+    final trust = app.trustLevelFor(widget.message.senderUserId);
+    if (!isMine && !trust.allowsFilePreview && !force) {
       if (mounted) {
         setState(() {
           _blocked = true;
@@ -991,6 +1014,7 @@ class _ImageBubbleContentState extends ConsumerState<_ImageBubbleContent> {
     }
     final size = _AttachmentPointerMeta.fromMessage(widget.message)?.size;
     final allowed =
+        isMine ||
         force ||
         await AutodownloadPolicy.instance.shouldDownloadForSender(
           MediaKind.photos,
@@ -1007,12 +1031,10 @@ class _ImageBubbleContentState extends ConsumerState<_ImageBubbleContent> {
       return;
     }
     try {
-      final bytes = await ref
-          .read(appControllerProvider)
-          .resolveAttachmentBytes(
-            widget.message,
-            forceDownload: force || allowed,
-          );
+      final bytes = await app.resolveAttachmentBytes(
+        widget.message,
+        forceDownload: isMine || force || allowed,
+      );
       if (mounted) {
         setState(() {
           _bytes = bytes;
@@ -1033,13 +1055,13 @@ class _ImageBubbleContentState extends ConsumerState<_ImageBubbleContent> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const SizedBox(
+      return SizedBox(
         width: 160,
         height: 160,
         child: Center(
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: AppColors.textSecondary,
+            color: context.colors.textSecondary,
           ),
         ),
       );
@@ -1080,7 +1102,7 @@ class _ImageBubbleContentState extends ConsumerState<_ImageBubbleContent> {
               Text(
                 'Нажмите, чтобы повторить',
                 style: AppTypography.micro.copyWith(
-                  color: AppColors.accentBlue,
+                  color: context.colors.primary,
                 ),
               ),
             ],

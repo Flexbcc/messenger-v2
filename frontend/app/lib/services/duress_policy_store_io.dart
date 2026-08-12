@@ -58,7 +58,11 @@ class DuressPolicyStore {
       utf8.encode(jsonEncode(data.toJson())),
       secretKey: SecretKey(keyBytes),
     );
-    final packed = base64Encode([...box.nonce, ...box.cipherText, ...box.mac.bytes]);
+    final packed = base64Encode([
+      ...box.nonce,
+      ...box.cipherText,
+      ...box.mac.bytes,
+    ]);
     final file = await _file();
     await file.writeAsString(packed);
   }

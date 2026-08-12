@@ -1,3 +1,5 @@
+import '../utils/contact_field_format.dart';
+
 // Data model for the settings catalog loaded from
 // `assets/settings/ouo-settings-spec.json` — the single source of truth shared
 // with the web/PWA client, admin panel and server validation
@@ -172,10 +174,8 @@ class SettingDef {
           ? 'Используйте формат +79991234567'
           : 'Недопустимый формат';
     }
-    if (format == 'email' &&
-        value.isNotEmpty &&
-        !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
-      return 'Введите корректный адрес почты';
+    if (format == 'email' && value.isNotEmpty && !isValidEmailAddress(value)) {
+      return 'Проверьте адрес, например name@example.com';
     }
     return null;
   }

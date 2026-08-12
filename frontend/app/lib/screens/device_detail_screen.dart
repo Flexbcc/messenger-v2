@@ -46,7 +46,10 @@ class _DeviceDetailScreenState extends ConsumerState<DeviceDetailScreen> {
           'Потребуется повторный вход.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Отмена'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text('Завершить', style: TextStyle(color: colors.danger)),
@@ -58,14 +61,20 @@ class _DeviceDetailScreenState extends ConsumerState<DeviceDetailScreen> {
 
     setState(() => _revoking = true);
     try {
-      await ref.read(appControllerProvider).revokeDeviceSession(widget.device.id);
+      await ref
+          .read(appControllerProvider)
+          .revokeDeviceSession(widget.device.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Сеанс завершён')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Сеанс завершён')));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
       }
     } finally {
       if (mounted) setState(() => _revoking = false);
@@ -95,7 +104,11 @@ class _DeviceDetailScreenState extends ConsumerState<DeviceDetailScreen> {
                 color: colors.cardSoft,
                 borderRadius: BorderRadius.circular(AppRadius.lg),
               ),
-              child: Icon(deviceTypeIcon(widget.device.deviceType), size: 36, color: colors.textPrimary),
+              child: Icon(
+                deviceTypeIcon(widget.device.deviceType),
+                size: 36,
+                color: colors.textPrimary,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -105,7 +118,10 @@ class _DeviceDetailScreenState extends ConsumerState<DeviceDetailScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                StatusDot(status: online ? AppStatus.online : AppStatus.offline, diameter: 8),
+                StatusDot(
+                  status: online ? AppStatus.online : AppStatus.offline,
+                  diameter: 8,
+                ),
                 const SizedBox(width: 6),
                 Text(deviceStatusLabel(widget.device), style: text.caption),
               ],
@@ -114,7 +130,9 @@ class _DeviceDetailScreenState extends ConsumerState<DeviceDetailScreen> {
           const SizedBox(height: AppSpacing.sm),
           Center(
             child: AppSecurityBadge(
-              icon: profile.trusted ? Icons.verified_user_outlined : Icons.lock_outline,
+              icon: profile.trusted
+                  ? Icons.verified_user_outlined
+                  : Icons.lock_outline,
               label: profile.trusted ? 'Доверенное' : 'Недоверенное',
               color: profile.trusted ? colors.primary : colors.warning,
             ),
@@ -123,15 +141,32 @@ class _DeviceDetailScreenState extends ConsumerState<DeviceDetailScreen> {
           AppSettingsGroup(
             title: 'Сеанс',
             children: [
-              AppInfoRow(label: 'Платформа', value: devicePlatformLabel(widget.device.deviceType)),
+              AppInfoRow(
+                label: 'Платформа',
+                value: devicePlatformLabel(widget.device.deviceType),
+              ),
               AppInfoRow(label: 'ОС', value: meta?.platformLabel ?? '—'),
-              AppInfoRow(label: 'Версия приложения', value: meta?.appVersion ?? '—'),
-              AppInfoRow(label: 'Соединение', value: controller.connectionLabelFor(widget.device)),
-              AppInfoRow(label: 'Последняя активность', value: _formatDateTime(widget.device.lastActive)),
-              AppInfoRow(label: 'Первый вход', value: _formatDateTime(widget.device.createdAt)),
+              AppInfoRow(
+                label: 'Версия приложения',
+                value: meta?.appVersion ?? '—',
+              ),
+              AppInfoRow(
+                label: 'Соединение',
+                value: controller.connectionLabelFor(widget.device),
+              ),
+              AppInfoRow(
+                label: 'Последняя активность',
+                value: _formatDateTime(widget.device.lastActive),
+              ),
+              AppInfoRow(
+                label: 'Первый вход',
+                value: _formatDateTime(widget.device.createdAt),
+              ),
               AppInfoRow(
                 label: 'Статус',
-                value: widget.device.isCurrent ? 'Текущее устройство' : (online ? 'Онлайн' : 'Не в сети'),
+                value: widget.device.isCurrent
+                    ? 'Текущее устройство'
+                    : (online ? 'Онлайн' : 'Не в сети'),
                 showDivider: false,
               ),
             ],
@@ -141,19 +176,31 @@ class _DeviceDetailScreenState extends ConsumerState<DeviceDetailScreen> {
             title: 'Доверие и доступ',
             children: [
               AppSwitchTile(
-                leading: Icon(Icons.verified_user_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.verified_user_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Доверенное устройство',
-                subtitle: widget.device.isCurrent ? 'Текущее устройство всегда доверенное' : 'Разрешить автоматические действия',
+                subtitle: widget.device.isCurrent
+                    ? 'Текущее устройство всегда доверенное'
+                    : 'Разрешить автоматические действия',
                 value: profile.trusted,
                 enabled: !widget.device.isCurrent,
-                onChanged: (v) => ref.read(appControllerProvider).setDeviceTrusted(widget.device.id, v),
+                onChanged: (v) => ref
+                    .read(appControllerProvider)
+                    .setDeviceTrusted(widget.device.id, v),
               ),
               AppSwitchTile(
-                leading: Icon(Icons.visibility_off_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.visibility_off_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Доступ к Private Mode',
                 value: profile.privateModeAccess,
                 enabled: profile.trusted,
-                onChanged: (v) => ref.read(appControllerProvider).setDevicePrivateModeAccess(widget.device.id, v),
+                onChanged: (v) => ref
+                    .read(appControllerProvider)
+                    .setDevicePrivateModeAccess(widget.device.id, v),
               ),
               AppSwitchTile(
                 leading: Icon(Icons.key_outlined, color: colors.textSecondary),
@@ -161,14 +208,18 @@ class _DeviceDetailScreenState extends ConsumerState<DeviceDetailScreen> {
                 value: profile.secretRoomAccess,
                 enabled: profile.trusted && profile.privateModeAccess,
                 showDivider: false,
-                onChanged: (v) => ref.read(appControllerProvider).setDeviceSecretRoomAccess(widget.device.id, v),
+                onChanged: (v) => ref
+                    .read(appControllerProvider)
+                    .setDeviceSecretRoomAccess(widget.device.id, v),
               ),
             ],
           ),
           if (!widget.device.isCurrent) ...[
             const SizedBox(height: AppSpacing.xl),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
               child: AppButton(
                 label: 'Завершить сеанс',
                 variant: AppButtonVariant.danger,
@@ -179,7 +230,9 @@ class _DeviceDetailScreenState extends ConsumerState<DeviceDetailScreen> {
           ],
           const SizedBox(height: AppSpacing.lg),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
+            ),
             child: AppCard(
               child: Row(
                 children: [
@@ -189,15 +242,24 @@ class _DeviceDetailScreenState extends ConsumerState<DeviceDetailScreen> {
                       children: [
                         Text('ID устройства', style: text.caption),
                         const SizedBox(height: 4),
-                        SelectableText(widget.device.id, style: text.body.copyWith(fontSize: 13)),
+                        SelectableText(
+                          widget.device.id,
+                          style: text.body.copyWith(fontSize: 13),
+                        ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.copy_outlined, size: 18, color: colors.textSecondary),
+                    icon: Icon(
+                      Icons.copy_outlined,
+                      size: 18,
+                      color: colors.textSecondary,
+                    ),
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: widget.device.id));
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Скопировано')));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Скопировано')),
+                      );
                     },
                   ),
                 ],

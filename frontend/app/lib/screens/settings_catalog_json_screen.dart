@@ -16,10 +16,12 @@ class SettingsCatalogJsonScreen extends ConsumerStatefulWidget {
   const SettingsCatalogJsonScreen({super.key});
 
   @override
-  ConsumerState<SettingsCatalogJsonScreen> createState() => _SettingsCatalogJsonScreenState();
+  ConsumerState<SettingsCatalogJsonScreen> createState() =>
+      _SettingsCatalogJsonScreenState();
 }
 
-class _SettingsCatalogJsonScreenState extends ConsumerState<SettingsCatalogJsonScreen> {
+class _SettingsCatalogJsonScreenState
+    extends ConsumerState<SettingsCatalogJsonScreen> {
   String _json = '';
   bool _loading = true;
   String? _status;
@@ -61,7 +63,9 @@ class _SettingsCatalogJsonScreenState extends ConsumerState<SettingsCatalogJsonS
       final n = await CatalogSeedService().applyDevSeedAsset(catalog);
       await ref.read(settingsCatalogValuesProvider).reloadFromLegacy(catalog);
       if (!mounted) return;
-      setState(() => _status = 'Применено $n значений из dev-catalog-seed.json');
+      setState(
+        () => _status = 'Применено $n значений из dev-catalog-seed.json',
+      );
       await _refresh();
     } catch (e) {
       if (!mounted) return;
@@ -115,7 +119,10 @@ class _SettingsCatalogJsonScreenState extends ConsumerState<SettingsCatalogJsonS
                   ),
                   if (_status != null) ...[
                     const SizedBox(height: AppSpacing.sm),
-                    Text(_status!, style: text.caption.copyWith(color: colors.primary)),
+                    Text(
+                      _status!,
+                      style: text.caption.copyWith(color: colors.primary),
+                    ),
                   ],
                   const SizedBox(height: AppSpacing.md),
                   AppButton(
@@ -139,10 +146,15 @@ class _SettingsCatalogJsonScreenState extends ConsumerState<SettingsCatalogJsonS
             )
           else
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
               child: SelectableText(
                 _json,
-                style: text.caption.copyWith(fontFamily: 'monospace', fontSize: 12),
+                style: text.caption.copyWith(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
               ),
             ),
         ],

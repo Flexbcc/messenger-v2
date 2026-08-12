@@ -14,3 +14,5 @@ Future<bool> downloadBackupFile(String contents, String filename) async {
     html.Url.revokeObjectUrl(url);
   }
 }
+
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use

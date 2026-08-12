@@ -18,6 +18,7 @@ import 'duress_policy_screen.dart';
 import 'hidden_chats_settings_screen.dart';
 import 'device_privacy_screen.dart';
 import 'pin_setup_screen.dart';
+import 'private_feature_route.dart';
 
 class PrivacySettingsScreen extends ConsumerStatefulWidget {
   const PrivacySettingsScreen({super.key});
@@ -32,7 +33,6 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
   bool _loading = true;
 
   bool _hasRealPin = false;
-  bool _decoyStepDone = false;
   bool _secretRoomConfigured = false;
   bool _hasDecoyPin = false;
   bool _secretRoomEnabled = true;
@@ -54,7 +54,6 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
 
     final fakePin = await PinSecurity.hasFakePin();
     final realPin = await PinSecurity.isRealPinConfigured();
-    final decoyDone = await _store.decoyPinStepComplete();
     final secretConfigured = await SecretChatSecurity.isConfigured();
     final secretRoom = await _store.secretRoomEnabled();
     final hiddenChats = await _store.hiddenChatsEnabled();
@@ -64,19 +63,10 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
     final wipe = await _store.wipeOnWrongAttempts();
     final autoSec = await _store.autoLockSeconds();
 
-    if (fakePin && !decoyDone) {
-      await _store.setDecoyPinStepComplete(true);
-    }
-    if (secretConfigured && !decoyDone && realPin) {
-      await _store.setDecoyPinStepComplete(true);
-    }
-    final decoyDoneNow = await _store.decoyPinStepComplete();
-
     if (!mounted) return;
     setState(() {
       _hasRealPin = realPin;
       _hasDecoyPin = fakePin;
-      _decoyStepDone = decoyDoneNow;
       _secretRoomConfigured = secretConfigured;
       _secretRoomEnabled = secretRoom;
       _hiddenChatsEnabled = hiddenChats;
@@ -229,18 +219,7 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
                   },
                   showDivider: true,
                 ),
-                if (!_decoyStepDone)
-                  AppTile(
-                    leading: Icon(
-                      Icons.info_outline,
-                      color: colors.textSecondary,
-                    ),
-                    title: 'Секретная комната',
-                    subtitle:
-                        'Откроется после шага 2 (доп. PIN или «Пропустить»)',
-                    showDivider: false,
-                  )
-                else ...[
+                if (_hasDecoyPin) ...[
                   AppTile(
                     leading: Icon(
                       Icons.lock_person_outlined,
@@ -253,8 +232,8 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
                     trailing: AppTile.chevron(context),
                     onTap: () async {
                       await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const SecretChatSettingsScreen(),
+                        privateSecretRoute(
+                          (_) => const SecretChatSettingsScreen(),
                         ),
                       );
                       await _load();
@@ -271,9 +250,7 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
                       subtitle: 'Шаг 4 · политика безопасности и duress',
                       trailing: AppTile.chevron(context),
                       onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const DuressPolicyScreen(),
-                        ),
+                        privateSecretRoute((_) => const DuressPolicyScreen()),
                       ),
                       showDivider: true,
                     ),
@@ -367,7 +344,7 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
               ),
             ],
           ),
-          if (_secretRoomConfigured) ...[
+          if (_hasRealPin && _hasDecoyPin && _secretRoomConfigured) ...[
             const SizedBox(height: AppSpacing.lg),
             AppSettingsGroup(
               title: 'Устройства',
@@ -380,9 +357,7 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
                   title: 'Приватность устройств',
                   trailing: AppTile.chevron(context),
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const DevicePrivacyScreen(),
-                    ),
+                    privateSecretRoute((_) => const DevicePrivacyScreen()),
                   ),
                 ),
                 AppTile(
@@ -394,8 +369,8 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
                   trailing: AppTile.chevron(context),
                   showDivider: false,
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const HiddenChatsSettingsScreen(),
+                    privateSecretRoute(
+                      (_) => const HiddenChatsSettingsScreen(),
                     ),
                   ),
                 ),

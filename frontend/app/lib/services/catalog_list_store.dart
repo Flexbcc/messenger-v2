@@ -3,7 +3,8 @@ import 'settings_catalog_bridge.dart';
 
 /// Persisted string lists for catalog settings of type `list`.
 class CatalogListStore {
-  CatalogListStore({LocalSettingsStore? store}) : _store = store ?? LocalSettingsStore();
+  CatalogListStore({LocalSettingsStore? store})
+    : _store = store ?? LocalSettingsStore();
 
   final LocalSettingsStore _store;
 
@@ -11,7 +12,10 @@ class CatalogListStore {
       _store.getStringList(SettingsCatalogBridge.catalogKey('list.$settingId'));
 
   Future<void> save(String settingId, List<String> items) =>
-      _store.setStringList(SettingsCatalogBridge.catalogKey('list.$settingId'), items);
+      _store.setStringList(
+        SettingsCatalogBridge.catalogKey('list.$settingId'),
+        items,
+      );
 
   Future<void> add(String settingId, String item) async {
     final list = await load(settingId);

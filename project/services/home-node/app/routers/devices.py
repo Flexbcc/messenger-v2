@@ -37,6 +37,10 @@ class PreKeyUploadRequest(BaseModel):
     prekeys: list[dict] = Field(..., min_length=1)
 
 
+class IdentityBundleUpdateRequest(BaseModel):
+    identity_key_bundle: dict
+
+
 def _validate_api_version(v: Optional[int]) -> Optional[int]:
     if v is None:
         return None
@@ -79,6 +83,19 @@ async def get_prekey_bundle(
     return resp.json()
 
 
+@router.get("/users/{user_id}/devices/{device_id}/prekey-bundle")
+async def get_device_prekey_bundle(
+    user_id: str,
+    device_id: str,
+    current: tuple[str, str] = Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    device = await db.get(Device, device_id)
+    if not device or device.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return await build_prekey_response(device, db, api_version=1)
+
+
 @router.post("/devices/{device_id}/prekeys")
 async def upload_prekeys(
     device_id: str,
@@ -110,3 +127,25 @@ async def upload_prekeys(
     if api_version is not None:
         response["api_version"] = api_version
     return response
+
+
+@router.put("/devices/{device_id}/identity-bundle")
+async def replace_identity_bundle(
+    device_id: str,
+    payload: IdentityBundleUpdateRequest,
+    current: tuple[str, str] = Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """Publish the exact bundle backed by this device's current private keys."""
+    user_id, caller_device_id = current
+    if caller_device_id != device_id:
+        raise HTTPException(status_code=403, detail="Can only update your own device")
+    device = await db.get(Device, device_id)
+    if not device or device.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Device not found")
+    device.identity_key_bundle = payload.identity_key_bundle
+    await db.commit()
+    return {
+        "status": "ok",
+        "unused_prekeys": count_unused_prekeys(device.identity_key_bundle),
+    }

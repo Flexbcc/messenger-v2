@@ -19,11 +19,7 @@ class MessagePayload {
   }
 
   static String encodeSystem({required String kind, required String body}) {
-    return jsonEncode({
-      'v': _version,
-      'body': body,
-      'system': kind,
-    });
+    return jsonEncode({'v': _version, 'body': body, 'system': kind});
   }
 
   static String encodeText({
@@ -33,7 +29,8 @@ class MessagePayload {
     String? replyPreview,
     int? ttlSeconds,
   }) {
-    final useJson = secret ||
+    final useJson =
+        secret ||
         (replyToMessageId != null && replyToMessageId.isNotEmpty) ||
         ttlSeconds != null;
     if (!useJson) return body;
@@ -41,8 +38,10 @@ class MessagePayload {
       'v': _version,
       'body': body,
       if (secret) 'secret': true,
-      if (replyToMessageId != null && replyToMessageId.isNotEmpty) 'reply_to': replyToMessageId,
-      if (replyPreview != null && replyPreview.isNotEmpty) 'reply_preview': replyPreview,
+      if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+        'reply_to': replyToMessageId,
+      if (replyPreview != null && replyPreview.isNotEmpty)
+        'reply_preview': replyPreview,
       if (ttlSeconds != null && ttlSeconds > 0) 'ttl_seconds': ttlSeconds,
     });
   }
@@ -107,8 +106,12 @@ class MessagePayload {
       final replyTo = map['reply_to'] as String?;
       final replyPreview = map['reply_preview'] as String?;
       message.plaintext = body;
-      message.replyToMessageId = replyTo != null && replyTo.isNotEmpty ? replyTo : null;
-      message.replyPreview = replyPreview != null && replyPreview.isNotEmpty ? replyPreview : null;
+      message.replyToMessageId = replyTo != null && replyTo.isNotEmpty
+          ? replyTo
+          : null;
+      message.replyPreview = replyPreview != null && replyPreview.isNotEmpty
+          ? replyPreview
+          : null;
     } catch (_) {
       // Plain text that happens to start with "{" — leave as-is.
     }

@@ -6,7 +6,7 @@ user and is unauthenticated by design (needed by any sender before X3DH).
 This router is auth-scoped to "me" only — no endpoint here can read or
 change another user's account.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -337,12 +337,14 @@ async def revoke_device(
     )
     await db.delete(device)
     await db.commit()
+    await manager.revoke_device(device_id)
     return {"ok": True}
 
 
 @router.get("/{user_id}/devices")
 async def get_user_devices(
     user_id: str,
+    exclude_device_id: str | None = Query(default=None),
     current: tuple[str, str] = Depends(get_current_device),
     db: AsyncSession = Depends(get_db),
 ):
@@ -351,16 +353,18 @@ async def get_user_devices(
     per-device E2EE шифрования (Task #57 / spec/0102_DATA_FLOW.md).
     Только аутентифицированные пользователи могут запрашивать чужие устройства.
     """
-    devices = (await db.execute(select(Device).where(Device.user_id == user_id))).scalars().all()
-    return [
-        {
-            "device_id": d.id,
-            "device_name": d.device_name,
-            "device_type": d.device_type,
-            "identity_key_bundle": d.identity_key_bundle,
-        }
-        for d in devices
-    ]
+    query = select(Device).where(Device.user_id == user_id)
+    if exclude_device_id:
+        query = query.where(Device.id != exclude_device_id)
+    devices = (await db.execute(query)).scalars().all()
+    result = []
+    for device in devices:
+        result.append({
+            "device_id": device.id,
+            "device_name": device.device_name,
+            "device_type": device.device_type,
+        })
+    return result
 
 
 @router.delete("/me/devices/others")

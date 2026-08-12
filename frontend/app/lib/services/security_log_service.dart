@@ -33,7 +33,12 @@ class SecurityLogService {
 }
 
 class SecurityEvent {
-  SecurityEvent({required this.title, required this.subtitle, required this.at, this.icon = 'shield'});
+  SecurityEvent({
+    required this.title,
+    required this.subtitle,
+    required this.at,
+    this.icon = 'shield',
+  });
 
   final String title;
   final String subtitle;

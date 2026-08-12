@@ -4,11 +4,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/extensions/context_extensions.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
 import '../services/autodownload_policy.dart';
 import '../state/app_controller.dart';
-import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
 
@@ -40,7 +40,9 @@ class ChatMediaScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Медиа')),
       body: images.isEmpty
-          ? Center(child: Text('Нет фото в этом чате', style: AppTypography.caption))
+          ? Center(
+              child: Text('Нет фото в этом чате', style: AppTypography.caption),
+            )
           : GridView.builder(
               padding: const EdgeInsets.all(AppSpacing.smallGap),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -91,7 +93,9 @@ class _MediaThumbState extends ConsumerState<_MediaThumb> {
       return;
     }
     try {
-      final bytes = await ref.read(appControllerProvider).resolveImageBytes(widget.message, forceDownload: true);
+      final bytes = await ref
+          .read(appControllerProvider)
+          .resolveImageBytes(widget.message, forceDownload: true);
       if (mounted) {
         setState(() {
           _bytes = bytes;
@@ -105,16 +109,23 @@ class _MediaThumbState extends ConsumerState<_MediaThumb> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     if (_loading) {
-      return Container(color: AppColors.surfaceLight, child: const Center(child: CircularProgressIndicator(strokeWidth: 2)));
+      return Container(
+        color: colors.surfaceElevated,
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
     }
     if (_blocked || _bytes == null) {
       return GestureDetector(
         onTap: _blocked ? () => _loadForced() : null,
         child: Container(
-          color: AppColors.surfaceLight,
+          color: colors.surfaceElevated,
           child: Center(
-            child: Icon(_blocked ? Icons.download_outlined : Icons.broken_image_outlined, color: AppColors.textSecondary),
+            child: Icon(
+              _blocked ? Icons.download_outlined : Icons.broken_image_outlined,
+              color: colors.textMuted,
+            ),
           ),
         ),
       );
@@ -128,7 +139,9 @@ class _MediaThumbState extends ConsumerState<_MediaThumb> {
       _blocked = false;
     });
     try {
-      final bytes = await ref.read(appControllerProvider).resolveImageBytes(widget.message, forceDownload: true);
+      final bytes = await ref
+          .read(appControllerProvider)
+          .resolveImageBytes(widget.message, forceDownload: true);
       if (mounted) {
         setState(() {
           _bytes = bytes;

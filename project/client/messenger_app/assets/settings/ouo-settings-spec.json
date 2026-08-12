@@ -91,7 +91,7 @@
             "json_type": "string",
             "minLength": 3,
             "maxLength": 32,
-            "pattern": "^[a-zA-Z][a-zA-Z0-9_]{2,31}$",
+            "pattern": "^[a-zA-Z0-9_]{3,32}$",
             "example": "alex_user"
           },
           "ui": {

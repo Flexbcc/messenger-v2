@@ -48,7 +48,10 @@ class ChatListTile extends StatelessWidget {
     final previewGap = compact ? 2.0 : 4.0;
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding, vertical: outerV),
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.screenPadding,
+        vertical: outerV,
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -61,12 +64,18 @@ class ChatListTile extends StatelessWidget {
             decoration: BoxDecoration(
               color: selected ? colors.cardSoft : Colors.transparent,
               borderRadius: BorderRadius.circular(AppRadius.lg),
-              border: selected ? Border.all(color: colors.primary.withValues(alpha: 0.25)) : null,
+              border: selected
+                  ? Border.all(color: colors.primary.withValues(alpha: 0.25))
+                  : null,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppAvatar(label: avatarLabel ?? (isGroup ? null : title), isGroup: isGroup, showOnline: isOnline && !isGroup),
+                AppAvatar(
+                  label: avatarLabel ?? (isGroup ? null : title),
+                  isGroup: isGroup,
+                  showOnline: isOnline && !isGroup,
+                ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
@@ -75,7 +84,11 @@ class ChatListTile extends StatelessWidget {
                       Row(
                         children: [
                           if (isPinned) ...[
-                            Icon(Icons.push_pin, size: 12, color: colors.textMuted),
+                            Icon(
+                              Icons.push_pin,
+                              size: 12,
+                              color: colors.textMuted,
+                            ),
                             const SizedBox(width: 4),
                           ],
                           Expanded(
@@ -84,13 +97,19 @@ class ChatListTile extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: text.subtitle.copyWith(
-                                fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.w500,
+                                fontWeight: unreadCount > 0
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
                               ),
                             ),
                           ),
                           if (isMuted) ...[
                             const SizedBox(width: 4),
-                            Icon(Icons.notifications_off_outlined, size: 14, color: colors.textMuted),
+                            Icon(
+                              Icons.notifications_off_outlined,
+                              size: 14,
+                              color: colors.textMuted,
+                            ),
                           ],
                           if (timeLabel != null) ...[
                             const SizedBox(width: 6),
@@ -104,8 +123,12 @@ class ChatListTile extends StatelessWidget {
                         maxLines: compact ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
                         style: text.caption.copyWith(
-                          color: unreachable ? colors.danger.withValues(alpha: 0.85) : colors.textSecondary,
-                          fontWeight: unreadCount > 0 ? FontWeight.w500 : FontWeight.w400,
+                          color: unreachable
+                              ? colors.danger.withValues(alpha: 0.85)
+                              : colors.textSecondary,
+                          fontWeight: unreadCount > 0
+                              ? FontWeight.w500
+                              : FontWeight.w400,
                         ),
                       ),
                     ],

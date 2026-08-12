@@ -16,11 +16,11 @@ SUMMARY = REPORTS / "coverage_summary.md"
 
 def main() -> None:
     REPORTS.mkdir(parents=True, exist_ok=True)
-    if MATRIX_PATH.exists():
-        data = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
-    else:
-        data = build_matrix()
-        MATRIX_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    data = build_matrix()
+    MATRIX_PATH.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
     s = data["summary"]
     client = data["client"]
@@ -54,11 +54,18 @@ def main() -> None:
         f"| Client settings | {s['client_total']} |",
         f"| profile_settings (persist L1) | {s['client_profile_settings']} |",
         f"| Wired live (SettingsRuntime) | {s['client_live']} |",
+        f"| Verified behavior | {s['client_verified']} |",
+        f"| Conditional visibility/enabling | {s['client_conditional']} |",
+        f"| Critical security settings | {s['client_critical']} |",
+        f"| Local client preferences | {s['client_local_preferences']} |",
+        f"| Local secure values | {s['client_local_secure']} |",
+        f"| Retired excluded | {s['retired_excluded']} |",
         f"| Stub | {s['client_stub']} |",
         f"| L1 persist keys (excl action/ro/secret) | {len(persist_ids)} |",
         f"| L2 privacy enum×role checks (scenario 11) | ~38 atomic |",
         f"| L3 behavioral probes | {len(probe_ids)} |",
         f"| Live without dedicated probe (expected gaps) | {len(gaps)} |",
+        f"| Node catalog available | {'yes' if s['node_catalog_available'] else 'no'} |",
         f"| Node settings | {s['node_total']} |",
         f"| Node live / planned skip | {len(node_live)} / {len(node_skip)} |",
         f"| Messenger scenarios last run | see below (01–11) |",

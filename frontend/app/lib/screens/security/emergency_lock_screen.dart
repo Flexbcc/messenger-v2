@@ -12,7 +12,11 @@ import '../../state/app_controller.dart';
 class EmergencyLockScreen extends ConsumerWidget {
   const EmergencyLockScreen({super.key});
 
-  Future<void> _confirm(BuildContext context, WidgetRef ref, EmergencyLockLevel level) async {
+  Future<void> _confirm(
+    BuildContext context,
+    WidgetRef ref,
+    EmergencyLockLevel level,
+  ) async {
     final colors = context.colors;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -22,12 +26,19 @@ class EmergencyLockScreen extends ConsumerWidget {
           '${level.description}\n\nПродолжить? Это действие нельзя отменить.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Отмена'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
               'Заблокировать',
-              style: TextStyle(color: level == EmergencyLockLevel.critical ? colors.danger : colors.warning),
+              style: TextStyle(
+                color: level == EmergencyLockLevel.critical
+                    ? colors.danger
+                    : colors.warning,
+              ),
             ),
           ),
         ],
@@ -44,7 +55,9 @@ class EmergencyLockScreen extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
       }
     }
   }
@@ -63,7 +76,11 @@ class EmergencyLockScreen extends ConsumerWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.warning_amber_rounded, color: colors.warning, size: 28),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: colors.warning,
+                  size: 28,
+                ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
@@ -100,7 +117,8 @@ class EmergencyLockScreen extends ConsumerWidget {
             level: EmergencyLockLevel.critical,
             icon: Icons.delete_forever_outlined,
             color: colors.danger,
-            onActivate: () => _confirm(context, ref, EmergencyLockLevel.critical),
+            onActivate: () =>
+                _confirm(context, ref, EmergencyLockLevel.critical),
           ),
         ],
       ),
@@ -141,7 +159,9 @@ class _LevelCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           AppButton(
             label: 'Активировать',
-            variant: level == EmergencyLockLevel.critical ? AppButtonVariant.danger : AppButtonVariant.secondary,
+            variant: level == EmergencyLockLevel.critical
+                ? AppButtonVariant.danger
+                : AppButtonVariant.secondary,
             onPressed: onActivate,
           ),
         ],

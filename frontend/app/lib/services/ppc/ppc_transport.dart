@@ -56,11 +56,13 @@ class LanPpcTransport implements PpcTransport {
     final uri = baseUri.replace(path: path);
     final hdrs = Map<String, String>.from(headers ?? {});
     if (signed) {
-      hdrs.addAll(await signer.signHeaders(
-        method: method,
-        path: PpcSigner.canonicalPath(uri),
-        body: body,
-      ));
+      hdrs.addAll(
+        await signer.signHeaders(
+          method: method,
+          path: PpcSigner.canonicalPath(uri),
+          body: body,
+        ),
+      );
     }
 
     final upper = method.toUpperCase();
@@ -69,9 +71,13 @@ class LanPpcTransport implements PpcTransport {
       case 'GET':
         resp = await _client.get(uri, headers: hdrs).timeout(requestTimeout);
       case 'POST':
-        resp = await _client.post(uri, headers: hdrs, body: body).timeout(requestTimeout);
+        resp = await _client
+            .post(uri, headers: hdrs, body: body)
+            .timeout(requestTimeout);
       case 'PUT':
-        resp = await _client.put(uri, headers: hdrs, body: body).timeout(requestTimeout);
+        resp = await _client
+            .put(uri, headers: hdrs, body: body)
+            .timeout(requestTimeout);
       case 'DELETE':
         resp = await _client.delete(uri, headers: hdrs).timeout(requestTimeout);
       default:
@@ -112,11 +118,9 @@ class RelayPpcTransport implements PpcTransport {
   }) async {
     final hdrs = Map<String, String>.from(headers ?? {});
     if (signed) {
-      hdrs.addAll(await signer.signHeaders(
-        method: method,
-        path: path,
-        body: body,
-      ));
+      hdrs.addAll(
+        await signer.signHeaders(method: method, path: path, body: body),
+      );
     }
 
     final invokeBody = jsonEncode({
@@ -165,7 +169,7 @@ class RelayPpcTransport implements PpcTransport {
 /// Ordered failover: LAN-direct → relay. Sticks to last working route.
 class CompositePpcTransport implements PpcTransport {
   CompositePpcTransport({required List<PpcTransport> transports})
-      : _transports = List.unmodifiable(transports) {
+    : _transports = List.unmodifiable(transports) {
     if (_transports.isEmpty) {
       throw ArgumentError('transports must not be empty');
     }
@@ -187,7 +191,10 @@ class CompositePpcTransport implements PpcTransport {
       return List.generate(_transports.length, (i) => i);
     }
     return [
-      ...List.generate(_transports.length - _activeIdx!, (i) => _activeIdx! + i),
+      ...List.generate(
+        _transports.length - _activeIdx!,
+        (i) => _activeIdx! + i,
+      ),
       ...List.generate(_activeIdx!, (i) => i),
     ];
   }

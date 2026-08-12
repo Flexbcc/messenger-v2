@@ -26,13 +26,15 @@ class AppEmptyState extends StatefulWidget {
   State<AppEmptyState> createState() => _AppEmptyStateState();
 }
 
-class _AppEmptyStateState extends State<AppEmptyState> with SingleTickerProviderStateMixin {
+class _AppEmptyStateState extends State<AppEmptyState>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _fade;
 
   @override
   void initState() {
     super.initState();
-    _fade = AnimationController(vsync: this, duration: AppMotion.slow)..forward();
+    _fade = AnimationController(vsync: this, duration: AppMotion.slow)
+      ..forward();
   }
 
   @override
@@ -53,12 +55,24 @@ class _AppEmptyStateState extends State<AppEmptyState> with SingleTickerProvider
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(widget.icon, size: 64, color: colors.primary.withValues(alpha: 0.55)),
+            Icon(
+              widget.icon,
+              size: 64,
+              color: colors.primary.withValues(alpha: 0.55),
+            ),
             const SizedBox(height: AppSpacing.lg),
-            Text(widget.title, textAlign: TextAlign.center, style: text.largeTitle),
+            Text(
+              widget.title,
+              textAlign: TextAlign.center,
+              style: text.largeTitle,
+            ),
             if (widget.subtitle != null) ...[
               const SizedBox(height: AppSpacing.sm),
-              Text(widget.subtitle!, textAlign: TextAlign.center, style: text.secondary),
+              Text(
+                widget.subtitle!,
+                textAlign: TextAlign.center,
+                style: text.secondary,
+              ),
             ],
             if (widget.actionLabel != null && widget.onAction != null) ...[
               const SizedBox(height: AppSpacing.xl),

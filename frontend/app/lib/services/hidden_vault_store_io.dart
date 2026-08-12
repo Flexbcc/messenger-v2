@@ -60,7 +60,11 @@ class HiddenVaultStore {
       utf8.encode(jsonEncode(data.toJson())),
       secretKey: secretKey,
     );
-    final out = base64Encode([...box.nonce, ...box.cipherText, ...box.mac.bytes]);
+    final out = base64Encode([
+      ...box.nonce,
+      ...box.cipherText,
+      ...box.mac.bytes,
+    ]);
     final file = await _vaultFile();
     await file.parent.create(recursive: true);
     await file.writeAsString(out);

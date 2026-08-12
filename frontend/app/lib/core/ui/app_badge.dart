@@ -32,7 +32,7 @@ class AppBadge extends StatelessWidget {
       child: Text(
         label,
         style: context.textStyles.micro.copyWith(
-          color: colors.textPrimary,
+          color: colors.onAccent,
           fontWeight: FontWeight.w600,
           fontSize: 11,
         ),
@@ -71,7 +71,10 @@ class AppSecurityBadge extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: c),
           const SizedBox(width: 6),
-          Text(label, style: text.micro.copyWith(color: c, fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: text.micro.copyWith(color: c, fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );

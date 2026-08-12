@@ -26,72 +26,78 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
   final TextStyle micro;
 
   static const _fontFamily = 'Inter';
-  static const _fallback = ['SF Pro Text', '.AppleSystemUIFont', 'Roboto', 'sans-serif'];
+  static const _fallback = [
+    'SF Pro Text',
+    '.AppleSystemUIFont',
+    'Roboto',
+    'sans-serif',
+  ];
 
   factory AppTextStyles.from(AppColorScheme colors) => AppTextStyles(
-        largeTitle: TextStyle(
-          fontFamily: _fontFamily,
-          fontFamilyFallback: _fallback,
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
-          color: colors.textPrimary,
-          letterSpacing: -0.3,
-        ),
-        title: TextStyle(
-          fontFamily: _fontFamily,
-          fontFamilyFallback: _fallback,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: colors.textPrimary,
-        ),
-        sectionTitle: TextStyle(
-          fontFamily: _fontFamily,
-          fontFamilyFallback: _fallback,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: colors.textPrimary,
-        ),
-        subtitle: TextStyle(
-          fontFamily: _fontFamily,
-          fontFamilyFallback: _fallback,
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: colors.textPrimary,
-        ),
-        body: TextStyle(
-          fontFamily: _fontFamily,
-          fontFamilyFallback: _fallback,
-          fontSize: 15,
-          fontWeight: FontWeight.w400,
-          color: colors.textPrimary,
-          height: 1.35,
-        ),
-        secondary: TextStyle(
-          fontFamily: _fontFamily,
-          fontFamilyFallback: _fallback,
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: colors.textSecondary,
-          height: 1.35,
-        ),
-        caption: TextStyle(
-          fontFamily: _fontFamily,
-          fontFamilyFallback: _fallback,
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: colors.textSecondary,
-        ),
-        micro: TextStyle(
-          fontFamily: _fontFamily,
-          fontFamilyFallback: _fallback,
-          fontSize: 11,
-          fontWeight: FontWeight.w400,
-          color: colors.textMuted,
-        ),
-      );
+    largeTitle: TextStyle(
+      fontFamily: _fontFamily,
+      fontFamilyFallback: _fallback,
+      fontSize: 22,
+      fontWeight: FontWeight.w600,
+      color: colors.textPrimary,
+      letterSpacing: -0.3,
+    ),
+    title: TextStyle(
+      fontFamily: _fontFamily,
+      fontFamilyFallback: _fallback,
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      color: colors.textPrimary,
+    ),
+    sectionTitle: TextStyle(
+      fontFamily: _fontFamily,
+      fontFamilyFallback: _fallback,
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      color: colors.textPrimary,
+    ),
+    subtitle: TextStyle(
+      fontFamily: _fontFamily,
+      fontFamilyFallback: _fallback,
+      fontSize: 15,
+      fontWeight: FontWeight.w500,
+      color: colors.textPrimary,
+    ),
+    body: TextStyle(
+      fontFamily: _fontFamily,
+      fontFamilyFallback: _fallback,
+      fontSize: 15,
+      fontWeight: FontWeight.w400,
+      color: colors.textPrimary,
+      height: 1.35,
+    ),
+    secondary: TextStyle(
+      fontFamily: _fontFamily,
+      fontFamilyFallback: _fallback,
+      fontSize: 14,
+      fontWeight: FontWeight.w400,
+      color: colors.textSecondary,
+      height: 1.35,
+    ),
+    caption: TextStyle(
+      fontFamily: _fontFamily,
+      fontFamilyFallback: _fallback,
+      fontSize: 12,
+      fontWeight: FontWeight.w400,
+      color: colors.textSecondary,
+    ),
+    micro: TextStyle(
+      fontFamily: _fontFamily,
+      fontFamilyFallback: _fallback,
+      fontSize: 11,
+      fontWeight: FontWeight.w400,
+      color: colors.textMuted,
+    ),
+  );
 
   static AppTextStyles of(BuildContext context) =>
-      Theme.of(context).extension<AppTextStyles>() ?? AppTextStyles.from(AppColorScheme.dark);
+      Theme.of(context).extension<AppTextStyles>() ??
+      AppTextStyles.from(AppColorScheme.dark);
 
   @override
   AppTextStyles copyWith({
@@ -103,17 +109,16 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
     TextStyle? secondary,
     TextStyle? caption,
     TextStyle? micro,
-  }) =>
-      AppTextStyles(
-        largeTitle: largeTitle ?? this.largeTitle,
-        title: title ?? this.title,
-        sectionTitle: sectionTitle ?? this.sectionTitle,
-        subtitle: subtitle ?? this.subtitle,
-        body: body ?? this.body,
-        secondary: secondary ?? this.secondary,
-        caption: caption ?? this.caption,
-        micro: micro ?? this.micro,
-      );
+  }) => AppTextStyles(
+    largeTitle: largeTitle ?? this.largeTitle,
+    title: title ?? this.title,
+    sectionTitle: sectionTitle ?? this.sectionTitle,
+    subtitle: subtitle ?? this.subtitle,
+    body: body ?? this.body,
+    secondary: secondary ?? this.secondary,
+    caption: caption ?? this.caption,
+    micro: micro ?? this.micro,
+  );
 
   @override
   AppTextStyles lerp(ThemeExtension<AppTextStyles>? other, double t) {
@@ -132,19 +137,27 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
   }
 }
 
-/// Legacy static typography — dark-first literal colors (const-safe).
+/// Legacy static typography.
+///
+/// Colors are intentionally omitted so these styles inherit the active
+/// [DefaultTextStyle]. Call sites that sit on media or accent surfaces should
+/// set an explicit semantic foreground color.
 class AppTypography {
   AppTypography._();
 
   static const _fontFamily = 'Inter';
-  static const _fallback = ['SF Pro Text', '.AppleSystemUIFont', 'Roboto', 'sans-serif'];
+  static const _fallback = [
+    'SF Pro Text',
+    '.AppleSystemUIFont',
+    'Roboto',
+    'sans-serif',
+  ];
 
   static const largeTitle = TextStyle(
     fontFamily: _fontFamily,
     fontFamilyFallback: _fallback,
     fontSize: 22,
     fontWeight: FontWeight.w600,
-    color: Color(0xFFF4F7FB),
     letterSpacing: -0.3,
   );
 
@@ -153,7 +166,6 @@ class AppTypography {
     fontFamilyFallback: _fallback,
     fontSize: 18,
     fontWeight: FontWeight.w600,
-    color: Color(0xFFF4F7FB),
   );
 
   static const sectionTitle = TextStyle(
@@ -161,7 +173,6 @@ class AppTypography {
     fontFamilyFallback: _fallback,
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    color: Color(0xFFF4F7FB),
   );
 
   static const subtitle = TextStyle(
@@ -169,7 +180,6 @@ class AppTypography {
     fontFamilyFallback: _fallback,
     fontSize: 15,
     fontWeight: FontWeight.w500,
-    color: Color(0xFFF4F7FB),
   );
 
   static const body = TextStyle(
@@ -177,7 +187,6 @@ class AppTypography {
     fontFamilyFallback: _fallback,
     fontSize: 15,
     fontWeight: FontWeight.w400,
-    color: Color(0xFFF4F7FB),
     height: 1.35,
   );
 
@@ -186,7 +195,6 @@ class AppTypography {
     fontFamilyFallback: _fallback,
     fontSize: 14,
     fontWeight: FontWeight.w400,
-    color: Color(0xFF9AA6B5),
     height: 1.35,
   );
 
@@ -195,7 +203,6 @@ class AppTypography {
     fontFamilyFallback: _fallback,
     fontSize: 12,
     fontWeight: FontWeight.w400,
-    color: Color(0xFF9AA6B5),
   );
 
   static const micro = TextStyle(
@@ -203,6 +210,5 @@ class AppTypography {
     fontFamilyFallback: _fallback,
     fontSize: 11,
     fontWeight: FontWeight.w400,
-    color: Color(0xFF667085),
   );
 }

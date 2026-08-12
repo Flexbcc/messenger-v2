@@ -39,7 +39,8 @@ class AppTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = context.textStyles;
-    final themeDense = Theme.of(context).listTileTheme.dense == true ||
+    final themeDense =
+        Theme.of(context).listTileTheme.dense == true ||
         Theme.of(context).visualDensity.vertical < 0;
     final effectiveDense = dense || themeDense;
 
@@ -50,17 +51,26 @@ class AppTile extends StatelessWidget {
         child: Opacity(
           opacity: enabled ? 1 : 0.45,
           child: Container(
-            constraints: BoxConstraints(minHeight: effectiveDense ? 44 : AppSpacing.rowHeight),
+            constraints: BoxConstraints(
+              minHeight: effectiveDense ? 44 : AppSpacing.rowHeight,
+            ),
             padding: EdgeInsets.symmetric(
               horizontal: AppSpacing.cardPadding,
               vertical: effectiveDense ? 8 : 12,
             ),
             decoration: showDivider
-                ? BoxDecoration(border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)))
+                ? BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: colors.divider, width: 0.5),
+                    ),
+                  )
                 : null,
             child: Row(
               children: [
-                if (leading != null) ...[leading!, const SizedBox(width: AppSpacing.md)],
+                if (leading != null) ...[
+                  leading!,
+                  const SizedBox(width: AppSpacing.md),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,14 +78,23 @@ class AppTile extends StatelessWidget {
                     children: [
                       titleWidget ??
                           Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: text.subtitle.copyWith(color: danger ? colors.danger : colors.textPrimary),
-                      ),
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.subtitle.copyWith(
+                              color: danger
+                                  ? colors.danger
+                                  : colors.textPrimary,
+                            ),
+                          ),
                       if (subtitle != null) ...[
                         const SizedBox(height: 2),
-                        Text(subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis, style: text.caption),
+                        Text(
+                          subtitle!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.caption,
+                        ),
                       ],
                     ],
                   ),
@@ -83,7 +102,10 @@ class AppTile extends StatelessWidget {
                 if (trailingText != null)
                   Padding(
                     padding: const EdgeInsets.only(left: AppSpacing.sm),
-                    child: Text(trailingText!, style: text.caption.copyWith(color: colors.textMuted)),
+                    child: Text(
+                      trailingText!,
+                      style: text.caption.copyWith(color: colors.textMuted),
+                    ),
                   ),
                 if (trailing != null) trailing!,
               ],

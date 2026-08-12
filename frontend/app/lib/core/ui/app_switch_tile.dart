@@ -35,7 +35,10 @@ class AppSwitchTile extends StatelessWidget {
       showDivider: showDivider,
       enabled: enabled,
       onTap: enabled ? () => onChanged(!value) : null,
-      trailing: Switch.adaptive(value: value, onChanged: enabled ? onChanged : null),
+      trailing: Switch.adaptive(
+        value: value,
+        onChanged: enabled ? onChanged : null,
+      ),
     );
   }
 }

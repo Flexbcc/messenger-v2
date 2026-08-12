@@ -37,15 +37,21 @@ class DiagnosticsScreen extends ConsumerWidget {
       ('Media', AppConfig.mediaNodeUrl),
       ('Relay', 'federation · через Discovery (порт 8005 не для клиента)'),
       ('WebSocket', AppConfig.wsUrl),
-      ('WS состояние', controller.websocketConnected ? 'connected' : 'disconnected'),
+      (
+        'WS состояние',
+        controller.websocketConnected ? 'connected' : 'disconnected',
+      ),
       ('User ID', session?.userId ?? '—'),
       ('Device ID', session?.deviceId ?? '—'),
       ('Crypto store', controller.crypto != null ? 'loaded' : 'missing'),
       ('Auth keypair', controller.authKeyPair != null ? 'loaded' : 'missing'),
       ('Local DB', DatabaseInit.isInitialized ? 'ready' : 'not initialized'),
-      ('Last sync', controller.lastConversationSyncAt == null
-          ? '—'
-          : formatCallHistoryTime(controller.lastConversationSyncAt!)),
+      (
+        'Last sync',
+        controller.lastConversationSyncAt == null
+            ? '—'
+            : formatCallHistoryTime(controller.lastConversationSyncAt!),
+      ),
       ('Failed outbound', '${controller.failedOutboundCount}'),
       ('Scheduled queue', '${controller.scheduledMessageCount}'),
       ('Last error', lastErr ?? '—'),
@@ -64,9 +70,9 @@ class DiagnosticsScreen extends ConsumerWidget {
                 buf.writeln('${row.$1}: ${row.$2}');
               }
               Clipboard.setData(ClipboardData(text: buf.toString()));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Скопировано')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Скопировано')));
             },
           ),
         ],
@@ -113,19 +119,25 @@ class DiagnosticsScreen extends ConsumerWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
+            ),
             child: AppButton(
               label: 'JSON настроек / тестовый seed',
               variant: AppButtonVariant.secondary,
               icon: Icons.data_object,
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SettingsCatalogJsonScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const SettingsCatalogJsonScreen(),
+                ),
               ),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
+            ),
             child: AppButton(
               label: 'Заполнить настройки тестовыми данными',
               variant: AppButtonVariant.secondary,
@@ -133,7 +145,9 @@ class DiagnosticsScreen extends ConsumerWidget {
               onPressed: () async {
                 final catalog = await ref.read(settingsCatalogProvider.future);
                 final n = await CatalogSeedService().applyDevSeedAsset(catalog);
-                await ref.read(settingsCatalogValuesProvider).reloadFromLegacy(catalog);
+                await ref
+                    .read(settingsCatalogValuesProvider)
+                    .reloadFromLegacy(catalog);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Применено $n значений')),
@@ -144,7 +158,9 @@ class DiagnosticsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
+            ),
             child: Text(
               'Подробный лог API/crypto: Настройки → Журнал отладки',
               style: text.micro.copyWith(color: colors.textMuted),

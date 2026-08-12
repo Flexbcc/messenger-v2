@@ -58,17 +58,19 @@ class CallSignal {
   final Map<String, dynamic>? candidate;
 
   Map<String, dynamic> toJson() => {
-        'call_id': callId,
-        if (kind != null) 'kind': kind!.name,
-        if (sdp != null) 'sdp': sdp,
-        if (candidate != null) 'candidate': candidate,
-      };
+    'call_id': callId,
+    if (kind != null) 'kind': kind!.name,
+    if (sdp != null) 'sdp': sdp,
+    if (candidate != null) 'candidate': candidate,
+  };
 
   factory CallSignal.fromJson(CallSignalType type, Map<String, dynamic> json) {
     return CallSignal(
       type: type,
       callId: json['call_id'] as String,
-      kind: json['kind'] == null ? null : CallKind.values.byName(json['kind'] as String),
+      kind: json['kind'] == null
+          ? null
+          : CallKind.values.byName(json['kind'] as String),
       sdp: json['sdp'] as String?,
       candidate: (json['candidate'] as Map<String, dynamic>?),
     );

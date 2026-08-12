@@ -28,7 +28,13 @@ class PersistentSenderKeyStore extends SenderKeyStore {
   }
 
   @override
-  Future<void> storeSenderKey(SenderKeyName senderKeyName, SenderKeyRecord record) async {
-    await _prefs.setString(_key(senderKeyName), base64Encode(record.serialize()));
+  Future<void> storeSenderKey(
+    SenderKeyName senderKeyName,
+    SenderKeyRecord record,
+  ) async {
+    await _prefs.setString(
+      _key(senderKeyName),
+      base64Encode(record.serialize()),
+    );
   }
 }

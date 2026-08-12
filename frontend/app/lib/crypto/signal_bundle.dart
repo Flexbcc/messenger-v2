@@ -19,14 +19,18 @@ class SignalBundle {
       'registration_id': registrationId,
       'signed_prekey': {
         'id': signedPreKey.id,
-        'public_key': base64Encode(signedPreKey.getKeyPair().publicKey.serialize()),
+        'public_key': base64Encode(
+          signedPreKey.getKeyPair().publicKey.serialize(),
+        ),
         'signature': base64Encode(signedPreKey.signature),
       },
       'prekeys': preKeys
-          .map((p) => {
-                'id': p.id,
-                'public_key': base64Encode(p.getKeyPair().publicKey.serialize()),
-              })
+          .map(
+            (p) => {
+              'id': p.id,
+              'public_key': base64Encode(p.getKeyPair().publicKey.serialize()),
+            },
+          )
           .toList(),
     };
   }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../security/pin_security.dart';
+import '../../security/private_feature_access.dart';
 import '../../services/privacy_preferences_store.dart';
 import '../../services/settings_runtime.dart';
 import 'pin_keypad.dart';
@@ -16,24 +17,38 @@ class DecoyPinSetupScreen extends ConsumerStatefulWidget {
   final bool showSkip;
 
   @override
-  ConsumerState<DecoyPinSetupScreen> createState() => _DecoyPinSetupScreenState();
+  ConsumerState<DecoyPinSetupScreen> createState() =>
+      _DecoyPinSetupScreenState();
 }
 
-class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen> with SingleTickerProviderStateMixin {
+class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen>
+    with SingleTickerProviderStateMixin {
   String _input = '';
   String? _pending;
   bool _confirmStep = false;
   String? _error;
   int _pinLength = kPinLength;
+  bool _checkingAccess = true;
+  bool _accessAllowed = false;
   late final AnimationController _shakeController;
 
   @override
   void initState() {
     super.initState();
-    _shakeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
     Future.microtask(() async {
+      final access = await PrivateFeatureAccess.load();
       final len = await SettingsRuntime.instance.pinLength();
-      if (mounted) setState(() => _pinLength = len.clamp(4, 12));
+      if (mounted) {
+        setState(() {
+          _accessAllowed = access.canConfigureDecoyPin;
+          _checkingAccess = false;
+          _pinLength = len.clamp(4, 12);
+        });
+      }
     });
   }
 
@@ -96,6 +111,15 @@ class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen> with 
   @override
   Widget build(BuildContext context) {
     final text = context.textStyles;
+    if (_checkingAccess) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (!_accessAllowed) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Защищённый раздел')),
+        body: const Center(child: Text('Сначала настройте защиту')),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Дополнительный PIN'),
@@ -111,7 +135,9 @@ class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen> with 
           child: Column(
             children: [
               Text(
-                _confirmStep ? 'Повторите дополнительный PIN' : 'Создайте дополнительный PIN',
+                _confirmStep
+                    ? 'Повторите дополнительный PIN'
+                    : 'Создайте дополнительный PIN',
                 style: text.title,
                 textAlign: TextAlign.center,
               ),
@@ -124,11 +150,17 @@ class _DecoyPinSetupScreenState extends ConsumerState<DecoyPinSetupScreen> with 
               const Spacer(),
               ShakeOnError(
                 controller: _shakeController,
-                child: PinDotsIndicator(filledCount: _input.length, length: _pinLength),
+                child: PinDotsIndicator(
+                  filledCount: _input.length,
+                  length: _pinLength,
+                ),
               ),
               if (_error != null) ...[
                 const SizedBox(height: AppSpacing.sm),
-                Text(_error!, style: text.caption.copyWith(color: context.colors.danger)),
+                Text(
+                  _error!,
+                  style: text.caption.copyWith(color: context.colors.danger),
+                ),
               ],
               const Spacer(),
               PinKeypad(onDigit: _onDigit, onBackspace: _onBackspace),

@@ -12,13 +12,16 @@ class AppearancePreferences {
 
   Future<bool> compact() => _reader.getBool('appearance.compact', false);
 
-  Future<String> textSize() => _reader.getString('appearance.text_size', 'normal');
+  Future<String> textSize() =>
+      _reader.getString('appearance.text_size', 'normal');
 
   Future<bool> animations() => _reader.getBool('appearance.animations', true);
 
-  Future<bool> reduceMotion() => _reader.getBool('appearance.reduce_motion', false);
+  Future<bool> reduceMotion() =>
+      _reader.getBool('appearance.reduce_motion', false);
 
-  Future<String> chatBubbles() => _reader.getString('appearance.chat_bubbles', 'bubbles');
+  Future<String> chatBubbles() =>
+      _reader.getString('appearance.chat_bubbles', 'bubbles');
 }
 
 final appearancePreferencesProvider = Provider<AppearancePreferences>(

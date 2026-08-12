@@ -32,7 +32,10 @@ class SecretChatSecurity {
     final hash = await _secure.read(hashKey);
     final saltB64 = await _secure.read(saltKey);
     if (hash == null || saltB64 == null) return false;
-    final candidate = await PinSecurity.hashToBase64(password, base64Decode(saltB64));
+    final candidate = await PinSecurity.hashToBase64(
+      password,
+      base64Decode(saltB64),
+    );
     return candidate == hash;
   }
 

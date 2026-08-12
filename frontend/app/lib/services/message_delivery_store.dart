@@ -12,14 +12,19 @@ class MessageDeliveryStore {
 
   MessageDeliveryInfo? infoFor(String messageId) => _memory[messageId];
 
-  DateTime? peerReadUntil(String conversationId) => _peerReadUntil[conversationId];
+  DateTime? peerReadUntil(String conversationId) =>
+      _peerReadUntil[conversationId];
 
   Future<void> setStatus(
     String messageId,
     MessageDeliveryStatus status, {
     String? error,
   }) async {
-    final info = MessageDeliveryInfo(status: status, error: error, updatedAt: DateTime.now());
+    final info = MessageDeliveryInfo(
+      status: status,
+      error: error,
+      updatedAt: DateTime.now(),
+    );
     _memory[messageId] = info;
     await _store.setString(
       'msg_delivery_$messageId',
@@ -48,13 +53,18 @@ class MessageDeliveryStore {
     final prev = _peerReadUntil[conversationId];
     if (prev != null && !until.isAfter(prev)) return;
     _peerReadUntil[conversationId] = until;
-    await _store.setInt('peer_read_ms_$conversationId', until.millisecondsSinceEpoch);
+    await _store.setInt(
+      'peer_read_ms_$conversationId',
+      until.millisecondsSinceEpoch,
+    );
   }
 
   Future<void> loadPeerRead(String conversationId) async {
     if (_peerReadUntil.containsKey(conversationId)) return;
     final ms = await _store.getInt('peer_read_ms_$conversationId', 0);
-    if (ms > 0) _peerReadUntil[conversationId] = DateTime.fromMillisecondsSinceEpoch(ms);
+    if (ms > 0) {
+      _peerReadUntil[conversationId] = DateTime.fromMillisecondsSinceEpoch(ms);
+    }
   }
 
   Future<void> clearConversation(String conversationId) async {

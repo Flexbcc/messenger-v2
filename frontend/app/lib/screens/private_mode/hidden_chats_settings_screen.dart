@@ -15,10 +15,12 @@ class HiddenChatsSettingsScreen extends ConsumerStatefulWidget {
   const HiddenChatsSettingsScreen({super.key});
 
   @override
-  ConsumerState<HiddenChatsSettingsScreen> createState() => _HiddenChatsSettingsScreenState();
+  ConsumerState<HiddenChatsSettingsScreen> createState() =>
+      _HiddenChatsSettingsScreenState();
 }
 
-class _HiddenChatsSettingsScreenState extends ConsumerState<HiddenChatsSettingsScreen> {
+class _HiddenChatsSettingsScreenState
+    extends ConsumerState<HiddenChatsSettingsScreen> {
   bool _excludeSearch = true;
   bool _silenceNotif = true;
   bool _gestureEntry = true;
@@ -61,8 +63,14 @@ class _HiddenChatsSettingsScreenState extends ConsumerState<HiddenChatsSettingsS
           decoration: const InputDecoration(hintText: '.скрытые'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
-          TextButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Сохранить')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Сохранить'),
+          ),
         ],
       ),
     );
@@ -98,11 +106,12 @@ class _HiddenChatsSettingsScreenState extends ConsumerState<HiddenChatsSettingsS
             children: [
               AppSwitchTile(
                 title: 'Исключить из общего поиска',
-                subtitle: 'Не показывать в поиске на вкладке «Чаты»',
                 value: _excludeSearch,
                 onChanged: (v) async {
                   await HiddenChatsStore.instance.setExcludeFromGlobalSearch(v);
-                  await ref.read(appControllerProvider).refreshHiddenChatsPolicies();
+                  await ref
+                      .read(appControllerProvider)
+                      .refreshHiddenChatsPolicies();
                   setState(() => _excludeSearch = v);
                 },
               ),
@@ -112,7 +121,9 @@ class _HiddenChatsSettingsScreenState extends ConsumerState<HiddenChatsSettingsS
                 value: _silenceNotif,
                 onChanged: (v) async {
                   await HiddenChatsStore.instance.setSilenceNotifications(v);
-                  await ref.read(appControllerProvider).refreshHiddenChatsPolicies();
+                  await ref
+                      .read(appControllerProvider)
+                      .refreshHiddenChatsPolicies();
                   setState(() => _silenceNotif = v);
                 },
                 showDivider: false,
@@ -131,12 +142,20 @@ class _HiddenChatsSettingsScreenState extends ConsumerState<HiddenChatsSettingsS
                   await HiddenChatsStore.instance.setGestureEntryEnabled(v);
                   if (v) {
                     await HiddenChatsStore.instance.setOpenMethod('gesture');
-                    await LocalSettingsStore().setString('catalog.hidden.open_method', 'gesture');
+                    await LocalSettingsStore().setString(
+                      'catalog.hidden.open_method',
+                      'gesture',
+                    );
                   } else {
                     await HiddenChatsStore.instance.setOpenMethod('pin');
-                    await LocalSettingsStore().setString('catalog.hidden.open_method', 'pin');
+                    await LocalSettingsStore().setString(
+                      'catalog.hidden.open_method',
+                      'pin',
+                    );
                   }
-                  await ref.read(appControllerProvider).refreshHiddenChatsPolicies();
+                  await ref
+                      .read(appControllerProvider)
+                      .refreshHiddenChatsPolicies();
                   setState(() => _gestureEntry = v);
                 },
               ),
@@ -157,11 +176,17 @@ class _HiddenChatsSettingsScreenState extends ConsumerState<HiddenChatsSettingsS
               AppTile(
                 leading: Icon(Icons.sort, color: colors.textSecondary),
                 title: 'Порядок списка',
-                trailingText: _sort == HiddenChatSort.recent ? 'Недавние' : 'По имени',
+                trailingText: _sort == HiddenChatSort.recent
+                    ? 'Недавние'
+                    : 'По имени',
                 onTap: () async {
-                  final next = _sort == HiddenChatSort.recent ? HiddenChatSort.name : HiddenChatSort.recent;
+                  final next = _sort == HiddenChatSort.recent
+                      ? HiddenChatSort.name
+                      : HiddenChatSort.recent;
                   await HiddenChatsStore.instance.setSortOrder(next);
-                  await ref.read(appControllerProvider).refreshHiddenChatsPolicies();
+                  await ref
+                      .read(appControllerProvider)
+                      .refreshHiddenChatsPolicies();
                   setState(() => _sort = next);
                 },
                 showDivider: false,

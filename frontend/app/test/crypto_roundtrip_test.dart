@@ -104,6 +104,37 @@ void main() {
     );
   });
 
+  test(
+    'linked device decrypts an outgoing mirror from the same account',
+    () async {
+      final primary = CryptoService.ephemeral();
+      final linked = CryptoService.ephemeral();
+      await primary.establishSessionFromBundle(
+        'same-user',
+        await linked.generatePublishableBundle(),
+        deviceId: 'linked-device',
+      );
+
+      const text = 'visible on both of my devices';
+      final ciphertext = await primary.encrypt(
+        'same-user',
+        utf8.encode(text),
+        recipientDeviceId: 'linked-device',
+      );
+
+      expect(
+        utf8.decode(
+          await linked.decrypt(
+            'same-user',
+            ciphertext,
+            senderDeviceId: 'primary-device',
+          ),
+        ),
+        text,
+      );
+    },
+  );
+
   // Manually verified (not automated: the library rejects this deep inside
   // a chained-but-unawaited Future in SessionBuilder.processV3, which Dart's
   // zone error handling reports as an unhandled async error rather than a

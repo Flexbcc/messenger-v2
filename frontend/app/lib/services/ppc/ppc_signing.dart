@@ -6,10 +6,7 @@ import '../../crypto/auth_keypair.dart';
 
 /// Builds signed `X-PPC-*` request headers per storage-app/docs/WIRE.md.
 class PpcSigner {
-  PpcSigner({
-    required this.authKeyPair,
-    required this.nodeId,
-  });
+  PpcSigner({required this.authKeyPair, required this.nodeId});
 
   final AuthKeyPair authKeyPair;
   final String nodeId;
@@ -41,7 +38,8 @@ class PpcSigner {
     List<int> body = const [],
     int? timestampSeconds,
   }) async {
-    final ts = timestampSeconds ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final ts =
+        timestampSeconds ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final message = await canonicalString(
       method: method.toUpperCase(),
       path: path,
@@ -59,8 +57,6 @@ class PpcSigner {
 
   static Future<String> _sha256Hex(List<int> body) async {
     final digest = await _sha256.hash(body);
-    return digest.bytes
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
+    return digest.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 }

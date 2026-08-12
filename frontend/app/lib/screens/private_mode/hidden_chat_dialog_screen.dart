@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../core/extensions/context_extensions.dart';
 import '../../models/hidden_chat.dart';
 import '../../services/hidden_vault_session.dart';
-import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
 import '../../utils/format.dart';
@@ -14,26 +14,26 @@ enum _DisappearingTimer { off, oneHour, oneDay, oneWeek }
 
 extension on _DisappearingTimer {
   String get storageKey => switch (this) {
-        _DisappearingTimer.off => 'off',
-        _DisappearingTimer.oneHour => 'oneHour',
-        _DisappearingTimer.oneDay => 'oneDay',
-        _DisappearingTimer.oneWeek => 'oneWeek',
-      };
+    _DisappearingTimer.off => 'off',
+    _DisappearingTimer.oneHour => 'oneHour',
+    _DisappearingTimer.oneDay => 'oneDay',
+    _DisappearingTimer.oneWeek => 'oneWeek',
+  };
 
   String get label => switch (this) {
-        _DisappearingTimer.off => 'Выкл',
-        _DisappearingTimer.oneHour => '1 час',
-        _DisappearingTimer.oneDay => '1 день',
-        _DisappearingTimer.oneWeek => '1 неделя',
-      };
+    _DisappearingTimer.off => 'Выкл',
+    _DisappearingTimer.oneHour => '1 час',
+    _DisappearingTimer.oneDay => '1 день',
+    _DisappearingTimer.oneWeek => '1 неделя',
+  };
 }
 
 _DisappearingTimer _timerFromKey(String key) => switch (key) {
-      'oneHour' => _DisappearingTimer.oneHour,
-      'oneDay' => _DisappearingTimer.oneDay,
-      'oneWeek' => _DisappearingTimer.oneWeek,
-      _ => _DisappearingTimer.off,
-    };
+  'oneHour' => _DisappearingTimer.oneHour,
+  'oneDay' => _DisappearingTimer.oneDay,
+  'oneWeek' => _DisappearingTimer.oneWeek,
+  _ => _DisappearingTimer.off,
+};
 
 /// Hidden conversation backed by the encrypted local vault.
 class HiddenChatDialogScreen extends StatefulWidget {
@@ -95,13 +95,14 @@ class _HiddenChatDialogScreenState extends State<HiddenChatDialogScreen> {
   @override
   Widget build(BuildContext context) {
     final messages = _chat?.messages ?? const <HiddenMessage>[];
+    final colors = context.colors;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.backgroundLight,
+        backgroundColor: colors.background,
         elevation: 0,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: colors.textPrimary,
         titleSpacing: 0,
         title: Row(
           children: [
@@ -139,7 +140,7 @@ class _HiddenChatDialogScreenState extends State<HiddenChatDialogScreen> {
           if (_timer != _DisappearingTimer.off)
             Container(
               width: double.infinity,
-              color: AppColors.surfaceLight,
+              color: colors.surfaceElevated,
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.screenPadding,
                 vertical: AppSpacing.smallGap,
@@ -151,7 +152,12 @@ class _HiddenChatDialogScreenState extends State<HiddenChatDialogScreen> {
             ),
           Expanded(
             child: messages.isEmpty
-                ? const Center(child: Text('Напишите первое сообщение', style: AppTypography.secondary))
+                ? const Center(
+                    child: Text(
+                      'Напишите первое сообщение',
+                      style: AppTypography.secondary,
+                    ),
+                  )
                 : ListView.builder(
                     padding: const EdgeInsets.all(AppSpacing.screenPadding),
                     itemCount: messages.length,
@@ -167,7 +173,7 @@ class _HiddenChatDialogScreenState extends State<HiddenChatDialogScreen> {
                 hintText: 'Сообщение',
                 trailing: GestureDetector(
                   onTap: _send,
-                  child: const Icon(Icons.send, color: AppColors.accentBlue),
+                  child: Icon(Icons.send, color: colors.primary),
                 ),
                 onSubmitted: (_) => _send(),
               ),
@@ -186,15 +192,23 @@ class _Bubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bubbleColor = message.isMine ? AppColors.textPrimary : AppColors.surfaceLight;
-    final textColor = message.isMine ? AppColors.textInverse : AppColors.textPrimary;
+    final colors = context.colors;
+    final bubbleColor = message.isMine
+        ? colors.chatOutgoingStart
+        : colors.chatIncoming;
+    final textColor = colors.textPrimary;
 
     return Align(
       alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.smallGap),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.mediumGap, vertical: AppSpacing.smallGap),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.mediumGap,
+          vertical: AppSpacing.smallGap,
+        ),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
         decoration: BoxDecoration(
           color: bubbleColor,
           borderRadius: BorderRadius.circular(AppRadii.medium),
@@ -203,13 +217,14 @@ class _Bubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(message.text, style: AppTypography.body.copyWith(color: textColor)),
+            Text(
+              message.text,
+              style: AppTypography.body.copyWith(color: textColor),
+            ),
             const SizedBox(height: 2),
             Text(
               formatTime(message.createdAt),
-              style: AppTypography.caption.copyWith(
-                color: message.isMine ? AppColors.textMuted : AppColors.textSecondary,
-              ),
+              style: AppTypography.caption.copyWith(color: colors.textMuted),
             ),
           ],
         ),

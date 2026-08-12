@@ -234,7 +234,7 @@ def unique_label(scenario: str, role: str) -> str:
 
 
 def unique_login(role: str) -> str:
-    """Discovery login: ^[a-zA-Z][a-zA-Z0-9_]{2,31}$"""
+    """Discovery login: ^[a-zA-Z0-9_]{3,32}$"""
     stamp = uuid.uuid4().hex[:10]
     return f"u{role[:3]}{stamp}"[:32]
 

@@ -7,7 +7,8 @@ import 'bootstrap_service.dart';
 
 /// Resolves effective node URLs from catalog + bootstrap invite.
 class NodeConfigResolver {
-  NodeConfigResolver({LocalSettingsStore? store}) : _store = store ?? LocalSettingsStore();
+  NodeConfigResolver({LocalSettingsStore? store})
+    : _store = store ?? LocalSettingsStore();
 
   final LocalSettingsStore _store;
 
@@ -46,7 +47,8 @@ class NodeConfigResolver {
   /// response (Post-R5 phase C lite, docs/reality/R4-routing.md). Empty when
   /// bootstrapped without a Gateway (compile-time default only) or when no
   /// alternate Home nodes were advertised.
-  List<String> backupHomeUrls() => BootstrapStore.current?.backupHomeUrls ?? const [];
+  List<String> backupHomeUrls() =>
+      BootstrapStore.current?.backupHomeUrls ?? const [];
 
   String? discoveryUrl() => BootstrapStore.current?.discoveryUrl;
 
@@ -56,7 +58,9 @@ class NodeConfigResolver {
   /// order and return the first one that answers `/health`. Used both for
   /// diagnostics/status UI and as the candidate lookup for
   /// [failoverToBackupHome] below.
-  Future<String?> firstReachableHomeUrl({Duration timeout = const Duration(seconds: 4)}) async {
+  Future<String?> firstReachableHomeUrl({
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
     final primary = await homeNodeUrl();
     final candidates = {primary, ...backupHomeUrls()};
     for (final url in candidates) {
@@ -76,7 +80,9 @@ class NodeConfigResolver {
   /// Probes only the current primary Home's `/health` — cheap check callers
   /// use to decide whether a failover attempt (or a `/health` sweep of every
   /// backup via [firstReachableHomeUrl]) is even warranted.
-  Future<bool> isPrimaryReachable({Duration timeout = const Duration(seconds: 4)}) async {
+  Future<bool> isPrimaryReachable({
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
     final primary = await homeNodeUrl();
     if (primary.isEmpty) return false;
     try {
@@ -103,20 +109,27 @@ class NodeConfigResolver {
   /// Returns the new primary URL when a swap happened, or `null` when there
   /// was nothing to do (already on the best reachable candidate, or nothing
   /// answered at all).
-  Future<String?> failoverToBackupHome({Duration timeout = const Duration(seconds: 4)}) async {
+  Future<String?> failoverToBackupHome({
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
     final bootstrap = BootstrapStore.current;
     if (bootstrap == null || bootstrap.backupHomeUrls.isEmpty) return null;
     final reachable = await firstReachableHomeUrl(timeout: timeout);
     if (reachable == null || reachable == bootstrap.homeUrl) return null;
-    final remainingBackups = bootstrap.backupHomeUrls.where((u) => u != reachable).toList();
-    await BootstrapStore.save(bootstrap.copyWith(
-      homeUrl: reachable,
-      backupHomeUrls: [bootstrap.homeUrl, ...remainingBackups],
-    ));
+    final remainingBackups = bootstrap.backupHomeUrls
+        .where((u) => u != reachable)
+        .toList();
+    await BootstrapStore.save(
+      bootstrap.copyWith(
+        homeUrl: reachable,
+        backupHomeUrls: [bootstrap.homeUrl, ...remainingBackups],
+      ),
+    );
     return reachable;
   }
 
-  Future<bool> allowServiceNodes() => SettingsRuntime.instance.nodeAllowServiceNodes();
+  Future<bool> allowServiceNodes() =>
+      SettingsRuntime.instance.nodeAllowServiceNodes();
 
   Future<bool> allowFallback() => SettingsRuntime.instance.nodeAllowFallback();
 
@@ -124,9 +137,9 @@ class NodeConfigResolver {
       SettingsRuntime.instance.nodeCertificateFingerprint();
 
   Future<bool> allowMobileData() => _store.getBool(
-        SettingsCatalogBridge.catalogKey('node.mobile_data'),
-        true,
-      );
+    SettingsCatalogBridge.catalogKey('node.mobile_data'),
+    true,
+  );
 
   Future<bool> allowRelays() => SettingsRuntime.instance.nodeAllowRelays();
 
@@ -147,7 +160,9 @@ class NodeConfigResolver {
     if (await proxyEnabled()) {
       final proxy = await proxyUrl();
       final type = await proxyType();
-      parts.add(proxy == null ? 'прокси ($type) не задан' : 'прокси $type → $proxy');
+      parts.add(
+        proxy == null ? 'прокси ($type) не задан' : 'прокси $type → $proxy',
+      );
     }
     if (!await allowRelays()) {
       parts.add('релеи выкл.');

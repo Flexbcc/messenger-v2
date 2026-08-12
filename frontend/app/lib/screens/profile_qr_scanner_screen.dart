@@ -1,16 +1,16 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../core/theme/app_spacing.dart';
-import '../utils/user_id.dart';
+import '../services/contact_pairing_payload.dart';
+import '../services/qr_image_decoder.dart';
 
 class ProfileQrResult {
-  const ProfileQrResult({required this.userId, required this.displayName});
+  const ProfileQrResult({required this.handshake});
 
-  final String userId;
-  final String displayName;
+  final ContactPairingPayload handshake;
+  String get userId => handshake.userId;
 }
 
 /// Scans the JSON produced by [ProfileQrScreen] and returns a verified peer.
@@ -26,31 +26,29 @@ class _ProfileQrScannerScreenState extends State<ProfileQrScannerScreen> {
   bool _handling = false;
   String? _error;
 
+  Future<void> _pickQrImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+      allowMultiple: false,
+    );
+    final bytes = result?.files.single.bytes;
+    if (bytes == null || bytes.isEmpty) return;
+    try {
+      await _handle(decodeQrImage(bytes));
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
   Future<void> _handle(String raw) async {
     if (_handling) return;
     _handling = true;
     await _scanner.stop();
     try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic> || decoded['v'] != 1) {
-        throw const FormatException('Это не QR профиля мессенджера');
-      }
-      final userId = normalizeUserId(decoded['user_id']?.toString() ?? '');
-      if (!isValidUserIdFormat(userId)) {
-        throw const FormatException('В QR указан некорректный User ID');
-      }
-      final expiresRaw = decoded['expires_at']?.toString();
-      if (expiresRaw != null && expiresRaw.isNotEmpty) {
-        final expiresAt = DateTime.tryParse(expiresRaw);
-        if (expiresAt == null || DateTime.now().isAfter(expiresAt)) {
-          throw const FormatException('Срок действия QR истёк');
-        }
-      }
-      final displayName = decoded['display_name']?.toString().trim() ?? '';
+      final handshake = await ContactPairingPayload.parseAndVerify(raw);
       if (mounted) {
-        Navigator.of(
-          context,
-        ).pop(ProfileQrResult(userId: userId, displayName: displayName));
+        Navigator.of(context).pop(ProfileQrResult(handshake: handshake));
       }
       return;
     } catch (e) {
@@ -91,8 +89,14 @@ class _ProfileQrScannerScreenState extends State<ProfileQrScannerScreen> {
             child: Column(
               children: [
                 const Text(
-                  'Наведите камеру на QR профиля собеседника.',
+                  'Наведите камеру на одноразовый QR обмена ключами.',
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                OutlinedButton.icon(
+                  onPressed: _handling ? null : _pickQrImage,
+                  icon: const Icon(Icons.image_outlined),
+                  label: const Text('Выбрать QR из файла'),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: AppSpacing.sm),

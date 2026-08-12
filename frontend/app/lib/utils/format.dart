@@ -6,7 +6,9 @@ import '../models/device_session_meta.dart';
 String formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes Б';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} КБ';
-  if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} МБ';
+  if (bytes < 1024 * 1024 * 1024) {
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} МБ';
+  }
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} ГБ';
 }
 
@@ -34,7 +36,8 @@ String formatCallHistoryTime(DateTime dateTime) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final day = DateTime(local.year, local.month, local.day);
-  final hm = '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  final hm =
+      '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   if (day == today) return hm;
   if (day == today.subtract(const Duration(days: 1))) return 'Вчера, $hm';
   if (now.difference(local).inDays < 7) {
@@ -45,23 +48,23 @@ String formatCallHistoryTime(DateTime dateTime) {
 }
 
 String deviceTypeLabel(String deviceType) => switch (deviceType) {
-      'ios' => 'iOS',
-      'android' => 'Android',
-      'web' => 'Web',
-      'desktop' => 'Desktop',
-      'macos' || 'windows' || 'linux' => 'Desktop',
-      _ => deviceType,
-    };
+  'ios' => 'iOS',
+  'android' => 'Android',
+  'web' => 'Web',
+  'desktop' => 'Desktop',
+  'macos' || 'windows' || 'linux' => 'Desktop',
+  _ => deviceType,
+};
 
 String devicePlatformLabel(String deviceType) => deviceTypeLabel(deviceType);
 
 IconData deviceTypeIcon(String deviceType) => switch (deviceType) {
-      'ios' => Icons.phone_iphone,
-      'android' => Icons.phone_android,
-      'web' => Icons.language,
-      'desktop' || 'macos' || 'windows' || 'linux' => Icons.computer,
-      _ => Icons.devices_other,
-    };
+  'ios' => Icons.phone_iphone,
+  'android' => Icons.phone_android,
+  'web' => Icons.language,
+  'desktop' || 'macos' || 'windows' || 'linux' => Icons.computer,
+  _ => Icons.devices_other,
+};
 
 bool isDeviceOnline(DeviceInfo device) {
   if (device.isCurrent) return true;

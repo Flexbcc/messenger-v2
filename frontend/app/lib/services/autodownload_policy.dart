@@ -57,7 +57,8 @@ class AutodownloadPolicy {
     TrustLevel trust, {
     int? knownSizeBytes,
   }) async {
-    final trustLevelsOn = await SettingsRuntime.instance.contactsTrustLevelsEnabled();
+    final trustLevelsOn = await SettingsRuntime.instance
+        .contactsTrustLevelsEnabled();
     final effective = trustLevelsOn ? trust : TrustLevel.normal;
     final trustOk = switch (effective) {
       TrustLevel.unknown => false,

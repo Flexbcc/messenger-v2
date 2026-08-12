@@ -10,7 +10,9 @@ class AppSection extends StatelessWidget {
     required this.title,
     this.subtitle,
     required this.child,
-    this.padding = const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+    this.padding = const EdgeInsets.symmetric(
+      horizontal: AppSpacing.screenPadding,
+    ),
   });
 
   final String title;
@@ -27,7 +29,13 @@ class AppSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title.toUpperCase(), style: text.micro.copyWith(letterSpacing: 0.8, fontWeight: FontWeight.w600)),
+          Text(
+            title.toUpperCase(),
+            style: text.micro.copyWith(
+              letterSpacing: 0.8,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           if (subtitle != null) ...[
             const SizedBox(height: 4),
             Text(subtitle!, style: text.caption),
@@ -67,9 +75,16 @@ class AppInfoRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.cardPadding, vertical: 12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.cardPadding,
+            vertical: 12,
+          ),
           decoration: showDivider
-              ? BoxDecoration(border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)))
+              ? BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: colors.divider, width: 0.5),
+                  ),
+                )
               : null,
           child: Row(
             children: [
@@ -77,8 +92,20 @@ class AppInfoRow extends StatelessWidget {
                 Icon(icon, size: 20, color: colors.textSecondary),
                 const SizedBox(width: AppSpacing.md),
               ],
-              Expanded(child: Text(label, style: text.caption.copyWith(color: colors.textMuted))),
-              Flexible(child: Text(value, style: text.body, textAlign: TextAlign.end, overflow: TextOverflow.ellipsis)),
+              Expanded(
+                child: Text(
+                  label,
+                  style: text.caption.copyWith(color: colors.textMuted),
+                ),
+              ),
+              Flexible(
+                child: Text(
+                  value,
+                  style: text.body,
+                  textAlign: TextAlign.end,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ),

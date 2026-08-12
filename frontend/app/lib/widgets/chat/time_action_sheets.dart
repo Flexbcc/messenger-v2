@@ -48,11 +48,23 @@ Future<DateTime?> showSchedulePicker(BuildContext context) {
             padding: const EdgeInsets.all(AppSpacing.screenPadding),
             child: Text('Отложить отправку', style: text.title),
           ),
-          _pickTile(context, 'Через 10 секунд', TimeActionPresets.inSeconds(10)),
+          _pickTile(
+            context,
+            'Через 10 секунд',
+            TimeActionPresets.inSeconds(10),
+          ),
           _pickTile(context, 'Через 1 минуту', TimeActionPresets.inMinutes(1)),
           _pickTile(context, 'Через 10 минут', TimeActionPresets.inMinutes(10)),
-          _pickTile(context, 'Сегодня вечером (20:00)', TimeActionPresets.thisEvening),
-          _pickTile(context, 'Завтра утром (09:00)', TimeActionPresets.tomorrowMorning),
+          _pickTile(
+            context,
+            'Сегодня вечером (20:00)',
+            TimeActionPresets.thisEvening,
+          ),
+          _pickTile(
+            context,
+            'Завтра утром (09:00)',
+            TimeActionPresets.tomorrowMorning,
+          ),
           const SizedBox(height: AppSpacing.md),
         ],
       ),
@@ -90,7 +102,9 @@ Future<Conversation?> showForwardTargetPicker(
   required String Function(Conversation) titleFor,
 }) {
   final text = context.textStyles;
-  final targets = conversations.where((c) => c.id != currentConversationId).toList();
+  final targets = conversations
+      .where((c) => c.id != currentConversationId)
+      .toList();
   return showModalBottomSheet<Conversation>(
     context: context,
     showDragHandle: true,
@@ -167,7 +181,11 @@ Future<void> showMessageActionsSheet({
           children: [
             ListTile(
               title: Text(conversationTitle, style: context.textStyles.caption),
-              subtitle: Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                preview,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.reply_outlined),
@@ -216,7 +234,9 @@ Future<void> showMessageActionsSheet({
               },
             ),
             ListTile(
-              leading: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined),
+              leading: Icon(
+                isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+              ),
               title: Text(isPinned ? 'Открепить' : 'Закрепить'),
               onTap: () async {
                 Navigator.pop(context);
@@ -235,7 +255,10 @@ Future<void> showMessageActionsSheet({
               ),
             ListTile(
               leading: Icon(Icons.delete_outline, color: context.colors.danger),
-              title: Text('Удалить у меня', style: TextStyle(color: context.colors.danger)),
+              title: Text(
+                'Удалить у меня',
+                style: TextStyle(color: context.colors.danger),
+              ),
               subtitle: const Text('Скрывает только на этом устройстве'),
               onTap: () async {
                 Navigator.pop(context);

@@ -24,20 +24,24 @@ class HelpScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           const _FaqItem(
             question: 'Как начать чат?',
-            answer: 'Попросите собеседника поделиться User ID из профиля и создайте '
+            answer:
+                'Попросите собеседника поделиться User ID из профиля и создайте '
                 'новый чат через «+». В системе нет глобального поиска пользователей.',
           ),
           const _FaqItem(
             question: 'Безопасны ли сообщения?',
-            answer: 'Переписка зашифрована end-to-end (Signal Protocol). Сервер видит только ciphertext.',
+            answer:
+                'Переписка зашифрована end-to-end (Signal Protocol). Сервер видит только ciphertext.',
           ),
           const _FaqItem(
             question: 'Как войти с другого устройства?',
-            answer: 'Используйте тот же логин/телефон/email и пароль. Устройство появится в «Устройства».',
+            answer:
+                'Используйте тот же логин/телефон/email и пароль. Устройство появится в «Устройства».',
           ),
           const _FaqItem(
             question: 'Что делать, если не приходят сообщения?',
-            answer: 'Проверьте Home Node, обновите список чатов и убедитесь, что вы в аккаунте.',
+            answer:
+                'Проверьте Home Node, обновите список чатов и убедитесь, что вы в аккаунте.',
           ),
           const SizedBox(height: AppSpacing.xl),
           Text('Связаться с поддержкой', style: text.title),
@@ -45,7 +49,9 @@ class HelpScreen extends StatelessWidget {
           AppCard(
             onTap: () {
               Clipboard.setData(const ClipboardData(text: _supportEmail));
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email скопирован')));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Email скопирован')));
             },
             child: Row(
               children: [
@@ -60,7 +66,11 @@ class HelpScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(Icons.copy_outlined, size: 18, color: colors.textSecondary),
+                Icon(
+                  Icons.copy_outlined,
+                  size: 18,
+                  color: colors.textSecondary,
+                ),
               ],
             ),
           ),

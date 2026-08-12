@@ -11,7 +11,8 @@ String friendlyApiError(Object error) {
       return 'Пользователь не найден. Проверьте User ID: он должен быть скопирован '
           'из Настройки → Аккаунт у собеседника (UUID, не имя).';
     }
-    if (error.statusCode == 404 && error.message.contains('Unknown user_id on remote node')) {
+    if (error.statusCode == 404 &&
+        error.message.contains('Unknown user_id on remote node')) {
       return 'Пользователь не найден на удалённой ноде. Для теста используйте двух пользователей, '
           'зарегистрированных на одном Home Node (localhost).';
     }

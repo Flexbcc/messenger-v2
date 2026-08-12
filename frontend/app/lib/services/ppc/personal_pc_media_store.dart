@@ -30,7 +30,9 @@ class PersonalPcMediaStore {
 
   /// Bind session credentials before upload/download (lazy restore on first use).
   void configure({required String userId, required AuthKeyPair authKeyPair}) {
-    if (_userId == userId && _authKeyPair == authKeyPair && _client?.isPaired == true) {
+    if (_userId == userId &&
+        _authKeyPair == authKeyPair &&
+        _client?.isPaired == true) {
       return;
     }
     _userId = userId;
@@ -76,7 +78,9 @@ class PersonalPcMediaStore {
     final key = mediaId.substring(mediaIdPrefix.length);
     final bytes = await _client!.get(userId: _userId!, key: key);
     if (bytes == null) {
-      throw PersonalPcMediaStoreException('media not found on personal PC: $key');
+      throw PersonalPcMediaStoreException(
+        'media not found on personal PC: $key',
+      );
     }
     return Uint8List.fromList(bytes);
   }

@@ -58,9 +58,15 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
           Expanded(
             child: calls.isEmpty
                 ? AppEmptyState(
-                    icon: _missedOnly ? Icons.phone_missed_outlined : Icons.call_outlined,
-                    title: _missedOnly ? 'Нет пропущенных звонков' : 'История звонков пуста',
-                    subtitle: _missedOnly ? null : 'Звонки появятся после аудио- или видеовызова',
+                    icon: _missedOnly
+                        ? Icons.phone_missed_outlined
+                        : Icons.call_outlined,
+                    title: _missedOnly
+                        ? 'Нет пропущенных звонков'
+                        : 'История звонков пуста',
+                    subtitle: _missedOnly
+                        ? null
+                        : 'Звонки появятся после аудио- или видеовызова',
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.only(bottom: AppSpacing.xl),
@@ -81,7 +87,10 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
         title: const Text('Очистить историю звонков?'),
         content: const Text('Журнал будет удалён только на этом устройстве.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text('Очистить', style: TextStyle(color: colors.danger)),
@@ -107,16 +116,26 @@ class _CallRow extends ConsumerWidget {
     final name = controller.labelFor(entry.peerUserId);
     final missed = entry.missed;
     final color = missed ? colors.danger : colors.textSecondary;
-    final directionIcon = entry.outgoing ? Icons.call_made : Icons.call_received;
+    final directionIcon = entry.outgoing
+        ? Icons.call_made
+        : Icons.call_received;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ContactProfileScreen(userId: entry.peerUserId, displayName: name)),
+          MaterialPageRoute(
+            builder: (_) => ContactProfileScreen(
+              userId: entry.peerUserId,
+              displayName: name,
+            ),
+          ),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding, vertical: 10),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.screenPadding,
+            vertical: 10,
+          ),
           child: Row(
             children: [
               AppAvatar(label: name),
@@ -127,7 +146,9 @@ class _CallRow extends ConsumerWidget {
                   children: [
                     Text(
                       name,
-                      style: text.body.copyWith(color: missed ? colors.danger : colors.textPrimary),
+                      style: text.body.copyWith(
+                        color: missed ? colors.danger : colors.textPrimary,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Row(
@@ -155,15 +176,22 @@ class _CallRow extends ConsumerWidget {
                     ? null
                     : () async {
                         try {
-                          await controller.callPeer(peerUserId: entry.peerUserId, kind: entry.kind);
+                          await controller.callPeer(
+                            peerUserId: entry.peerUserId,
+                            kind: entry.kind,
+                          );
                         } catch (e) {
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text('$e')));
                           }
                         }
                       },
                 icon: Icon(
-                  entry.kind == CallKind.video ? Icons.videocam_outlined : Icons.call_outlined,
+                  entry.kind == CallKind.video
+                      ? Icons.videocam_outlined
+                      : Icons.call_outlined,
                   color: colors.primary,
                 ),
               ),
@@ -175,14 +203,16 @@ class _CallRow extends ConsumerWidget {
   }
 
   String _statusLabel(CallHistoryEntry entry) => switch (entry.status) {
-        CallHistoryStatus.completed =>
-          entry.durationSeconds != null ? _formatDuration(entry.durationSeconds!) : 'Разговор',
-        CallHistoryStatus.missed => 'Пропущенный',
-        CallHistoryStatus.cancelled => 'Отменён',
-        CallHistoryStatus.rejected => entry.outgoing ? 'Не ответил' : 'Отклонён',
-        CallHistoryStatus.busy => 'Занято',
-        CallHistoryStatus.failed => 'Сбой',
-      };
+    CallHistoryStatus.completed =>
+      entry.durationSeconds != null
+          ? _formatDuration(entry.durationSeconds!)
+          : 'Разговор',
+    CallHistoryStatus.missed => 'Пропущенный',
+    CallHistoryStatus.cancelled => 'Отменён',
+    CallHistoryStatus.rejected => entry.outgoing ? 'Не ответил' : 'Отклонён',
+    CallHistoryStatus.busy => 'Занято',
+    CallHistoryStatus.failed => 'Сбой',
+  };
 
   String _formatDuration(int seconds) {
     if (seconds < 60) return '$seconds сек';

@@ -42,7 +42,8 @@ class LoginApprovalService {
     return list.contains(deviceId);
   }
 
-  Future<List<String>> _loadDismissed() => _store.getStringList('login_approval_dismissed');
+  Future<List<String>> _loadDismissed() =>
+      _store.getStringList('login_approval_dismissed');
 
   bool isRecentLogin(DeviceInfo device) {
     final age = DateTime.now().difference(device.createdAt.toLocal());

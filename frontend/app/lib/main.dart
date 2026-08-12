@@ -126,6 +126,9 @@ class _MessengerAppState extends ConsumerState<MessengerApp>
     });
 
     return MaterialApp(
+      key: ValueKey(
+        'messenger-${controller.isLoggedIn}-${controller.loginApprovalPending}',
+      ),
       title: 'Messenger',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),

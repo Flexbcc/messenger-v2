@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/extensions/context_extensions.dart';
 import '../services/api_client.dart';
 import '../services/settings_runtime.dart';
+import '../services/contact_pairing_store.dart';
 import '../state/app_controller.dart';
-import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
 import '../utils/api_errors.dart';
@@ -39,10 +40,13 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
       MaterialPageRoute(builder: (_) => const ProfileQrScannerScreen()),
     );
     if (result == null || !mounted) return;
+    await ContactPairingStore().save(result.handshake);
+    if (!mounted) return;
     setState(() {
       _mode = _SearchMode.userId;
       _idController.text = result.userId;
-      _nameController.text = result.displayName;
+      // The display name is received later through the encrypted channel.
+      _nameController.clear();
       _error = null;
     });
   }
@@ -134,8 +138,8 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
   Widget build(BuildContext context) {
     final myId = ref.watch(appControllerProvider).session?.userId;
 
+    final colors = context.colors;
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(title: const Text('Новый чат')),
       body: Padding(
         padding: const EdgeInsets.all(AppSpacing.screenPadding),
@@ -146,7 +150,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.cardPadding),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceLight,
+                  color: colors.card,
                   borderRadius: BorderRadius.circular(AppRadii.medium),
                 ),
                 child: Column(
@@ -154,7 +158,9 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
                   children: [
                     Text(
                       'Ваш User ID (отправьте собеседнику):',
-                      style: AppTypography.caption,
+                      style: AppTypography.caption.copyWith(
+                        color: colors.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.smallGap / 2),
                     Row(
@@ -212,14 +218,24 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
             ),
             const SizedBox(height: AppSpacing.largeGap),
             if (_mode == _SearchMode.username) ...[
-              Text('Username собеседника:', style: AppTypography.secondary),
+              Text(
+                'Username собеседника:',
+                style: AppTypography.secondary.copyWith(
+                  color: colors.textSecondary,
+                ),
+              ),
               const SizedBox(height: AppSpacing.smallGap),
               AppTextField(
                 controller: _usernameController,
                 hintText: 'kekwekke_user',
               ),
             ] else if (_mode == _SearchMode.phone) ...[
-              Text('Телефон собеседника:', style: AppTypography.secondary),
+              Text(
+                'Телефон собеседника:',
+                style: AppTypography.secondary.copyWith(
+                  color: colors.textSecondary,
+                ),
+              ),
               const SizedBox(height: AppSpacing.smallGap),
               AppTextField(
                 controller: _phoneController,
@@ -228,7 +244,9 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
             ] else ...[
               Text(
                 'User ID собеседника (UUID из Настройки → Аккаунт):',
-                style: AppTypography.secondary,
+                style: AppTypography.secondary.copyWith(
+                  color: colors.textSecondary,
+                ),
               ),
               const SizedBox(height: AppSpacing.smallGap),
               AppTextField(
@@ -238,7 +256,9 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
               const SizedBox(height: AppSpacing.largeGap),
               Text(
                 'Как подписать чат у себя (необязательно):',
-                style: AppTypography.secondary,
+                style: AppTypography.secondary.copyWith(
+                  color: colors.textSecondary,
+                ),
               ),
               const SizedBox(height: AppSpacing.smallGap),
               AppTextField(controller: _nameController, hintText: 'Имя'),
@@ -247,9 +267,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
               const SizedBox(height: AppSpacing.mediumGap),
               Text(
                 _error!,
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.dangerRed,
-                ),
+                style: AppTypography.caption.copyWith(color: colors.danger),
               ),
             ],
             const SizedBox(height: AppSpacing.sectionGap),

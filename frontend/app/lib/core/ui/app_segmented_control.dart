@@ -39,7 +39,9 @@ class AppSegmentedControl extends StatelessWidget {
                   duration: AppMotion.fast,
                   curve: AppMotion.standard,
                   decoration: BoxDecoration(
-                    color: i == selectedIndex ? colors.card : Colors.transparent,
+                    color: i == selectedIndex
+                        ? colors.card
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(AppRadius.sm - 2),
                   ),
                   alignment: Alignment.center,
@@ -47,7 +49,9 @@ class AppSegmentedControl extends StatelessWidget {
                     labels[i],
                     style: text.subtitle.copyWith(
                       fontSize: 13,
-                      color: i == selectedIndex ? colors.textPrimary : colors.textSecondary,
+                      color: i == selectedIndex
+                          ? colors.textPrimary
+                          : colors.textSecondary,
                     ),
                   ),
                 ),

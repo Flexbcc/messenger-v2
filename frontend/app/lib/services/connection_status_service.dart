@@ -87,7 +87,9 @@ class ConnectionStatusService {
           url: urlNote,
           clientDirect: false,
           latencyMs: latency,
-          error: nodes.isEmpty ? 'Не зарегистрирован в Discovery' : 'Offline в Discovery',
+          error: nodes.isEmpty
+              ? 'Не зарегистрирован в Discovery'
+              : 'Offline в Discovery',
         );
       }
       final first = online.first;
@@ -117,10 +119,26 @@ class ConnectionStatusService {
     DateTime? lastConversationSyncAt,
   }) async {
     final endpoints = await Future.wait([
-      probeEndpoint(id: 'gateway', label: 'Gateway', baseUrl: AppConfig.gatewayNodeUrl),
-      probeEndpoint(id: 'home', label: 'Home Node', baseUrl: AppConfig.homeNodeUrl),
-      probeEndpoint(id: 'discovery', label: 'Discovery', baseUrl: AppConfig.discoveryNodeUrl),
-      probeEndpoint(id: 'media', label: 'Media', baseUrl: AppConfig.mediaNodeUrl),
+      probeEndpoint(
+        id: 'gateway',
+        label: 'Gateway',
+        baseUrl: AppConfig.gatewayNodeUrl,
+      ),
+      probeEndpoint(
+        id: 'home',
+        label: 'Home Node',
+        baseUrl: AppConfig.homeNodeUrl,
+      ),
+      probeEndpoint(
+        id: 'discovery',
+        label: 'Discovery',
+        baseUrl: AppConfig.discoveryNodeUrl,
+      ),
+      probeEndpoint(
+        id: 'media',
+        label: 'Media',
+        baseUrl: AppConfig.mediaNodeUrl,
+      ),
       probeRelayViaDiscovery(),
     ]);
     return ConnectionStatusSnapshot(
@@ -133,7 +151,8 @@ class ConnectionStatusService {
 
   String _friendlyError(Object e) {
     final text = e.toString();
-    if (text.contains('SocketException') || text.contains('Connection refused')) {
+    if (text.contains('SocketException') ||
+        text.contains('Connection refused')) {
       return 'Сервер не отвечает';
     }
     if (text.contains('TimeoutException')) return 'Таймаут';

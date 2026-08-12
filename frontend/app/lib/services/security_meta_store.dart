@@ -13,7 +13,10 @@ class SecurityMetaStore {
   }
 
   Future<void> recordLogin() async {
-    await _store.setInt('security_last_login_ms', DateTime.now().millisecondsSinceEpoch);
+    await _store.setInt(
+      'security_last_login_ms',
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   Future<DateTime?> lastPinChangeAt() async {
@@ -22,7 +25,10 @@ class SecurityMetaStore {
   }
 
   Future<void> recordPinChange() async {
-    await _store.setInt('security_last_pin_change_ms', DateTime.now().millisecondsSinceEpoch);
+    await _store.setInt(
+      'security_last_pin_change_ms',
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   Future<DateTime?> lastContactVerificationAt() async {
@@ -31,6 +37,9 @@ class SecurityMetaStore {
   }
 
   Future<void> recordContactVerification() async {
-    await _store.setInt('security_last_verify_ms', DateTime.now().millisecondsSinceEpoch);
+    await _store.setInt(
+      'security_last_verify_ms',
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 }

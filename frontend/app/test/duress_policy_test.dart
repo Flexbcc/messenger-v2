@@ -31,7 +31,9 @@ void main() {
         trigger: DuressTrigger.pinUnlockFail,
         threshold: 3,
         channels: ['relay'],
-        actions: [DuressAction(type: DuressActionType.relayEvent, relayEvent: 10)],
+        actions: [
+          DuressAction(type: DuressActionType.relayEvent, relayEvent: 10),
+        ],
       );
       final json = rule.toJson();
       expect(json['channels'], ['relay']);
@@ -44,7 +46,9 @@ void main() {
         trigger: DuressTrigger.decoyPinStreak,
         threshold: 1,
         channels: ['chat'],
-        actions: [DuressAction(type: DuressActionType.notifyTrustedChat, uiCode: 20)],
+        actions: [
+          DuressAction(type: DuressActionType.notifyTrustedChat, uiCode: 20),
+        ],
       );
       expect(rule.summaryRu, contains('Только чат'));
     });

@@ -28,11 +28,15 @@ Bump версии в `pubspec.yaml` → `generate-release-manifest.sh` → rebui
 
 ## Что уже собирается на Mac (Apple Silicon)
 
+Основной production-канал — PWA. Нативные сборки ниже предназначены для
+внутреннего тестирования и не подписаны для публикации в магазинах.
+
 
 | Цель            | Команда                         | Артефакт            |
 | --------------- | ------------------------------- | ------------------- |
 | Messenger macOS | `flutter build macos --release` | `messenger_app.app` |
 | Messenger Web   | `flutter build web --release`   | `build/web/`        |
+| Messenger Android | `flutter build apk --release` | `app-release.apk`   |
 | Storage macOS   | `flutter build macos --release` | `storage_app.app`   |
 
 

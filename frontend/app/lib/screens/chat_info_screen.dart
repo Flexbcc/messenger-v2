@@ -26,7 +26,11 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(appControllerProvider).loadChatPreferences(widget.conversation.id));
+    Future.microtask(
+      () => ref
+          .read(appControllerProvider)
+          .loadChatPreferences(widget.conversation.id),
+    );
   }
 
   Future<void> _confirmClearHistory() async {
@@ -40,7 +44,10 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
           'На сервере и у собеседника они останутся.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child: Text('Очистить', style: TextStyle(color: colors.danger)),
@@ -49,16 +56,25 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
       ),
     );
     if (confirmed == true && mounted) {
-      await ref.read(appControllerProvider).clearLocalHistory(widget.conversation.id);
+      await ref
+          .read(appControllerProvider)
+          .clearLocalHistory(widget.conversation.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('История очищена на этом устройстве')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('История очищена на этом устройстве')),
+        );
         Navigator.of(context).pop();
       }
     }
   }
 
   Future<void> _pickDisappearing() async {
-    const options = [(null, 'Выключено'), (86400, '24 часа'), (604800, '7 дней'), (2592000, '30 дней')];
+    const options = [
+      (null, 'Выключено'),
+      (86400, '24 часа'),
+      (604800, '7 дней'),
+      (2592000, '30 дней'),
+    ];
     final controller = ref.read(appControllerProvider);
     final current = controller.disappearingSeconds[widget.conversation.id];
     final colors = context.colors;
@@ -87,7 +103,9 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
             for (final (seconds, label) in options)
               ListTile(
                 title: Text(label, style: text.body),
-                trailing: current == seconds ? Icon(Icons.check, color: colors.primary) : null,
+                trailing: current == seconds
+                    ? Icon(Icons.check, color: colors.primary)
+                    : null,
                 onTap: () => Navigator.of(context).pop(seconds ?? 0),
               ),
             const SizedBox(height: AppSpacing.sm),
@@ -96,7 +114,10 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
       ),
     );
     if (selected == null) return;
-    await controller.setDisappearingSeconds(widget.conversation.id, selected == 0 ? null : selected);
+    await controller.setDisappearingSeconds(
+      widget.conversation.id,
+      selected == 0 ? null : selected,
+    );
   }
 
   Future<void> _confirmHideAsSecret() async {
@@ -119,7 +140,10 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
           '«$title» исчезнет из основного списка. Доступ — через Private Mode → Скрытые чаты или PIN.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child: Text('Скрыть', style: TextStyle(color: colors.warning)),
@@ -130,7 +154,9 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     if (confirmed == true && mounted) {
       await controller.hideConversationAsSecret(widget.conversation.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Чат скрыт')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Чат скрыт')));
         Navigator.of(context).pop();
         Navigator.of(context).pop();
       }
@@ -146,7 +172,9 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
     final isGroup = widget.conversation.isGroup;
     final isMuted = controller.chatMuted[widget.conversation.id] ?? false;
     final isSecret = controller.isSecretHidden(widget.conversation.id);
-    final imageCount = controller.imageMessagesFor(widget.conversation.id).length;
+    final imageCount = controller
+        .imageMessagesFor(widget.conversation.id)
+        .length;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Информация о чате')),
@@ -157,12 +185,19 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
           Center(
             child: Column(
               children: [
-                AppAvatar(label: title, isGroup: isGroup, size: AppAvatarSize.large),
+                AppAvatar(
+                  label: title,
+                  isGroup: isGroup,
+                  size: AppAvatarSize.large,
+                ),
                 const SizedBox(height: AppSpacing.md),
                 Text(title, style: text.title),
                 if (isGroup) ...[
                   const SizedBox(height: 2),
-                  Text('${widget.conversation.participantUserIds.length} участников', style: text.caption),
+                  Text(
+                    '${widget.conversation.participantUserIds.length} участников',
+                    style: text.caption,
+                  ),
                 ],
               ],
             ),
@@ -175,29 +210,46 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                 title: 'Поиск в чате',
                 trailing: AppTile.chevron(context),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => ChatSearchScreen(conversation: widget.conversation)),
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ChatSearchScreen(conversation: widget.conversation),
+                  ),
                 ),
               ),
               AppSwitchTile(
-                leading: Icon(Icons.notifications_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.notifications_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Уведомления',
                 subtitle: 'Для этого чата на этом устройстве',
                 value: !isMuted,
-                onChanged: (v) => controller.setChatMuted(widget.conversation.id, !v),
+                onChanged: (v) =>
+                    controller.setChatMuted(widget.conversation.id, !v),
               ),
               AppTile(
-                leading: Icon(Icons.perm_media_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.perm_media_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Медиа, файлы и ссылки',
                 trailingText: imageCount > 0 ? '$imageCount фото' : null,
                 trailing: AppTile.chevron(context),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => ChatMediaScreen(conversation: widget.conversation)),
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ChatMediaScreen(conversation: widget.conversation),
+                  ),
                 ),
               ),
               AppTile(
                 leading: Icon(Icons.lock_outline, color: colors.primary),
                 title: 'Шифрование',
-                trailing: AppSecurityBadge(icon: Icons.verified, label: 'E2E', color: colors.success),
+                trailing: AppSecurityBadge(
+                  icon: Icons.verified,
+                  label: 'E2E',
+                  color: colors.success,
+                ),
                 onTap: () => showDialog<void>(
                   context: context,
                   builder: (context) => AlertDialog(
@@ -208,15 +260,23 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
                           : 'Сквозное шифрование Signal — сообщения доступны только участникам чата.',
                     ),
                     actions: [
-                      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Понятно')),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Понятно'),
+                      ),
                     ],
                   ),
                 ),
               ),
               AppTile(
-                leading: Icon(Icons.timer_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.timer_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Исчезающие сообщения',
-                trailingText: controller.disappearingLabel(widget.conversation.id),
+                trailingText: controller.disappearingLabel(
+                  widget.conversation.id,
+                ),
                 trailing: AppTile.chevron(context),
                 showDivider: false,
                 onTap: _pickDisappearing,
@@ -228,9 +288,11 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
             children: [
               if (!isSecret)
                 AppTile(
-                  leading: Icon(Icons.visibility_off_outlined, color: colors.warning),
+                  leading: Icon(
+                    Icons.visibility_off_outlined,
+                    color: colors.warning,
+                  ),
                   title: 'Скрыть чат',
-                  subtitle: 'Убрать из основного списка',
                   onTap: _confirmHideAsSecret,
                   showDivider: true,
                 ),

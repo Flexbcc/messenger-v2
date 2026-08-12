@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/extensions/context_extensions.dart';
 import '../models/duress_policy.dart';
 import '../screens/private_mode/pin_keypad.dart';
 import '../services/app_lock_service.dart';
 import '../services/duress_policy_engine.dart';
 import '../state/app_controller.dart';
-import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
 
@@ -22,7 +22,8 @@ class AppLockOverlay extends ConsumerStatefulWidget {
   ConsumerState<AppLockOverlay> createState() => _AppLockOverlayState();
 }
 
-class _AppLockOverlayState extends ConsumerState<AppLockOverlay> with SingleTickerProviderStateMixin {
+class _AppLockOverlayState extends ConsumerState<AppLockOverlay>
+    with SingleTickerProviderStateMixin {
   final _lock = AppLockService.instance;
   String _input = '';
   String? _error;
@@ -34,7 +35,10 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> with SingleTick
   @override
   void initState() {
     super.initState();
-    _shakeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
     _lock.addListener(_onLockChanged);
     _refreshLockout();
   }
@@ -57,7 +61,10 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> with SingleTick
     });
     _lockoutTimer?.cancel();
     if (locked && rem != null) {
-      _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (_) => _refreshLockout());
+      _lockoutTimer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => _refreshLockout(),
+      );
     }
   }
 
@@ -122,47 +129,76 @@ class _AppLockOverlayState extends ConsumerState<AppLockOverlay> with SingleTick
         widget.child,
         if (_lock.isLocked)
           Positioned.fill(
-            child: Material(
-              color: AppColors.backgroundLight,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: AppSpacing.sectionGap * 2),
-                      const Icon(Icons.lock_outline, size: 40, color: AppColors.textPrimary),
-                      const SizedBox(height: AppSpacing.mediumGap),
-                      Text('Messenger', style: AppTypography.title),
-                      const SizedBox(height: AppSpacing.smallGap),
-                      Text('Введите PIN для разблокировки', style: AppTypography.secondary),
-                      const Spacer(),
-                      if (_lockedOut) ...[
-                        Text('Ввод заблокирован', style: AppTypography.secondary),
-                        const SizedBox(height: AppSpacing.smallGap),
-                        Text(
-                          _lockoutRemaining != null ? _formatLockout(_lockoutRemaining!) : '…',
-                          style: AppTypography.largeTitle,
-                        ),
-                      ] else ...[
-                        ShakeOnError(
-                          controller: _shakeController,
-                          child: PinDotsIndicator(filledCount: _input.length),
-                        ),
-                        const SizedBox(height: AppSpacing.smallGap),
-                        SizedBox(
-                          height: 20,
-                          child: _error != null
-                              ? Text(_error!, style: AppTypography.caption.copyWith(color: AppColors.dangerRed))
-                              : null,
-                        ),
-                        const SizedBox(height: AppSpacing.sectionGap),
-                        PinKeypad(onDigit: _onDigit, onBackspace: _onBackspace),
-                      ],
-                      const Spacer(),
-                    ],
+            child: Builder(
+              builder: (context) {
+                final colors = context.colors;
+                return Material(
+                  color: colors.background,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.screenPadding,
+                      ),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: AppSpacing.sectionGap * 2),
+                          Icon(
+                            Icons.lock_outline,
+                            size: 40,
+                            color: colors.textPrimary,
+                          ),
+                          const SizedBox(height: AppSpacing.mediumGap),
+                          Text('Messenger', style: AppTypography.title),
+                          const SizedBox(height: AppSpacing.smallGap),
+                          Text(
+                            'Введите PIN для разблокировки',
+                            style: AppTypography.secondary,
+                          ),
+                          const Spacer(),
+                          if (_lockedOut) ...[
+                            Text(
+                              'Ввод заблокирован',
+                              style: AppTypography.secondary,
+                            ),
+                            const SizedBox(height: AppSpacing.smallGap),
+                            Text(
+                              _lockoutRemaining != null
+                                  ? _formatLockout(_lockoutRemaining!)
+                                  : '…',
+                              style: AppTypography.largeTitle,
+                            ),
+                          ] else ...[
+                            ShakeOnError(
+                              controller: _shakeController,
+                              child: PinDotsIndicator(
+                                filledCount: _input.length,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.smallGap),
+                            SizedBox(
+                              height: 20,
+                              child: _error != null
+                                  ? Text(
+                                      _error!,
+                                      style: AppTypography.caption.copyWith(
+                                        color: colors.danger,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(height: AppSpacing.sectionGap),
+                            PinKeypad(
+                              onDigit: _onDigit,
+                              onBackspace: _onBackspace,
+                            ),
+                          ],
+                          const Spacer(),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
       ],

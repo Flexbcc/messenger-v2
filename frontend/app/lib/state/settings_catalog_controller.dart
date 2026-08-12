@@ -175,9 +175,9 @@ class SettingsCatalogValues extends ChangeNotifier {
     if (def.id.startsWith('hidden.')) {
       await _providerRead(appControllerProvider).refreshHiddenChatsPolicies();
     }
-    // Settings are local-first and recovery is device/file-only. Do not send
-    // profile settings to Home Node as readable JSON. A future cross-device
-    // sync must use an opaque E2EE blob whose key never leaves the client.
+    // Product boundary: Home Node routes traffic; preferences are stored and
+    // enforced by this client. Never send catalog settings, PINs, notification
+    // preferences, or other device behavior to the routing server.
     await _refreshLegacyNotifiers();
   }
 

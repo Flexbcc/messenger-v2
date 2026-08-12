@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:messenger_app/security/pin_security.dart';
 import 'package:messenger_app/services/account_settings_scope.dart';
 import 'package:messenger_app/services/local_settings_store.dart';
@@ -8,9 +9,32 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
+    FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
     LocalSettingsStore.setActiveUser(null);
     PinSecurity.setActiveUser(null);
+  });
+
+  test('primary and additional PINs do not leak across users', () async {
+    PinSecurity.setActiveUser('user-a');
+    await PinSecurity.saveRealPin('111111');
+    await PinSecurity.saveFakePin('101010');
+
+    PinSecurity.setActiveUser('user-b');
+    expect(await PinSecurity.isRealPinConfigured(), isFalse);
+    expect(await PinSecurity.hasFakePin(), isFalse);
+    await PinSecurity.saveRealPin('222222');
+    await PinSecurity.saveFakePin('202020');
+
+    PinSecurity.setActiveUser('user-a');
+    expect(await PinSecurity.evaluatePin('111111'), PinUnlockResult.realPin);
+    expect(await PinSecurity.evaluatePin('101010'), PinUnlockResult.fakePin);
+    expect(await PinSecurity.evaluatePin('222222'), PinUnlockResult.invalid);
+
+    PinSecurity.setActiveUser('user-b');
+    expect(await PinSecurity.evaluatePin('222222'), PinUnlockResult.realPin);
+    expect(await PinSecurity.evaluatePin('202020'), PinUnlockResult.fakePin);
+    expect(await PinSecurity.evaluatePin('111111'), PinUnlockResult.invalid);
   });
 
   test('settings do not leak across users', () async {

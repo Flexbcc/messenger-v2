@@ -42,7 +42,8 @@ class LocalSettingsStore {
   Future<List<String>> getStringList(String key) async =>
       (await _prefs).getStringList(_physical(key)) ?? [];
 
-  Future<void> remove(String key) async => (await _prefs).remove(_physical(key));
+  Future<void> remove(String key) async =>
+      (await _prefs).remove(_physical(key));
 
   /// Wipe all prefs for the currently active user namespace.
   static Future<int> clearActiveUserData() async {

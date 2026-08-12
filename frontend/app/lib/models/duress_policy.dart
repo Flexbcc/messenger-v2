@@ -13,16 +13,16 @@ enum DuressTrigger {
 
 extension DuressTriggerJson on DuressTrigger {
   String get wire => switch (this) {
-        DuressTrigger.pinUnlockOkReal => 'pin_unlock_ok_real',
-        DuressTrigger.pinUnlockOkDecoy => 'pin_unlock_ok_decoy',
-        DuressTrigger.pinUnlockFail => 'pin_unlock_fail',
-        DuressTrigger.decoyPinStreak => 'decoy_pin_streak',
-        DuressTrigger.secretRoomActivateOk => 'secret_room_activate_ok',
-        DuressTrigger.secretRoomActivateFail => 'secret_room_activate_fail',
-        DuressTrigger.appLockFail => 'app_lock_fail',
-        DuressTrigger.panicExit => 'panic_exit',
-        DuressTrigger.emergencyLock => 'emergency_lock',
-      };
+    DuressTrigger.pinUnlockOkReal => 'pin_unlock_ok_real',
+    DuressTrigger.pinUnlockOkDecoy => 'pin_unlock_ok_decoy',
+    DuressTrigger.pinUnlockFail => 'pin_unlock_fail',
+    DuressTrigger.decoyPinStreak => 'decoy_pin_streak',
+    DuressTrigger.secretRoomActivateOk => 'secret_room_activate_ok',
+    DuressTrigger.secretRoomActivateFail => 'secret_room_activate_fail',
+    DuressTrigger.appLockFail => 'app_lock_fail',
+    DuressTrigger.panicExit => 'panic_exit',
+    DuressTrigger.emergencyLock => 'emergency_lock',
+  };
 
   static DuressTrigger? parse(String? raw) {
     if (raw == null) return null;
@@ -33,16 +33,16 @@ extension DuressTriggerJson on DuressTrigger {
   }
 
   String get labelRu => switch (this) {
-        DuressTrigger.pinUnlockOkReal => 'Успешный основной PIN',
-        DuressTrigger.pinUnlockOkDecoy => 'Успешный дополнительный PIN',
-        DuressTrigger.pinUnlockFail => 'Неверный PIN',
-        DuressTrigger.decoyPinStreak => 'Дополнительный PIN',
-        DuressTrigger.secretRoomActivateOk => 'Секретная комната открыта',
-        DuressTrigger.secretRoomActivateFail => 'Неверный пароль секретной комнаты',
-        DuressTrigger.appLockFail => 'Неверный PIN блокировки приложения',
-        DuressTrigger.panicExit => 'Быстрый выход',
-        DuressTrigger.emergencyLock => 'Экстренная блокировка',
-      };
+    DuressTrigger.pinUnlockOkReal => 'Успешный основной PIN',
+    DuressTrigger.pinUnlockOkDecoy => 'Успешный дополнительный PIN',
+    DuressTrigger.pinUnlockFail => 'Неверный PIN',
+    DuressTrigger.decoyPinStreak => 'Дополнительный PIN',
+    DuressTrigger.secretRoomActivateOk => 'Секретная комната открыта',
+    DuressTrigger.secretRoomActivateFail => 'Неверный пароль секретной комнаты',
+    DuressTrigger.appLockFail => 'Неверный PIN блокировки приложения',
+    DuressTrigger.panicExit => 'Быстрый выход',
+    DuressTrigger.emergencyLock => 'Экстренная блокировка',
+  };
 
   /// Triggers users can assign in custom rules.
   static const editable = [
@@ -69,40 +69,40 @@ enum DuressActionType {
 
 extension DuressActionTypeJson on DuressActionType {
   String get wire => switch (this) {
-        DuressActionType.none => 'none',
-        DuressActionType.lockPinUi => 'lock_pin_ui',
-        DuressActionType.lockApp => 'lock_app',
-        DuressActionType.notifyTrustedChat => 'notify_trusted_chat',
-        DuressActionType.relayEvent => 'relay_event',
-        DuressActionType.purgeSecretMessages => 'purge_secret_messages',
-        DuressActionType.wipePrivateVault => 'wipe_private_vault',
-        DuressActionType.deactivateSecretSessions => 'deactivate_secret_sessions',
-        DuressActionType.showDecoyOnly => 'show_decoy_only',
-      };
+    DuressActionType.none => 'none',
+    DuressActionType.lockPinUi => 'lock_pin_ui',
+    DuressActionType.lockApp => 'lock_app',
+    DuressActionType.notifyTrustedChat => 'notify_trusted_chat',
+    DuressActionType.relayEvent => 'relay_event',
+    DuressActionType.purgeSecretMessages => 'purge_secret_messages',
+    DuressActionType.wipePrivateVault => 'wipe_private_vault',
+    DuressActionType.deactivateSecretSessions => 'deactivate_secret_sessions',
+    DuressActionType.showDecoyOnly => 'show_decoy_only',
+  };
 
   String get labelRu => switch (this) {
-        DuressActionType.none => 'Ничего',
-        DuressActionType.lockPinUi => 'Блокировка ввода PIN',
-        DuressActionType.lockApp => 'Блокировка приложения',
-        DuressActionType.notifyTrustedChat => 'Уведомление в чат',
-        DuressActionType.relayEvent => 'Сигнал через сервер',
-        DuressActionType.purgeSecretMessages => 'Удалить secret-сообщения',
-        DuressActionType.wipePrivateVault => 'Очистить Private Mode',
-        DuressActionType.deactivateSecretSessions => 'Сброс secret-сессий',
-        DuressActionType.showDecoyOnly => 'Только decoy-интерфейс',
-      };
+    DuressActionType.none => 'Ничего',
+    DuressActionType.lockPinUi => 'Блокировка ввода PIN',
+    DuressActionType.lockApp => 'Блокировка приложения',
+    DuressActionType.notifyTrustedChat => 'Уведомление в чат',
+    DuressActionType.relayEvent => 'Сигнал через сервер',
+    DuressActionType.purgeSecretMessages => 'Удалить secret-сообщения',
+    DuressActionType.wipePrivateVault => 'Очистить Private Mode',
+    DuressActionType.deactivateSecretSessions => 'Сброс secret-сессий',
+    DuressActionType.showDecoyOnly => 'Только decoy-интерфейс',
+  };
 
   static DuressActionType parse(String raw) => switch (raw) {
-        'lock_pin_ui' => DuressActionType.lockPinUi,
-        'lock_app' => DuressActionType.lockApp,
-        'notify_trusted_chat' => DuressActionType.notifyTrustedChat,
-        'relay_event' => DuressActionType.relayEvent,
-        'purge_secret_messages' => DuressActionType.purgeSecretMessages,
-        'wipe_private_vault' => DuressActionType.wipePrivateVault,
-        'deactivate_secret_sessions' => DuressActionType.deactivateSecretSessions,
-        'show_decoy_only' => DuressActionType.showDecoyOnly,
-        _ => DuressActionType.none,
-      };
+    'lock_pin_ui' => DuressActionType.lockPinUi,
+    'lock_app' => DuressActionType.lockApp,
+    'notify_trusted_chat' => DuressActionType.notifyTrustedChat,
+    'relay_event' => DuressActionType.relayEvent,
+    'purge_secret_messages' => DuressActionType.purgeSecretMessages,
+    'wipe_private_vault' => DuressActionType.wipePrivateVault,
+    'deactivate_secret_sessions' => DuressActionType.deactivateSecretSessions,
+    'show_decoy_only' => DuressActionType.showDecoyOnly,
+    _ => DuressActionType.none,
+  };
 }
 
 class DuressAction {
@@ -119,18 +119,18 @@ class DuressAction {
   final int? relayEvent;
 
   Map<String, dynamic> toJson() => {
-        'type': type.wire,
-        if (durationSec != null) 'duration_sec': durationSec,
-        if (uiCode != null) 'ui_code': uiCode,
-        if (relayEvent != null) 'event': relayEvent,
-      };
+    'type': type.wire,
+    if (durationSec != null) 'duration_sec': durationSec,
+    if (uiCode != null) 'ui_code': uiCode,
+    if (relayEvent != null) 'event': relayEvent,
+  };
 
   factory DuressAction.fromJson(Map<String, dynamic> json) => DuressAction(
-        type: DuressActionTypeJson.parse(json['type'] as String? ?? 'none'),
-        durationSec: json['duration_sec'] as int?,
-        uiCode: json['ui_code'] as int?,
-        relayEvent: json['event'] as int?,
-      );
+    type: DuressActionTypeJson.parse(json['type'] as String? ?? 'none'),
+    durationSec: json['duration_sec'] as int?,
+    uiCode: json['ui_code'] as int?,
+    relayEvent: json['event'] as int?,
+  );
 }
 
 class DuressRule {
@@ -146,6 +146,7 @@ class DuressRule {
   final int threshold;
   final int windowSec;
   final List<DuressAction> actions;
+
   /// Per-rule delivery override; `null` = global [DuressPolicyData.trustedChannels].
   final List<String>? channels;
 
@@ -156,31 +157,34 @@ class DuressRule {
     List<DuressAction>? actions,
     List<String>? channels,
     bool clearChannels = false,
-  }) =>
-      DuressRule(
-        trigger: trigger ?? this.trigger,
-        threshold: threshold ?? this.threshold,
-        windowSec: windowSec ?? this.windowSec,
-        actions: actions ?? List.from(this.actions),
-        channels: clearChannels ? null : (channels ?? this.channels),
-      );
+  }) => DuressRule(
+    trigger: trigger ?? this.trigger,
+    threshold: threshold ?? this.threshold,
+    windowSec: windowSec ?? this.windowSec,
+    actions: actions ?? List.from(this.actions),
+    channels: clearChannels ? null : (channels ?? this.channels),
+  );
 
   String get summaryRu {
     final actionText = actions.map((a) => a.type.labelRu).join(', ');
-    final ch = channels == null ? '' : ' · ${DuressTrustedChannels.label(channels!)}';
+    final ch = channels == null
+        ? ''
+        : ' · ${DuressTrustedChannels.label(channels!)}';
     return '${trigger.labelRu} ×$threshold · $actionText$ch';
   }
 
   Map<String, dynamic> toJson() => {
-        'trigger': trigger.wire,
-        'threshold': threshold,
-        'window_sec': windowSec,
-        if (channels != null) 'channels': channels,
-        'actions': actions.map((a) => a.toJson()).toList(),
-      };
+    'trigger': trigger.wire,
+    'threshold': threshold,
+    'window_sec': windowSec,
+    if (channels != null) 'channels': channels,
+    'actions': actions.map((a) => a.toJson()).toList(),
+  };
 
   factory DuressRule.fromJson(Map<String, dynamic> json) {
-    final trigger = DuressTriggerJson.parse(json['trigger'] as String?) ?? DuressTrigger.pinUnlockFail;
+    final trigger =
+        DuressTriggerJson.parse(json['trigger'] as String?) ??
+        DuressTrigger.pinUnlockFail;
     final actionsRaw = json['actions'] as List<dynamic>? ?? [];
     final channelsRaw = json['channels'] as List<dynamic>?;
     return DuressRule(
@@ -188,26 +192,31 @@ class DuressRule {
       threshold: json['threshold'] as int? ?? 1,
       windowSec: json['window_sec'] as int? ?? 86400,
       channels: channelsRaw?.cast<String>(),
-      actions: actionsRaw.map((e) => DuressAction.fromJson(e as Map<String, dynamic>)).toList(),
+      actions: actionsRaw
+          .map((e) => DuressAction.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
 
 class DuressCounter {
-  DuressCounter({this.count = 0, DateTime? windowStart}) : windowStart = windowStart ?? DateTime.now();
+  DuressCounter({this.count = 0, DateTime? windowStart})
+    : windowStart = windowStart ?? DateTime.now();
 
   int count;
   DateTime windowStart;
 
   Map<String, dynamic> toJson() => {
-        'count': count,
-        'window_start': windowStart.toIso8601String(),
-      };
+    'count': count,
+    'window_start': windowStart.toIso8601String(),
+  };
 
   factory DuressCounter.fromJson(Map<String, dynamic> json) => DuressCounter(
-        count: json['count'] as int? ?? 0,
-        windowStart: DateTime.tryParse(json['window_start'] as String? ?? '') ?? DateTime.now(),
-      );
+    count: json['count'] as int? ?? 0,
+    windowStart:
+        DateTime.tryParse(json['window_start'] as String? ?? '') ??
+        DateTime.now(),
+  );
 }
 
 class DuressPolicyData {
@@ -219,10 +228,10 @@ class DuressPolicyData {
     List<DuressRule>? rules,
     Map<String, DuressCounter>? counters,
     this.lockoutUntil,
-  })  : trustedUserIds = trustedUserIds ?? [],
-        trustedChannels = trustedChannels ?? const ['chat', 'relay'],
-        rules = rules ?? DuressPresets.rulesFor('P2'),
-        counters = counters ?? {};
+  }) : trustedUserIds = trustedUserIds ?? [],
+       trustedChannels = trustedChannels ?? const ['chat', 'relay'],
+       rules = rules ?? DuressPresets.rulesFor('P2'),
+       counters = counters ?? {};
 
   final int version;
   String presetId;
@@ -233,14 +242,14 @@ class DuressPolicyData {
   DateTime? lockoutUntil;
 
   Map<String, dynamic> toJson() => {
-        'v': version,
-        'preset_id': presetId,
-        'trusted_user_ids': trustedUserIds,
-        'trusted_channels': trustedChannels,
-        'rules': rules.map((r) => r.toJson()).toList(),
-        'counters': counters.map((k, v) => MapEntry(k, v.toJson())),
-        if (lockoutUntil != null) 'lockout_until': lockoutUntil!.toIso8601String(),
-      };
+    'v': version,
+    'preset_id': presetId,
+    'trusted_user_ids': trustedUserIds,
+    'trusted_channels': trustedChannels,
+    'rules': rules.map((r) => r.toJson()).toList(),
+    'counters': counters.map((k, v) => MapEntry(k, v.toJson())),
+    if (lockoutUntil != null) 'lockout_until': lockoutUntil!.toIso8601String(),
+  };
 
   factory DuressPolicyData.fromJson(Map<String, dynamic> json) {
     final countersRaw = json['counters'] as Map<String, dynamic>? ?? {};
@@ -249,20 +258,28 @@ class DuressPolicyData {
     return DuressPolicyData(
       version: json['v'] as int? ?? 1,
       presetId: presetId,
-      trustedUserIds: (json['trusted_user_ids'] as List<dynamic>? ?? []).cast<String>(),
-      trustedChannels: (json['trusted_channels'] as List<dynamic>? ?? ['chat', 'relay']).cast<String>(),
+      trustedUserIds: (json['trusted_user_ids'] as List<dynamic>? ?? [])
+          .cast<String>(),
+      trustedChannels:
+          (json['trusted_channels'] as List<dynamic>? ?? ['chat', 'relay'])
+              .cast<String>(),
       rules: rulesRaw != null
-          ? rulesRaw.map((e) => DuressRule.fromJson(e as Map<String, dynamic>)).toList()
+          ? rulesRaw
+                .map((e) => DuressRule.fromJson(e as Map<String, dynamic>))
+                .toList()
           : DuressPresets.rulesFor(presetId),
-      counters: countersRaw.map((k, v) => MapEntry(k, DuressCounter.fromJson(v as Map<String, dynamic>))),
+      counters: countersRaw.map(
+        (k, v) =>
+            MapEntry(k, DuressCounter.fromJson(v as Map<String, dynamic>)),
+      ),
       lockoutUntil: DateTime.tryParse(json['lockout_until'] as String? ?? ''),
     );
   }
 
   factory DuressPolicyData.withPreset(String presetId) => DuressPolicyData(
-        presetId: presetId,
-        rules: DuressPresets.rulesFor(presetId),
-      );
+    presetId: presetId,
+    rules: DuressPresets.rulesFor(presetId),
+  );
 
   DuressCounter counterFor(DuressTrigger trigger) {
     final key = trigger.wire;
@@ -279,26 +296,28 @@ class DuressPresets {
   static const customId = 'custom';
 
   static String label(String id) => switch (id) {
-        'P1' => 'Минимальный',
-        'P2' => 'С доверенными',
-        'P3' => 'Параноидальный',
-        'P4' => 'Тихий decoy',
-        'custom' => 'Своя',
-        _ => id,
-      };
+    'P1' => 'Минимальный',
+    'P2' => 'С доверенными',
+    'P3' => 'Параноидальный',
+    'P4' => 'Тихий decoy',
+    'custom' => 'Своя',
+    _ => id,
+  };
 
   static String description(String id) => switch (id) {
-        'P1' => 'Блокировка после 5 ошибок; decoy без уведомлений',
-        'P2' => 'Уведомления доверенным; purge secret на 5× decoy',
-        'P3' => 'Агрессивные сигналы и ранняя очистка',
-        'P4' => 'Только decoy-режим, без оповещений',
-        'custom' => 'Свой набор правил — вы сами задаёте пороги и действия',
-        _ => '',
-      };
+    'P1' => 'Блокировка после 5 ошибок; decoy без уведомлений',
+    'P2' => 'Уведомления доверенным; purge secret на 5× decoy',
+    'P3' => 'Агрессивные сигналы и ранняя очистка',
+    'P4' => 'Только decoy-режим, без оповещений',
+    'custom' => 'Свой набор правил — вы сами задаёте пороги и действия',
+    _ => '',
+  };
 
   static List<DuressRule> rulesFor(String presetId) {
     if (presetId == customId) {
-      throw StateError('Custom preset keeps rules in vault — do not call rulesFor(custom)');
+      throw StateError(
+        'Custom preset keeps rules in vault — do not call rulesFor(custom)',
+      );
     }
     return switch (presetId) {
       'P1' => _p1,
@@ -313,7 +332,9 @@ class DuressPresets {
       trigger: DuressTrigger.pinUnlockFail,
       threshold: 5,
       windowSec: 300,
-      actions: [DuressAction(type: DuressActionType.lockPinUi, durationSec: 300)],
+      actions: [
+        DuressAction(type: DuressActionType.lockPinUi, durationSec: 300),
+      ],
     ),
     DuressRule(
       trigger: DuressTrigger.decoyPinStreak,
@@ -363,7 +384,9 @@ class DuressPresets {
       trigger: DuressTrigger.pinUnlockFail,
       threshold: 5,
       windowSec: 300,
-      actions: [DuressAction(type: DuressActionType.lockPinUi, durationSec: 300)],
+      actions: [
+        DuressAction(type: DuressActionType.lockPinUi, durationSec: 300),
+      ],
     ),
     DuressRule(
       trigger: DuressTrigger.panicExit,
@@ -385,7 +408,9 @@ class DuressPresets {
     DuressRule(
       trigger: DuressTrigger.pinUnlockFail,
       threshold: 1,
-      actions: [DuressAction(type: DuressActionType.relayEvent, relayEvent: 10)],
+      actions: [
+        DuressAction(type: DuressActionType.relayEvent, relayEvent: 10),
+      ],
     ),
     DuressRule(
       trigger: DuressTrigger.pinUnlockFail,
@@ -409,7 +434,9 @@ class DuressPresets {
       trigger: DuressTrigger.secretRoomActivateFail,
       threshold: 3,
       windowSec: 3600,
-      actions: [DuressAction(type: DuressActionType.relayEvent, relayEvent: 10)],
+      actions: [
+        DuressAction(type: DuressActionType.relayEvent, relayEvent: 10),
+      ],
     ),
     DuressRule(
       trigger: DuressTrigger.panicExit,
@@ -439,7 +466,9 @@ class DuressPresets {
       trigger: DuressTrigger.pinUnlockFail,
       threshold: 10,
       windowSec: 600,
-      actions: [DuressAction(type: DuressActionType.lockPinUi, durationSec: 60)],
+      actions: [
+        DuressAction(type: DuressActionType.lockPinUi, durationSec: 60),
+      ],
     ),
   ];
 }
@@ -453,7 +482,8 @@ class DuressTrustedChannels {
   static const both = ['chat', 'relay'];
 
   static String label(List<String> channels) {
-    if (channels.contains('both') || (channels.contains('chat') && channels.contains('relay'))) {
+    if (channels.contains('both') ||
+        (channels.contains('chat') && channels.contains('relay'))) {
       return 'Оба канала';
     }
     if (channels.contains('relay')) return 'Только сервер (relay)';
@@ -461,7 +491,8 @@ class DuressTrustedChannels {
   }
 
   static String description(List<String> channels) {
-    if (channels.contains('both') || (channels.contains('chat') && channels.contains('relay'))) {
+    if (channels.contains('both') ||
+        (channels.contains('chat') && channels.contains('relay'))) {
       return 'E2E-сообщение и серверный relay';
     }
     if (channels.contains('relay')) return 'Только POST /security-signals';
@@ -480,13 +511,13 @@ class DuressTrustedChannels {
 /// UI labels for duress codes (receiver client only).
 class DuressSignalLabels {
   static String forCode(int code) => switch (code) {
-        10 => 'Подозрительная активность PIN у контакта',
-        20 => 'Контакт мог использовать дополнительный PIN',
-        30 => 'Возможное принуждение — проверьте контакт',
-        40 => 'Критический сигнал безопасности контакта',
-        90 => 'Тест доставки сигнала',
-        _ => 'Техническое уведомление ($code)',
-      };
+    10 => 'Подозрительная активность PIN у контакта',
+    20 => 'Контакт мог использовать дополнительный PIN',
+    30 => 'Возможное принуждение — проверьте контакт',
+    40 => 'Критический сигнал безопасности контакта',
+    90 => 'Тест доставки сигнала',
+    _ => 'Техническое уведомление ($code)',
+  };
 }
 
 class DuressHandleResult {

@@ -38,6 +38,12 @@ class CryptoService {
   final int registrationId;
   final SenderKeyStore _senderKeyStore;
 
+  /// The stable public identity of this device. Reading it must never rotate
+  /// signed/one-time prekeys: already queued PreKey messages still need their
+  /// matching private keys after a reload.
+  String get identityPublicKeyBase64 =>
+      base64Encode(identityKeyPair.getPublicKey().serialize());
+
   static const _identityPrefsKey = 'signal_identity_b64';
   static const _registrationIdPrefsKey = 'signal_registration_id';
 

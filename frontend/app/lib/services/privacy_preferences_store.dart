@@ -53,6 +53,17 @@ class PrivacyPreferencesStore {
   Future<void> setWipeOnWrongAttempts(bool v) async =>
       _store.setBool('pm_wipe_on_wrong', v);
 
+  /// Clear every preference whose meaning depends on an installed primary PIN.
+  /// General privacy choices (notification masking, preview hiding) stay intact.
+  Future<void> resetPinDependentPreferences() async {
+    await setFakePinEnabled(false);
+    await setDecoyPinStepComplete(false);
+    await setSecretRoomEnabled(false);
+    await setHiddenChatsEnabled(false);
+    await setAppLockEnabled(false);
+    await setWipeOnWrongAttempts(false);
+  }
+
   static const autoLockLabels = {
     'Сразу': 0,
     '30 секунд': 30,

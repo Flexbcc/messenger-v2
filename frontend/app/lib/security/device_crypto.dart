@@ -147,8 +147,9 @@ class DeviceCrypto {
 
   Future<void> importKey(String encodedKey) async {
     final bytes = base64Decode(encodedKey);
-    if (bytes.length != 32)
+    if (bytes.length != 32) {
       throw const FormatException('Некорректный ключ локального хранилища');
+    }
     await _adoptKey(encodedKey);
   }
 }

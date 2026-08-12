@@ -20,6 +20,6 @@ class PlatformCapabilities {
 
   static String get pwaInstallHint => kIsWeb
       ? 'iOS: «Поделиться» → «На экран Домой». Android: меню → «Установить». '
-          'Для установки как приложения нужен HTTPS.'
+            'Для установки как приложения нужен HTTPS.'
       : '';
 }

@@ -8,7 +8,10 @@ class SecuritySignalClient {
 
   final ApiClient _api;
 
-  Future<bool> relay({required int event, required List<String> targets}) async {
+  Future<bool> relay({
+    required int event,
+    required List<String> targets,
+  }) async {
     if (targets.isEmpty) return false;
     try {
       await _api.postSecuritySignal(event: event, targets: targets);

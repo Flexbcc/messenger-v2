@@ -92,10 +92,11 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
     await ref.read(appControllerProvider).setContactAlias(widget.userId, name);
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Имя сохранено')));
+    }
   }
 
   Future<void> _setTrust(TrustLevel level) async {
@@ -119,10 +120,11 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
         context,
       ).push(MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)));
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Не удалось открыть чат: $e')));
+      }
     }
   }
 
@@ -142,10 +144,11 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
           .read(appControllerProvider)
           .callPeer(peerUserId: widget.userId, kind: kind);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Не удалось позвонить: $e')));
+      }
     } finally {
       if (mounted) setState(() => _calling = false);
     }

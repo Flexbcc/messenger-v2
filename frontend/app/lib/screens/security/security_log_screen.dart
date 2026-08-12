@@ -36,14 +36,14 @@ class _SecurityLogScreenState extends State<SecurityLogScreen> {
   }
 
   IconData _iconFor(String name) => switch (name) {
-        'pin' => Icons.pin_outlined,
-        'room' => Icons.lock_open_outlined,
-        'device' => Icons.devices_outlined,
-        'fake' => Icons.theater_comedy_outlined,
-        'duress' => Icons.campaign_outlined,
-        'session' => Icons.logout,
-        _ => Icons.shield_outlined,
-      };
+    'pin' => Icons.pin_outlined,
+    'room' => Icons.lock_open_outlined,
+    'device' => Icons.devices_outlined,
+    'fake' => Icons.theater_comedy_outlined,
+    'duress' => Icons.campaign_outlined,
+    'session' => Icons.logout,
+    _ => Icons.shield_outlined,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -67,42 +67,43 @@ class _SecurityLogScreenState extends State<SecurityLogScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _events.isEmpty
-              ? const AppEmptyState(
-                  icon: Icons.shield_outlined,
-                  title: 'Событий пока нет',
-                  subtitle: 'PIN, Secret Room и сессии будут записываться локально',
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(AppSpacing.screenPadding),
-                  itemCount: _events.length,
-                  itemBuilder: (context, i) {
-                    final e = _events[i];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: AppCard(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(_iconFor(e.icon), size: 20, color: colors.primary),
-                            const SizedBox(width: AppSpacing.md),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(e.title, style: text.subtitle),
-                                  if (e.subtitle.isNotEmpty) Text(e.subtitle, style: text.caption),
-                                  const SizedBox(height: 4),
-                                  Text(formatRelativeTime(e.at), style: text.micro),
-                                ],
-                              ),
-                            ),
-                          ],
+          ? const AppEmptyState(
+              icon: Icons.shield_outlined,
+              title: 'Событий пока нет',
+              subtitle: 'PIN, Secret Room и сессии будут записываться локально',
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(AppSpacing.screenPadding),
+              itemCount: _events.length,
+              itemBuilder: (context, i) {
+                final e = _events[i];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(_iconFor(e.icon), size: 20, color: colors.primary),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(e.title, style: text.subtitle),
+                              if (e.subtitle.isNotEmpty)
+                                Text(e.subtitle, style: text.caption),
+                              const SizedBox(height: 4),
+                              Text(formatRelativeTime(e.at), style: text.micro),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

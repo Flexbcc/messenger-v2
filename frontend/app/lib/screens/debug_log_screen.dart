@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/extensions/context_extensions.dart';
 import '../services/debug_log.dart';
 import '../state/app_controller.dart';
-import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
 
@@ -70,16 +70,24 @@ class _DebugLogScreenState extends ConsumerState<DebugLogScreen> {
             ),
           Expanded(
             child: lines.isEmpty
-                ? const Center(child: Text('Пока пусто — действия в приложении появятся здесь', style: AppTypography.secondary))
+                ? const Center(
+                    child: Text(
+                      'Пока пусто — действия в приложении появятся здесь',
+                      style: AppTypography.secondary,
+                    ),
+                  )
                 : ListView.separated(
                     padding: const EdgeInsets.all(AppSpacing.screenPadding),
                     itemCount: lines.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.smallGap / 2),
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(height: AppSpacing.smallGap / 2),
                     itemBuilder: (context, i) => SelectableText(
                       lines[i],
                       style: AppTypography.caption.copyWith(
                         fontFamily: 'monospace',
-                        color: lines[i].contains('[ERR]') ? AppColors.dangerRed : AppColors.textPrimary,
+                        color: lines[i].contains('[ERR]')
+                            ? context.colors.danger
+                            : context.colors.textPrimary,
                       ),
                     ),
                   ),

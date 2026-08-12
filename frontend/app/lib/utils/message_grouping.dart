@@ -13,7 +13,8 @@ bool isSameMessageGroup(ChatMessage current, ChatMessage previous) {
 }
 
 bool shouldShowPauseSeparator(ChatMessage current, ChatMessage previous) {
-  return current.createdAt.difference(previous.createdAt).inMinutes >= messagePauseGapMinutes;
+  return current.createdAt.difference(previous.createdAt).inMinutes >=
+      messagePauseGapMinutes;
 }
 
 class MessageGroupLayout {
@@ -43,17 +44,21 @@ List<MessageGroupLayout> buildMessageLayouts(List<ChatMessage> messages) {
     final previous = i > 0 ? messages[i - 1] : null;
     final next = i < messages.length - 1 ? messages[i + 1] : null;
 
-    final showDateSeparator = previous == null || !isSameDay(previous.createdAt, message.createdAt);
-    final showPauseSeparator = previous != null &&
+    final showDateSeparator =
+        previous == null || !isSameDay(previous.createdAt, message.createdAt);
+    final showPauseSeparator =
+        previous != null &&
         !showDateSeparator &&
         shouldShowPauseSeparator(message, previous);
 
-    final firstInGroup = previous == null ||
+    final firstInGroup =
+        previous == null ||
         showDateSeparator ||
         showPauseSeparator ||
         !isSameMessageGroup(message, previous);
 
-    final lastInGroup = next == null ||
+    final lastInGroup =
+        next == null ||
         !isSameDay(message.createdAt, next.createdAt) ||
         shouldShowPauseSeparator(next, message) ||
         !isSameMessageGroup(next, message);

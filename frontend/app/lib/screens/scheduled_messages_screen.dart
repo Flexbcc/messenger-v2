@@ -14,10 +14,12 @@ class ScheduledMessagesScreen extends ConsumerStatefulWidget {
   const ScheduledMessagesScreen({super.key});
 
   @override
-  ConsumerState<ScheduledMessagesScreen> createState() => _ScheduledMessagesScreenState();
+  ConsumerState<ScheduledMessagesScreen> createState() =>
+      _ScheduledMessagesScreenState();
 }
 
-class _ScheduledMessagesScreenState extends ConsumerState<ScheduledMessagesScreen> {
+class _ScheduledMessagesScreenState
+    extends ConsumerState<ScheduledMessagesScreen> {
   List<ScheduledMessage> _items = [];
   bool _loading = true;
 
@@ -38,7 +40,9 @@ class _ScheduledMessagesScreenState extends ConsumerState<ScheduledMessagesScree
 
   String _titleFor(ScheduledMessage item) {
     final controller = ref.read(appControllerProvider);
-    final conv = controller.conversations.where((c) => c.id == item.conversationId).firstOrNull;
+    final conv = controller.conversations
+        .where((c) => c.id == item.conversationId)
+        .firstOrNull;
     return conv != null ? controller.conversationTitle(conv) : 'Чат';
   }
 
@@ -52,47 +56,56 @@ class _ScheduledMessagesScreenState extends ConsumerState<ScheduledMessagesScree
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _items.isEmpty
-              ? Center(
-                  child: Padding(
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.screenPadding),
+                child: Text('Нет отложенных сообщений', style: text.caption),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                children: [
+                  Padding(
                     padding: const EdgeInsets.all(AppSpacing.screenPadding),
-                    child: Text('Нет отложенных сообщений', style: text.caption),
+                    child: AppCard(
+                      child: Text(
+                        'До отправки текст можно изменить только из чата — отмените и создайте заново.',
+                        style: text.caption,
+                      ),
+                    ),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                  AppSettingsGroup(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.screenPadding,
+                    ),
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.all(AppSpacing.screenPadding),
-                        child: AppCard(
-                          child: Text(
-                            'До отправки текст можно изменить только из чата — отмените и создайте заново.',
-                            style: text.caption,
-                          ),
-                        ),
-                      ),
-                      AppSettingsGroup(
-                        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-                        children: [
-                          for (var i = 0; i < _items.length; i++)
-                            AppTile(
-                              title: _titleFor(_items[i]),
-                              subtitle: '${_items[i].text}\n${formatCallHistoryTime(_items[i].sendAt)}',
-                              trailing: IconButton(
-                                icon: Icon(Icons.close, color: colors.danger, size: 20),
-                                onPressed: () async {
-                                  await ref.read(appControllerProvider).cancelScheduledMessage(_items[i].id);
-                                  await _load();
-                                },
-                              ),
-                              showDivider: i < _items.length - 1,
+                      for (var i = 0; i < _items.length; i++)
+                        AppTile(
+                          title: _titleFor(_items[i]),
+                          subtitle:
+                              '${_items[i].text}\n${formatCallHistoryTime(_items[i].sendAt)}',
+                          trailing: IconButton(
+                            icon: Icon(
+                              Icons.close,
+                              color: colors.danger,
+                              size: 20,
                             ),
-                        ],
-                      ),
+                            onPressed: () async {
+                              await ref
+                                  .read(appControllerProvider)
+                                  .cancelScheduledMessage(_items[i].id);
+                              await _load();
+                            },
+                          ),
+                          showDivider: i < _items.length - 1,
+                        ),
                     ],
                   ),
-                ),
+                ],
+              ),
+            ),
     );
   }
 }

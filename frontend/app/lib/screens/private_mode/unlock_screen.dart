@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../theme/colors.dart';
+import '../../core/extensions/context_extensions.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
 import '../../widgets/app_button.dart';
@@ -249,13 +249,14 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(privateModeStateProvider);
+    final colors = context.colors;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.backgroundLight,
+        backgroundColor: colors.background,
         elevation: 0,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: colors.textPrimary,
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
@@ -273,11 +274,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen>
           child: Column(
             children: [
               const SizedBox(height: AppSpacing.sectionGap),
-              const Icon(
-                Icons.lock_outline,
-                size: 40,
-                color: AppColors.textPrimary,
-              ),
+              Icon(Icons.lock_outline, size: 40, color: colors.textPrimary),
               const SizedBox(height: AppSpacing.mediumGap),
               Text('Messenger', style: AppTypography.title),
               const Spacer(),
@@ -341,7 +338,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen>
                       ? Text(
                           _error!,
                           style: AppTypography.caption.copyWith(
-                            color: AppColors.dangerRed,
+                            color: colors.danger,
                           ),
                         )
                       : null,

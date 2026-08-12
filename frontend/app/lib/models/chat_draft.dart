@@ -20,13 +20,13 @@ class ChatDraft {
       text.trim().isEmpty && replyToMessageId == null && attachmentName == null;
 
   String encode() => [
-        text.replaceAll('|', '/'),
-        replyToMessageId ?? '',
-        (replyPreview ?? '').replaceAll('|', '/'),
-        attachmentName ?? '',
-        attachmentMime ?? '',
-        updatedAt?.toIso8601String() ?? '',
-      ].join('|');
+    text.replaceAll('|', '/'),
+    replyToMessageId ?? '',
+    (replyPreview ?? '').replaceAll('|', '/'),
+    attachmentName ?? '',
+    attachmentMime ?? '',
+    updatedAt?.toIso8601String() ?? '',
+  ].join('|');
 
   factory ChatDraft.decode(String raw) {
     final parts = raw.split('|');
@@ -53,10 +53,16 @@ class ChatDraft {
   }) {
     return ChatDraft(
       text: text ?? this.text,
-      replyToMessageId: clearReply ? null : (replyToMessageId ?? this.replyToMessageId),
+      replyToMessageId: clearReply
+          ? null
+          : (replyToMessageId ?? this.replyToMessageId),
       replyPreview: clearReply ? null : (replyPreview ?? this.replyPreview),
-      attachmentName: clearAttachment ? null : (attachmentName ?? this.attachmentName),
-      attachmentMime: clearAttachment ? null : (attachmentMime ?? this.attachmentMime),
+      attachmentName: clearAttachment
+          ? null
+          : (attachmentName ?? this.attachmentName),
+      attachmentMime: clearAttachment
+          ? null
+          : (attachmentMime ?? this.attachmentMime),
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }

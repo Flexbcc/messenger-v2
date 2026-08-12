@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../core/theme/app_spacing.dart';
+import '../services/qr_image_decoder.dart';
 import '../state/app_controller.dart';
 
 /// Trusted device: scans and explicitly approves a new phone/PC.
@@ -19,6 +21,21 @@ class _DeviceLinkScannerScreenState
   final _scanner = MobileScannerController();
   bool _handling = false;
   String? _error;
+
+  Future<void> _pickQrImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+      allowMultiple: false,
+    );
+    final bytes = result?.files.single.bytes;
+    if (bytes == null || bytes.isEmpty) return;
+    try {
+      await _handle(decodeQrImage(bytes));
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    }
+  }
 
   Future<void> _handle(String raw) async {
     if (_handling) return;
@@ -94,6 +111,12 @@ class _DeviceLinkScannerScreenState
                 const Text(
                   'Сканируйте QR, который показывает новый телефон или ПК.',
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                OutlinedButton.icon(
+                  onPressed: _handling ? null : _pickQrImage,
+                  icon: const Icon(Icons.image_outlined),
+                  label: const Text('Выбрать QR из файла'),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: AppSpacing.sm),

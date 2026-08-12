@@ -21,6 +21,7 @@ class MediaCache {
   static final instance = MediaCache._();
 
   final _entries = <String, _CacheEntry>{};
+  bool _limitEnforcementRunning = false;
 
   int get totalBytes =>
       _entries.values.fold<int>(0, (sum, e) => sum + e.bytes.length);
@@ -46,41 +47,47 @@ class MediaCache {
   /// Drop entries older than [media.auto_cleanup_after] (when enabled) and
   /// LRU-evict until under [media.cache_limit_gb].
   Future<void> enforceLimits() async {
-    final runtime = SettingsRuntime.instance;
+    if (_limitEnforcementRunning) return;
+    _limitEnforcementRunning = true;
+    try {
+      final runtime = SettingsRuntime.instance;
 
-    // Prefer storage.media_ttl when enabled; else media.auto_cleanup_after.
-    Duration? maxAge = await runtime.mediaTtlMaxAge();
-    if (maxAge == null && await runtime.autoCleanup()) {
-      maxAge = SettingsRuntime.parseTtlDuration(
-        await runtime.autoCleanupAfter(),
-      );
-    }
-    if (maxAge != null) {
-      final cutoff = DateTime.now().subtract(maxAge);
-      _entries.removeWhere((_, e) => e.createdAt.isBefore(cutoff));
-    }
+      // Prefer storage.media_ttl when enabled; else media.auto_cleanup_after.
+      Duration? maxAge = await runtime.mediaTtlMaxAge();
+      if (maxAge == null && await runtime.autoCleanup()) {
+        maxAge = SettingsRuntime.parseTtlDuration(
+          await runtime.autoCleanupAfter(),
+        );
+      }
+      if (maxAge != null) {
+        final cutoff = DateTime.now().subtract(maxAge);
+        _entries.removeWhere((_, e) => e.createdAt.isBefore(cutoff));
+      }
 
-    final limitGb = await runtime.cacheLimitGb();
-    if (limitGb <= 0) {
-      _entries.clear();
-      return;
-    }
-    final limitBytes = limitGb * 1024 * 1024 * 1024;
-    final userId = LocalSettingsStore.activeUserId;
-    if (userId != null) {
-      await PersistentMediaStore.instance.enforceLimits(
-        userId,
-        maxAge: maxAge,
-        maxBytes: limitBytes,
-      );
-    }
-    if (totalBytes <= limitBytes) return;
+      final limitGb = await runtime.cacheLimitGb();
+      if (limitGb <= 0) {
+        _entries.clear();
+        return;
+      }
+      final limitBytes = limitGb * 1024 * 1024 * 1024;
+      final userId = LocalSettingsStore.activeUserId;
+      if (userId != null) {
+        await PersistentMediaStore.instance.enforceLimits(
+          userId,
+          maxAge: maxAge,
+          maxBytes: limitBytes,
+        );
+      }
+      if (totalBytes <= limitBytes) return;
 
-    final ordered = _entries.entries.toList()
-      ..sort((a, b) => a.value.lastAccess.compareTo(b.value.lastAccess));
-    for (final e in ordered) {
-      if (totalBytes <= limitBytes) break;
-      _entries.remove(e.key);
+      final ordered = _entries.entries.toList()
+        ..sort((a, b) => a.value.lastAccess.compareTo(b.value.lastAccess));
+      for (final e in ordered) {
+        if (totalBytes <= limitBytes) break;
+        _entries.remove(e.key);
+      }
+    } finally {
+      _limitEnforcementRunning = false;
     }
   }
 }

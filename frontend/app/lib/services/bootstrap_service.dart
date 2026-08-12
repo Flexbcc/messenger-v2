@@ -49,13 +49,13 @@ class NetworkBootstrap {
   }
 
   Map<String, dynamic> toJson() => {
-        'cluster_id': clusterId,
-        'gateway_url': gatewayUrl,
-        'discovery_url': discoveryUrl,
-        'home_url': homeUrl,
-        'media_url': mediaUrl,
-        'backup_home_urls': backupHomeUrls,
-      };
+    'cluster_id': clusterId,
+    'gateway_url': gatewayUrl,
+    'discovery_url': discoveryUrl,
+    'home_url': homeUrl,
+    'media_url': mediaUrl,
+    'backup_home_urls': backupHomeUrls,
+  };
 
   /// All known Home candidates, primary first, de-duplicated.
   List<String> get allHomeUrls => {homeUrl, ...backupHomeUrls}.toList();
@@ -83,14 +83,20 @@ class NetworkBootstrap {
 /// nested `routing` object from invite redeem, or the routing response
 /// itself), excluding [primaryHomeUrl]. Ranking (latency) from the Gateway is
 /// preserved as-is.
-List<String> extractBackupHomeUrls(Map<String, dynamic>? routing, String primaryHomeUrl) {
+List<String> extractBackupHomeUrls(
+  Map<String, dynamic>? routing,
+  String primaryHomeUrl,
+) {
   if (routing == null) return const [];
   final nodes = routing['home_nodes'] as List<dynamic>?;
   if (nodes == null) return const [];
   final urls = <String>[];
   for (final n in nodes) {
     final url = (n as Map<String, dynamic>?)?['url'] as String?;
-    if (url != null && url.isNotEmpty && url != primaryHomeUrl && !urls.contains(url)) {
+    if (url != null &&
+        url.isNotEmpty &&
+        url != primaryHomeUrl &&
+        !urls.contains(url)) {
       urls.add(url);
     }
   }
@@ -150,10 +156,13 @@ class BootstrapStore {
         clusterId: current.clusterId,
       );
       final backups = extractBackupHomeUrls(routing, current.homeUrl);
-      await save(current.copyWith(
-        backupHomeUrls: backups,
-        discoveryUrl: routing['discovery_url'] as String? ?? current.discoveryUrl,
-      ));
+      await save(
+        current.copyWith(
+          backupHomeUrls: backups,
+          discoveryUrl:
+              routing['discovery_url'] as String? ?? current.discoveryUrl,
+        ),
+      );
     } catch (_) {
       // Gateway unreachable — primary connectivity is unaffected; retry next boot/probe.
     }
@@ -178,7 +187,8 @@ class BootstrapService {
       gateway = uri.queryParameters['gateway'] ?? '';
       if (gateway.isEmpty) return null;
     } else if (uri.scheme == 'http' || uri.scheme == 'https') {
-      gateway = '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+      gateway =
+          '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
     } else {
       return null;
     }

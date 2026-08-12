@@ -22,16 +22,16 @@ class FavoriteItem {
   final String senderLabel;
 
   String encode() => [
-        id,
-        conversationId,
-        conversationTitle.replaceAll('|', '/'),
-        messageId,
-        contentType,
-        preview.replaceAll('|', '/'),
-        savedAt.toIso8601String(),
-        senderUserId,
-        senderLabel.replaceAll('|', '/'),
-      ].join('|');
+    id,
+    conversationId,
+    conversationTitle.replaceAll('|', '/'),
+    messageId,
+    contentType,
+    preview.replaceAll('|', '/'),
+    savedAt.toIso8601String(),
+    senderUserId,
+    senderLabel.replaceAll('|', '/'),
+  ].join('|');
 
   factory FavoriteItem.decode(String raw) {
     final parts = raw.split('|');

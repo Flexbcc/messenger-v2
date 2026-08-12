@@ -264,17 +264,18 @@ class _SecurityDashboardScreenState
                             value: 'Настроен',
                             color: colors.secondary,
                           ),
-                        _StatusTile(
-                          icon: Icons.hide_source_outlined,
-                          label: 'Скрытые чаты',
-                          value: snap.hiddenChatsEnabled
-                              ? 'Включены · ${snap.secretHiddenChatCount} скрыто'
-                              : 'Выключены',
-                          color: snap.hiddenChatsEnabled
-                              ? colors.secondary
-                              : colors.textMuted,
-                          showDivider: false,
-                        ),
+                        if (snap.fakePinEnabled)
+                          _StatusTile(
+                            icon: Icons.hide_source_outlined,
+                            label: 'Скрытые чаты',
+                            value: snap.hiddenChatsEnabled
+                                ? 'Включены · ${snap.secretHiddenChatCount} скрыто'
+                                : 'Выключены',
+                            color: snap.hiddenChatsEnabled
+                                ? colors.secondary
+                                : colors.textMuted,
+                            showDivider: false,
+                          ),
                       ],
                     ),
                   const SizedBox(height: AppSpacing.lg),
@@ -340,7 +341,6 @@ class _SecurityDashboardScreenState
                           color: colors.textSecondary,
                         ),
                         title: 'Сеансы устройств',
-                        subtitle: 'Доверие, завершение доступа',
                         trailing: AppTile.chevron(context),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -354,7 +354,6 @@ class _SecurityDashboardScreenState
                           color: colors.textSecondary,
                         ),
                         title: 'Состояние соединения',
-                        subtitle: 'Узлы, WebSocket, синхронизация',
                         trailing: AppTile.chevron(context),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -368,9 +367,6 @@ class _SecurityDashboardScreenState
                           color: colors.textSecondary,
                         ),
                         title: 'Конфиденциальность',
-                        subtitle: snap.pinEnabled
-                            ? 'Скрытые разделы и дополнительная защита'
-                            : 'Блокировка и PIN',
                         trailing: AppTile.chevron(context),
                         onTap: () =>
                             Navigator.of(context).push(privateModeEntryRoute()),
@@ -381,7 +377,6 @@ class _SecurityDashboardScreenState
                           color: colors.textSecondary,
                         ),
                         title: 'Подтверждение входа',
-                        subtitle: 'Новые устройства',
                         trailing: AppTile.chevron(context),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(

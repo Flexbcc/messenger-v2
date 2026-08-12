@@ -14,13 +14,17 @@ class TypingIndicator extends StatefulWidget {
   State<TypingIndicator> createState() => _TypingIndicatorState();
 }
 
-class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProviderStateMixin {
+class _TypingIndicatorState extends State<TypingIndicator>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
   }
 
   @override
@@ -35,7 +39,10 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
     final text = context.textStyles;
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding, vertical: AppSpacing.sm),
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.screenPadding,
+        vertical: AppSpacing.sm,
+      ),
       child: Row(
         children: [
           Container(
@@ -59,7 +66,10 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
                         child: Container(
                           width: 6,
                           height: 6,
-                          decoration: BoxDecoration(color: colors.textMuted, shape: BoxShape.circle),
+                          decoration: BoxDecoration(
+                            color: colors.textMuted,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ),
                     );

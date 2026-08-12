@@ -302,8 +302,9 @@ class NotificationSettings extends ChangeNotifier {
         myUserId,
       );
       if (mentionsMe && types.contains('mentions')) return true;
-      if (message.replyToMessageId != null && types.contains('replies'))
+      if (message.replyToMessageId != null && types.contains('replies')) {
         return true;
+      }
       return false;
     }
     return types.contains('direct');
@@ -311,8 +312,9 @@ class NotificationSettings extends ChangeNotifier {
 
   bool _isInDndWindow({DateTime? now}) {
     if (!dndEnabled) return false;
-    if (dndSchedule.isEmpty)
+    if (dndSchedule.isEmpty) {
       return true; // enabled with no ranges = always quiet
+    }
     final t = now ?? DateTime.now();
     final minutes = t.hour * 60 + t.minute;
     for (final raw in dndSchedule) {
@@ -411,8 +413,9 @@ class NotificationSettings extends ChangeNotifier {
     final lower = text.toLowerCase();
     if (lower.contains('@$userId'.toLowerCase())) return true;
     if (displayName.isNotEmpty &&
-        lower.contains('@${displayName.toLowerCase()}'))
+        lower.contains('@${displayName.toLowerCase()}')) {
       return true;
+    }
     return lower.contains('@');
   }
 

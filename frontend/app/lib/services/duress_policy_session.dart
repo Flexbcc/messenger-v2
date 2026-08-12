@@ -64,7 +64,11 @@ class DuressPolicySession {
 
   Future<void> setTrustedUserIds(List<String> ids) async {
     if (_data == null) return;
-    _data!.trustedUserIds = ids.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet().toList();
+    _data!.trustedUserIds = ids
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
     await _persist();
   }
 
@@ -110,7 +114,9 @@ class DuressPolicySession {
   Future<void> _migrateLegacy(DuressPolicyData data) async {
     if (data.trustedUserIds.isNotEmpty) return;
     // Prefer catalog trusted list when contacts.trusted_enabled is on.
-    final catalogTrusted = await CatalogListStore().load('contacts.trusted_list');
+    final catalogTrusted = await CatalogListStore().load(
+      'contacts.trusted_list',
+    );
     if (catalogTrusted.isNotEmpty) {
       data.trustedUserIds = catalogTrusted;
       return;
@@ -118,7 +124,9 @@ class DuressPolicySession {
     final legacy = await TrustedContactsStore.instance.load();
     if (legacy.isEmpty) return;
     data.trustedUserIds = legacy;
-    debugPrint('DuressPolicySession: migrated ${legacy.length} trusted contacts');
+    debugPrint(
+      'DuressPolicySession: migrated ${legacy.length} trusted contacts',
+    );
   }
 
   Future<void> migrateDecoyCounter() async {

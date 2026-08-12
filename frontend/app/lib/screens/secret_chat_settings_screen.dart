@@ -7,6 +7,7 @@ import '../../core/ui/app_bottom_sheet.dart';
 import '../../core/ui/app_card.dart';
 import '../../core/ui/app_tile.dart';
 import '../../security/secret_chat_security.dart';
+import '../../security/private_feature_access.dart';
 import '../../services/secret_chat_preferences_store.dart';
 import '../../state/app_controller.dart';
 
@@ -15,11 +16,14 @@ class SecretChatSettingsScreen extends ConsumerStatefulWidget {
   const SecretChatSettingsScreen({super.key});
 
   @override
-  ConsumerState<SecretChatSettingsScreen> createState() => _SecretChatSettingsScreenState();
+  ConsumerState<SecretChatSettingsScreen> createState() =>
+      _SecretChatSettingsScreenState();
 }
 
-class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScreen> {
+class _SecretChatSettingsScreenState
+    extends ConsumerState<SecretChatSettingsScreen> {
   bool _loading = true;
+  bool _accessAllowed = false;
   bool _configured = false;
   int _timeoutMin = 3;
   int? _disappearSec;
@@ -31,12 +35,19 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
   }
 
   Future<void> _load() async {
+    final access = await PrivateFeatureAccess.load();
+    if (!access.canUseSecretFeatures) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      return;
+    }
     final store = SecretChatPreferencesStore.instance;
     final configured = await SecretChatSecurity.isConfigured();
     final timeout = await store.sessionTimeoutMinutes();
     final disappear = await store.secretDisappearingSeconds();
     if (!mounted) return;
     setState(() {
+      _accessAllowed = true;
       _configured = configured;
       _timeoutMin = timeout;
       _disappearSec = disappear;
@@ -62,7 +73,9 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
             TextField(
               controller: controller,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Пароль секретной комнаты'),
+              decoration: const InputDecoration(
+                labelText: 'Пароль секретной комнаты',
+              ),
             ),
             const SizedBox(height: AppSpacing.sm),
             TextField(
@@ -73,8 +86,14 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Сохранить')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Сохранить'),
+          ),
         ],
       ),
     );
@@ -82,7 +101,9 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
 
     final password = controller.text;
     if (password != confirm.text) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Пароли не совпадают')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Пароли не совпадают')));
       return;
     }
     final warnings = SecretChatSecurity.validateForSetup(password);
@@ -91,10 +112,18 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Слабый пароль'),
-          content: Text('Рекомендации:\n• ${warnings.join('\n• ')}\n\nВсё равно сохранить?'),
+          content: Text(
+            'Рекомендации:\n• ${warnings.join('\n• ')}\n\nВсё равно сохранить?',
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Изменить')),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Сохранить')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Изменить'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Сохранить'),
+            ),
           ],
         ),
       );
@@ -102,7 +131,9 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
     }
     await SecretChatSecurity.savePassword(password);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Пароль сохранён')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Пароль сохранён')));
     setState(() => _configured = true);
   }
 
@@ -113,8 +144,14 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
         title: const Text('Удалить пароль?'),
         content: const Text('Секретный режим в чатах станет недоступен.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Удалить')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Удалить'),
+          ),
         ],
       ),
     );
@@ -157,9 +194,13 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
         children: [
           Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
-            child: Text('Исчезающие сообщения', style: context.textStyles.subtitle),
+            child: Text(
+              'Исчезающие сообщения',
+              style: context.textStyles.subtitle,
+            ),
           ),
-          for (final (label, sec) in SecretChatPreferencesStore.disappearingOptions)
+          for (final (label, sec)
+              in SecretChatPreferencesStore.disappearingOptions)
             ListTile(
               title: Text(label),
               trailing: _disappearSec == sec ? const Icon(Icons.check) : null,
@@ -171,7 +212,9 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
     if (!mounted || picked == null) return;
     final selected = picked == offSentinel ? null : picked;
     if (selected == _disappearSec) return;
-    await SecretChatPreferencesStore.instance.setSecretDisappearingSeconds(selected);
+    await SecretChatPreferencesStore.instance.setSecretDisappearingSeconds(
+      selected,
+    );
     await ref.read(appControllerProvider).loadSecretChatPreferences();
     setState(() => _disappearSec = selected);
   }
@@ -189,6 +232,12 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
 
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (!_accessAllowed) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Защищённый раздел')),
+        body: const Center(child: Text('Сначала завершите настройку защиты')),
+      );
     }
 
     return Scaffold(
@@ -208,16 +257,24 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
             title: 'Пароль',
             children: [
               AppTile(
-                leading: Icon(Icons.lock_outline, color: context.colors.textSecondary),
+                leading: Icon(
+                  Icons.lock_outline,
+                  color: context.colors.textSecondary,
+                ),
                 title: _configured ? 'Сменить пароль' : 'Задать пароль',
-                subtitle: _configured ? 'В чате: пароль + два пробела + Enter' : 'Обязательно перед использованием',
+                subtitle: _configured
+                    ? 'В чате: пароль + два пробела + Enter'
+                    : 'Обязательно перед использованием',
                 trailing: AppTile.chevron(context),
                 onTap: _setPassword,
                 showDivider: _configured,
               ),
               if (_configured)
                 AppTile(
-                  leading: Icon(Icons.lock_open_outlined, color: context.colors.textSecondary),
+                  leading: Icon(
+                    Icons.lock_open_outlined,
+                    color: context.colors.textSecondary,
+                  ),
                   title: 'Удалить пароль',
                   trailing: AppTile.chevron(context),
                   onTap: _clearPassword,
@@ -229,7 +286,10 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
             title: 'Сессия в чате',
             children: [
               AppTile(
-                leading: Icon(Icons.timer_outlined, color: context.colors.textSecondary),
+                leading: Icon(
+                  Icons.timer_outlined,
+                  color: context.colors.textSecondary,
+                ),
                 title: 'Таймер бездействия',
                 subtitle: '$_timeoutMin мин — только пока вы в чате',
                 trailing: AppTile.chevron(context),
@@ -242,7 +302,10 @@ class _SecretChatSettingsScreenState extends ConsumerState<SecretChatSettingsScr
             title: 'Секретные сообщения',
             children: [
               AppTile(
-                leading: Icon(Icons.auto_delete_outlined, color: context.colors.textSecondary),
+                leading: Icon(
+                  Icons.auto_delete_outlined,
+                  color: context.colors.textSecondary,
+                ),
                 title: 'Исчезающие секретные',
                 subtitle: _disappearLabel(),
                 trailing: AppTile.chevron(context),

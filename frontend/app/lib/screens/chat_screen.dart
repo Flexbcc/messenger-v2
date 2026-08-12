@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../calls/call_signal.dart';
+import '../core/extensions/context_extensions.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
 import '../models/chat_draft.dart';
@@ -14,7 +15,6 @@ import '../services/message_delivery_store.dart';
 import '../services/settings_runtime.dart';
 import '../state/app_controller.dart';
 import '../state/settings_catalog_controller.dart';
-import '../theme/app_decorations.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
 import '../security/secret_chat_security.dart';
@@ -812,8 +812,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     int bytesLength,
     String filename,
   ) async {
-    if (!await SettingsRuntime.instance.shouldConfirmLargeFile(bytesLength))
+    if (!await SettingsRuntime.instance.shouldConfirmLargeFile(bytesLength)) {
       return true;
+    }
     if (!mounted) return false;
     final thresholdMb = await SettingsRuntime.instance.largeFileConfirmMb();
     if (!mounted) return false;
@@ -929,6 +930,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     });
 
+    final colors = context.colors;
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
@@ -970,7 +972,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         'Секретный режим',
                         style: AppTypography.caption.copyWith(
                           fontSize: 11,
-                          color: AppColors.accentBlue,
+                          color: colors.primary,
                         ),
                       )
                     else if (isMuted)
@@ -1029,7 +1031,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         children: [
           if (secretActive)
             Material(
-              color: AppColors.accentBlue.withValues(alpha: 0.1),
+              color: colors.primary.withValues(alpha: 0.1),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.screenPadding,
@@ -1037,17 +1039,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.lock_outline,
-                      size: 16,
-                      color: AppColors.accentBlue,
-                    ),
+                    Icon(Icons.lock_outline, size: 16, color: colors.primary),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
                         'Секретные сообщения видны только в этом режиме',
                         style: AppTypography.caption.copyWith(
-                          color: AppColors.accentBlue,
+                          color: colors.primary,
                         ),
                       ),
                     ),
@@ -1057,7 +1055,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           if (!reachable && reachError != null)
             Material(
-              color: AppColors.dangerRed.withValues(alpha: 0.12),
+              color: colors.danger.withValues(alpha: 0.12),
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.screenPadding),
                 child: Column(
@@ -1067,7 +1065,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       '$reachError\n\nСоздайте новый чат с правильным User ID (Настройки → Аккаунт у собеседника). '
                       'Старые чаты с неверным ID работать не будут.',
                       style: AppTypography.caption.copyWith(
-                        color: AppColors.dangerRed,
+                        color: colors.danger,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.smallGap),
@@ -1081,7 +1079,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       child: Text(
                         'Скрыть этот чат',
                         style: AppTypography.caption.copyWith(
-                          color: AppColors.dangerRed,
+                          color: colors.danger,
                         ),
                       ),
                     ),
@@ -1091,7 +1089,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             )
           else if (reachable && !wsOnline)
             Material(
-              color: AppColors.warningYellow.withValues(alpha: 0.12),
+              color: colors.warning.withValues(alpha: 0.12),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.screenPadding,
@@ -1105,15 +1103,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           Expanded(
             child: RefreshIndicator(
-              color: AppColors.accentBlue,
+              color: colors.primary,
               onRefresh: _reload,
               child: _loadingHistory
                   ? ListView(
-                      children: const [
-                        SizedBox(height: 200),
+                      children: [
+                        const SizedBox(height: 200),
                         Center(
                           child: CircularProgressIndicator(
-                            color: AppColors.textPrimary,
+                            color: colors.textPrimary,
                           ),
                         ),
                       ],
@@ -1224,9 +1222,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: AppColors.card,
+                        color: context.colors.surfaceElevated,
                         border: Border(
-                          top: BorderSide(color: AppColors.divider),
+                          top: BorderSide(color: context.colors.divider),
                         ),
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -1239,7 +1237,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             width: 3,
                             height: 32,
                             decoration: BoxDecoration(
-                              gradient: AppDecorations.accentGradient,
+                              gradient: context.colors.accentGradient,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -1255,10 +1253,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.close,
                               size: 18,
-                              color: AppColors.textMuted,
+                              color: context.colors.textMuted,
                             ),
                             onPressed: () => setState(() => _replyTo = null),
                           ),
@@ -1266,9 +1264,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ),
                     ),
                   Container(
-                    decoration: const BoxDecoration(
-                      color: AppColors.backgroundElevated,
-                      border: Border(top: BorderSide(color: AppColors.divider)),
+                    decoration: BoxDecoration(
+                      color: context.colors.surfaceElevated,
+                      border: Border(
+                        top: BorderSide(color: context.colors.divider),
+                      ),
                     ),
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.smallGap,
@@ -1278,9 +1278,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.schedule_outlined,
-                            color: AppColors.textSecondary,
+                            color: context.colors.textSecondary,
                           ),
                           tooltip: 'Отложить',
                           onPressed: !_canSend || _sending
@@ -1288,9 +1288,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               : _scheduleText,
                         ),
                         IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.add_circle_outline,
-                            color: AppColors.textSecondary,
+                            color: context.colors.textSecondary,
                           ),
                           tooltip: 'Вложение',
                           onPressed: !_canSend || _sending
@@ -1304,7 +1304,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               controller: _textController,
                               focusNode: _textFocusNode,
                               enabled: _canSend && !_sending,
-                              style: AppTypography.body,
+                              style: AppTypography.body.copyWith(
+                                color: context.colors.textPrimary,
+                              ),
                               minLines: 1,
                               maxLines: 6,
                               keyboardType: TextInputType.multiline,
@@ -1316,10 +1318,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     ? 'Нет соединения'
                                     : 'Сообщение',
                                 hintStyle: AppTypography.body.copyWith(
-                                  color: AppColors.textMuted,
+                                  color: context.colors.textMuted,
                                 ),
                                 filled: true,
-                                fillColor: AppColors.card,
+                                fillColor: context.colors.card,
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: AppSpacing.mediumGap,
                                   vertical: 12,
@@ -1334,8 +1336,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   borderRadius: BorderRadius.circular(
                                     AppRadii.large,
                                   ),
-                                  borderSide: const BorderSide(
-                                    color: AppColors.divider,
+                                  borderSide: BorderSide(
+                                    color: context.colors.divider,
                                   ),
                                 ),
                               ),
@@ -1346,10 +1348,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         IconButton(
                           icon: const Icon(Icons.arrow_upward, size: 20),
                           style: IconButton.styleFrom(
-                            backgroundColor: AppColors.accentBlue,
-                            foregroundColor: AppColors.textMain,
-                            disabledBackgroundColor: AppColors.cardSecondary,
-                            disabledForegroundColor: AppColors.textMuted,
+                            backgroundColor: context.colors.primary,
+                            foregroundColor: context.colors.onAccent,
+                            disabledBackgroundColor: context.colors.cardSoft,
+                            disabledForegroundColor: context.colors.textMuted,
                           ),
                           onPressed: !_canSend || _sending ? null : _sendText,
                         ),

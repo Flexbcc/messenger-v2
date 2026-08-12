@@ -91,7 +91,7 @@
             "json_type": "string",
             "minLength": 3,
             "maxLength": 32,
-            "pattern": "^[a-zA-Z][a-zA-Z0-9_]{2,31}$",
+            "pattern": "^[a-zA-Z0-9_]{3,32}$",
             "example": "alex_user"
           },
           "ui": {
@@ -251,15 +251,15 @@
     },
     {
       "id": "identity",
-      "title": "Необязательные контактные данные",
+      "title": "Телефон и почта",
       "icon": "id",
       "settings": [
         {
           "id": "identity.phone_enabled",
-          "title": "Хранить телефон в профиле",
+          "title": "Добавить телефон",
           "type": "boolean",
           "default": false,
-          "description": "Хранит номер локально как необязательное поле контактной карточки. Номер не используется для входа или восстановления.",
+          "description": "Номер сохраняется локально и не используется для входа или восстановления.",
           "data": {
             "json_type": "boolean"
           },
@@ -281,7 +281,7 @@
             "setting": "identity.phone_enabled",
             "equals": true
           },
-          "description": "Необязательный номер в формате E.164. Ключ аккаунта остаётся единственным способом входа и восстановления.",
+          "description": "Введите номер с кодом страны, например +7 999 123-45-67.",
           "data": {
             "json_type": "string",
             "minLength": 0,
@@ -300,10 +300,10 @@
         },
         {
           "id": "identity.email_enabled",
-          "title": "Хранить почту в профиле",
+          "title": "Добавить почту",
           "type": "boolean",
           "default": false,
-          "description": "Хранит адрес локально как необязательное поле контактной карточки. Почта не используется для входа или восстановления.",
+          "description": "Адрес сохраняется локально и не используется для входа или восстановления.",
           "data": {
             "json_type": "boolean"
           },
@@ -325,7 +325,7 @@
             "setting": "identity.email_enabled",
             "equals": true
           },
-          "description": "Необязательный адрес электронной почты. Ключ аккаунта остаётся единственным способом входа и восстановления.",
+          "description": "Введите адрес в формате name@example.com.",
           "data": {
             "json_type": "string",
             "minLength": 0,
@@ -1381,6 +1381,10 @@
           "title": "Включить скрытые чаты",
           "type": "boolean",
           "default": false,
+          "visible_if": {
+            "setting": "security.fake_pin_enabled",
+            "equals": true
+          },
           "description": "Переключатель «Включить скрытые чаты». Значение true включает функцию, false отключает.",
           "data": {
             "json_type": "boolean"
@@ -2473,6 +2477,10 @@
           "title": "Доступ новых устройств к скрытым чатам",
           "type": "boolean",
           "default": false,
+          "visible_if": {
+            "setting": "security.fake_pin_enabled",
+            "equals": true
+          },
           "description": "Переключатель «Доступ новых устройств к скрытым чатам». Значение true включает функцию, false отключает.",
           "data": {
             "json_type": "boolean"

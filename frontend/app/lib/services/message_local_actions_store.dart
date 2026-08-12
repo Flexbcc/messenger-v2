@@ -10,9 +10,11 @@ class MessageLocalActionsStore {
   String _hiddenKey(String userId) => 'hidden_messages_$userId';
   String _pinnedKey(String userId) => 'pinned_messages_$userId';
 
-  Future<List<String>> loadHidden(String userId) => _store.getStringList(_hiddenKey(userId));
+  Future<List<String>> loadHidden(String userId) =>
+      _store.getStringList(_hiddenKey(userId));
 
-  Future<List<String>> loadPinned(String userId) => _store.getStringList(_pinnedKey(userId));
+  Future<List<String>> loadPinned(String userId) =>
+      _store.getStringList(_pinnedKey(userId));
 
   Future<void> hideMessage(String userId, String messageId) async {
     final ids = await loadHidden(userId);
@@ -28,7 +30,10 @@ class MessageLocalActionsStore {
         await _store.setStringList(_pinnedKey(userId), [...ids, messageId]);
       }
     } else {
-      await _store.setStringList(_pinnedKey(userId), ids.where((id) => id != messageId).toList());
+      await _store.setStringList(
+        _pinnedKey(userId),
+        ids.where((id) => id != messageId).toList(),
+      );
     }
   }
 }

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-_LOGIN_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{2,31}$")
+_LOGIN_RE = re.compile(r"^[a-zA-Z0-9_]{3,32}$")
 
 
 def normalize_login(raw: str | None) -> str | None:
@@ -13,7 +13,7 @@ def normalize_login(raw: str | None) -> str | None:
     if not login:
         return None
     if not _LOGIN_RE.match(login):
-        raise ValueError("login must match ^[a-zA-Z][a-zA-Z0-9_]{2,31}$")
+        raise ValueError("login must match ^[a-zA-Z0-9_]{3,32}$")
     return login
 
 

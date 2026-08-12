@@ -13,7 +13,8 @@ class DuressRulesEditorScreen extends StatefulWidget {
   const DuressRulesEditorScreen({super.key});
 
   @override
-  State<DuressRulesEditorScreen> createState() => _DuressRulesEditorScreenState();
+  State<DuressRulesEditorScreen> createState() =>
+      _DuressRulesEditorScreenState();
 }
 
 class _DuressRulesEditorScreenState extends State<DuressRulesEditorScreen> {
@@ -80,9 +81,7 @@ class _DuressRulesEditorScreenState extends State<DuressRulesEditorScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Свои правила'),
-        actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: _addRule),
-        ],
+        actions: [IconButton(icon: const Icon(Icons.add), onPressed: _addRule)],
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: AppSpacing.xl),
@@ -101,7 +100,10 @@ class _DuressRulesEditorScreenState extends State<DuressRulesEditorScreen> {
           if (_rules.isEmpty)
             Padding(
               padding: const EdgeInsets.all(AppSpacing.screenPadding),
-              child: Text('Правил нет. Нажмите + чтобы добавить.', style: text.caption),
+              child: Text(
+                'Правил нет. Нажмите + чтобы добавить.',
+                style: text.caption,
+              ),
             )
           else
             AppSettingsGroup(
@@ -109,7 +111,9 @@ class _DuressRulesEditorScreenState extends State<DuressRulesEditorScreen> {
               children: [
                 for (var i = 0; i < _rules.length; i++)
                   Dismissible(
-                    key: ValueKey('rule-$i-${_rules[i].trigger.wire}-${_rules[i].threshold}'),
+                    key: ValueKey(
+                      'rule-$i-${_rules[i].trigger.wire}-${_rules[i].threshold}',
+                    ),
                     direction: DismissDirection.endToStart,
                     onDismissed: (_) async {
                       setState(() => _rules.removeAt(i));
@@ -119,10 +123,16 @@ class _DuressRulesEditorScreenState extends State<DuressRulesEditorScreen> {
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.only(right: AppSpacing.lg),
                       color: colors.danger,
-                      child: const Icon(Icons.delete_outline, color: Colors.white),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.white,
+                      ),
                     ),
                     child: AppTile(
-                      leading: Icon(Icons.rule_folder_outlined, color: colors.textSecondary),
+                      leading: Icon(
+                        Icons.rule_folder_outlined,
+                        color: colors.textSecondary,
+                      ),
                       title: _rules[i].trigger.labelRu,
                       subtitle: _rules[i].summaryRu,
                       trailing: AppTile.chevron(context),
@@ -164,13 +174,17 @@ class _RuleEditorSheetState extends State<_RuleEditorSheet> {
     _trigger = widget.rule.trigger;
     _threshold = widget.rule.threshold;
     _windowMin = (widget.rule.windowSec / 60).round().clamp(1, 1440);
-    _channels = widget.rule.channels == null ? null : List.from(widget.rule.channels!);
+    _channels = widget.rule.channels == null
+        ? null
+        : List.from(widget.rule.channels!);
     _actionTypes = widget.rule.actions.map((a) => a.type).toSet();
   }
 
   String _channelKey() {
     if (_channels == null) return 'inherit';
-    if (_channels!.contains('chat') && _channels!.contains('relay')) return 'both';
+    if (_channels!.contains('chat') && _channels!.contains('relay')) {
+      return 'both';
+    }
     if (_channels!.contains('relay')) return 'relay';
     return 'chat';
   }
@@ -178,17 +192,32 @@ class _RuleEditorSheetState extends State<_RuleEditorSheet> {
   List<DuressAction> _buildActions() {
     final out = <DuressAction>[];
     for (final type in DuressActionType.values) {
-      if (!_actionTypes.contains(type) || type == DuressActionType.none) continue;
+      if (!_actionTypes.contains(type) || type == DuressActionType.none) {
+        continue;
+      }
       out.add(switch (type) {
-        DuressActionType.lockPinUi => const DuressAction(type: DuressActionType.lockPinUi, durationSec: 300),
-        DuressActionType.lockApp => const DuressAction(type: DuressActionType.lockApp, durationSec: 300),
-        DuressActionType.notifyTrustedChat =>
-          const DuressAction(type: DuressActionType.notifyTrustedChat, uiCode: 20),
-        DuressActionType.relayEvent => const DuressAction(type: DuressActionType.relayEvent, relayEvent: 20),
+        DuressActionType.lockPinUi => const DuressAction(
+          type: DuressActionType.lockPinUi,
+          durationSec: 300,
+        ),
+        DuressActionType.lockApp => const DuressAction(
+          type: DuressActionType.lockApp,
+          durationSec: 300,
+        ),
+        DuressActionType.notifyTrustedChat => const DuressAction(
+          type: DuressActionType.notifyTrustedChat,
+          uiCode: 20,
+        ),
+        DuressActionType.relayEvent => const DuressAction(
+          type: DuressActionType.relayEvent,
+          relayEvent: 20,
+        ),
         _ => DuressAction(type: type),
       });
     }
-    return out.isEmpty ? [const DuressAction(type: DuressActionType.none)] : out;
+    return out.isEmpty
+        ? [const DuressAction(type: DuressActionType.none)]
+        : out;
   }
 
   @override
@@ -209,7 +238,7 @@ class _RuleEditorSheetState extends State<_RuleEditorSheet> {
             Text('Правило', style: text.title),
             const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<DuressTrigger>(
-              value: _trigger,
+              initialValue: _trigger,
               decoration: const InputDecoration(labelText: 'Событие'),
               items: [
                 for (final t in DuressTriggerJson.editable)
@@ -220,7 +249,9 @@ class _RuleEditorSheetState extends State<_RuleEditorSheet> {
             const SizedBox(height: AppSpacing.sm),
             TextFormField(
               initialValue: '$_threshold',
-              decoration: const InputDecoration(labelText: 'Порог (сколько раз)'),
+              decoration: const InputDecoration(
+                labelText: 'Порог (сколько раз)',
+              ),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (v) => _threshold = int.tryParse(v) ?? 1,
@@ -228,19 +259,30 @@ class _RuleEditorSheetState extends State<_RuleEditorSheet> {
             const SizedBox(height: AppSpacing.sm),
             TextFormField(
               initialValue: '$_windowMin',
-              decoration: const InputDecoration(labelText: 'Окно подсчёта (минуты)'),
+              decoration: const InputDecoration(
+                labelText: 'Окно подсчёта (минуты)',
+              ),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (v) => _windowMin = int.tryParse(v) ?? 60,
             ),
             const SizedBox(height: AppSpacing.sm),
             DropdownButtonFormField<String>(
-              value: _channelKey(),
+              initialValue: _channelKey(),
               decoration: const InputDecoration(labelText: 'Канал доставки'),
               items: const [
-                DropdownMenuItem(value: 'inherit', child: Text('Как в общих настройках')),
-                DropdownMenuItem(value: 'chat', child: Text('Только чат (E2E)')),
-                DropdownMenuItem(value: 'relay', child: Text('Только сервер (relay)')),
+                DropdownMenuItem(
+                  value: 'inherit',
+                  child: Text('Как в общих настройках'),
+                ),
+                DropdownMenuItem(
+                  value: 'chat',
+                  child: Text('Только чат (E2E)'),
+                ),
+                DropdownMenuItem(
+                  value: 'relay',
+                  child: Text('Только сервер (relay)'),
+                ),
                 DropdownMenuItem(value: 'both', child: Text('Оба канала')),
               ],
               onChanged: (v) => setState(() {

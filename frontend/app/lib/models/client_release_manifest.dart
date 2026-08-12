@@ -45,7 +45,8 @@ class ProductRelease {
       channel: json['channel'] as String? ?? 'stable',
       releaseNotes: json['release_notes'] as String? ?? '',
       platforms: raw.map(
-        (k, v) => MapEntry(k, PlatformRelease.fromJson(v as Map<String, dynamic>)),
+        (k, v) =>
+            MapEntry(k, PlatformRelease.fromJson(v as Map<String, dynamic>)),
       ),
     );
   }
@@ -66,6 +67,7 @@ class PlatformRelease {
   final String version;
   final int build;
   final bool available;
+
   /// `reload` (PWA), `download` (native zip/apk), `store` (App Store).
   final String updateKind;
   final String? downloadUrl;
@@ -110,5 +112,11 @@ bool isRemoteNewer({
   required String remoteVersion,
   required int remoteBuild,
 }) {
-  return compareSemverBuild(localVersion, localBuild, remoteVersion, remoteBuild) < 0;
+  return compareSemverBuild(
+        localVersion,
+        localBuild,
+        remoteVersion,
+        remoteBuild,
+      ) <
+      0;
 }

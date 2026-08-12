@@ -78,7 +78,7 @@ async def test_after_returns_only_newer_messages_ascending():
 
     assert resp.status_code == 200
     body = resp.json()
-    ids = [m["id"] for m in body]
+    ids = [m["id"] for m in body["items"]]
     assert older.id not in ids
     assert ids == [newer1.id, newer2.id]  # ascending, oldest of the "new" batch first
 
@@ -99,7 +99,7 @@ async def test_after_with_no_new_messages_returns_empty():
         )
 
     assert resp.status_code == 200
-    assert resp.json() == []
+    assert resp.json()["items"] == []
 
 
 async def test_before_still_works_descending_without_after():
@@ -117,7 +117,7 @@ async def test_before_still_works_descending_without_after():
         )
 
     assert resp.status_code == 200
-    ids = [m["id"] for m in resp.json()]
+    ids = [m["id"] for m in resp.json()["items"]]
     assert ids == [second.id, first.id]  # unchanged existing behavior: newest first
 
 

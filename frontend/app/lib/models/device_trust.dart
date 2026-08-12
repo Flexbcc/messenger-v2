@@ -34,7 +34,8 @@ class DeviceTrustProfile {
     );
   }
 
-  String encode() => '${trusted ? 1 : 0}|${privateModeAccess ? 1 : 0}|${secretRoomAccess ? 1 : 0}';
+  String encode() =>
+      '${trusted ? 1 : 0}|${privateModeAccess ? 1 : 0}|${secretRoomAccess ? 1 : 0}';
 
   static DeviceTrustProfile decode(String? raw) {
     if (raw == null || raw.isEmpty) return DeviceTrustProfile.unknown;

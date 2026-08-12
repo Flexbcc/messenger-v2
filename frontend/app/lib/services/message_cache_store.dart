@@ -162,19 +162,22 @@ class MessageCacheStore {
 
   Future<void> upsertMessages(String userId, List<ChatMessage> messages) async {
     if (messages.isEmpty) return;
-    final merged = <ChatMessage>[];
-    for (final m in messages) {
-      merged.add(await _mergeWithExisting(userId, m));
-    }
     if (kIsWeb) {
-      final convId = merged.first.conversationId;
+      // Read/decrypt the conversation once. The previous implementation did
+      // it once per message and then once again before saving, turning a
+      // 100-message refresh into 101 full cache decryptions.
+      final convId = messages.first.conversationId;
       final existing = await _webLoadConversation(userId, convId);
       final byId = {for (final m in existing) m.id: m};
-      for (final m in merged) {
-        byId[m.id] = m;
+      for (final message in messages) {
+        byId[message.id] = _mergeMessages(byId[message.id], message);
       }
       await _webSaveConversation(userId, convId, byId.values.toList());
       return;
+    }
+    final merged = <ChatMessage>[];
+    for (final m in messages) {
+      merged.add(await _mergeWithExisting(userId, m));
     }
     final db = await _database();
     final batch = db.batch();

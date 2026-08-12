@@ -24,7 +24,9 @@ Future<T?> showAppChoiceDialog<T>({
     builder: (ctx) {
       return Dialog(
         backgroundColor: context.colors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+        ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
           child: Padding(
@@ -57,7 +59,10 @@ class AppSheetAction extends StatelessWidget {
     final colors = context.colors;
     return ListTile(
       leading: Icon(icon, color: danger ? colors.danger : colors.textSecondary),
-      title: Text(label, style: TextStyle(color: danger ? colors.danger : colors.textPrimary)),
+      title: Text(
+        label,
+        style: TextStyle(color: danger ? colors.danger : colors.textPrimary),
+      ),
       onTap: onTap,
     );
   }

@@ -31,6 +31,9 @@ Future<void> panicExit(BuildContext context) async {
   DuressPolicySession.instance.lock();
   AppPrivacySession.instance.exit();
   if (context.mounted) {
-    Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+    Navigator.of(
+      context,
+      rootNavigator: true,
+    ).popUntil((route) => route.isFirst);
   }
 }

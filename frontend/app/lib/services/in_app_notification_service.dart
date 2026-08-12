@@ -11,6 +11,7 @@ class InAppNotificationEvent {
     this.playSound = true,
     this.vibrate = true,
     this.conversationId,
+    this.action,
   });
 
   final String title;
@@ -18,7 +19,10 @@ class InAppNotificationEvent {
   final bool playSound;
   final bool vibrate;
   final String? conversationId;
+  final InAppNotificationAction? action;
 }
+
+enum InAppNotificationAction { openLoginApproval }
 
 /// Lightweight bus — AppController publishes, UI layer subscribes.
 class InAppNotificationService {

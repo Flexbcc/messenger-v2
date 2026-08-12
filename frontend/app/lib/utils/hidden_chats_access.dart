@@ -4,6 +4,7 @@ import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_button.dart';
 import '../security/pin_security.dart';
+import '../security/private_feature_access.dart';
 import '../services/hidden_vault_session.dart';
 import '../services/settings_runtime.dart';
 import '../screens/private_mode/hidden_chats_screen.dart';
@@ -13,11 +14,21 @@ class HiddenChatsAccess {
   HiddenChatsAccess._();
 
   static Future<bool> openWithPin(BuildContext context) async {
-    if (!await SettingsRuntime.instance.hiddenEnabled()) {
+    final access = await PrivateFeatureAccess.load();
+    if (!access.canUseSecretFeatures) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Скрытые чаты отключены')),
+          const SnackBar(content: Text('Защищённый раздел недоступен')),
         );
+      }
+      return false;
+    }
+
+    if (!await SettingsRuntime.instance.hiddenEnabled()) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Скрытые чаты отключены')));
       }
       return false;
     }
@@ -43,7 +54,9 @@ class HiddenChatsAccess {
     final result = await PinSecurity.evaluatePin(pin);
     if (result != PinUnlockResult.realPin) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Неверный PIN')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Неверный PIN')));
       }
       return false;
     }
@@ -51,7 +64,9 @@ class HiddenChatsAccess {
     if (!context.mounted) return false;
     await HiddenVaultSession.instance.unlock(pin);
     if (!context.mounted) return false;
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HiddenChatsScreen()));
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const HiddenChatsScreen()));
     return true;
   }
 }

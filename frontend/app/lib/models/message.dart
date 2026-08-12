@@ -54,13 +54,13 @@ class ChatMessage {
   int? ttlSeconds;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
-        id: json['id'] as String,
-        conversationId: json['conversation_id'] as String,
-        senderUserId: json['sender_user_id'] as String,
-        senderDeviceId: json['sender_device_id'] as String?,
-        ciphertext: json['ciphertext'] as String,
-        contentType: json['content_type'] as String,
-        cryptoVersion: json['crypto_version'] as String,
-        createdAt: DateTime.parse(json['created_at'] as String),
-      );
+    id: json['id'] as String,
+    conversationId: json['conversation_id'] as String,
+    senderUserId: json['sender_user_id'] as String,
+    senderDeviceId: json['sender_device_id'] as String?,
+    ciphertext: json['ciphertext'] as String,
+    contentType: json['content_type'] as String,
+    cryptoVersion: json['crypto_version'] as String,
+    createdAt: DateTime.parse(json['created_at'] as String),
+  );
 }

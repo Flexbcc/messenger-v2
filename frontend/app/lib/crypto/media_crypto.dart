@@ -12,7 +12,8 @@ class MediaCrypto {
   /// Encrypts [bytes] with a fresh random key. Returns the ciphertext to
   /// upload plus a small pointer (to be Signal-encrypted as the message
   /// body) carrying the key so only conversation participants can decrypt.
-  static Future<(Uint8List ciphertextForUpload, Map<String, dynamic> pointer)> encrypt(
+  static Future<(Uint8List ciphertextForUpload, Map<String, dynamic> pointer)>
+  encrypt(
     Uint8List bytes, {
     required String filename,
     required String mime,
@@ -22,7 +23,11 @@ class MediaCrypto {
     final box = await _aes.encrypt(bytes, secretKey: secretKey, nonce: nonce);
     final keyBytes = await secretKey.extractBytes();
 
-    final combined = Uint8List.fromList([...box.nonce, ...box.cipherText, ...box.mac.bytes]);
+    final combined = Uint8List.fromList([
+      ...box.nonce,
+      ...box.cipherText,
+      ...box.mac.bytes,
+    ]);
     final pointer = {
       'key': base64Encode(keyBytes),
       'filename': filename,
@@ -31,12 +36,18 @@ class MediaCrypto {
     return (combined, pointer);
   }
 
-  static Future<Uint8List> decrypt(Uint8List combined, Map<String, dynamic> pointer) async {
+  static Future<Uint8List> decrypt(
+    Uint8List combined,
+    Map<String, dynamic> pointer,
+  ) async {
     final nonceLength = 12;
     final macLength = 16;
     final nonce = combined.sublist(0, nonceLength);
     final mac = combined.sublist(combined.length - macLength);
-    final cipherText = combined.sublist(nonceLength, combined.length - macLength);
+    final cipherText = combined.sublist(
+      nonceLength,
+      combined.length - macLength,
+    );
 
     final keyBytes = base64Decode(pointer['key'] as String);
     final secretKey = SecretKey(keyBytes);

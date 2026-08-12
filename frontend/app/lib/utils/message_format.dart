@@ -66,8 +66,18 @@ String formatDateSeparator(DateTime time) {
   }
   if (en) return MessageFormatPrefs.formatDate(local);
   const months = [
-    'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-    'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+    'января',
+    'февраля',
+    'марта',
+    'апреля',
+    'мая',
+    'июня',
+    'июля',
+    'августа',
+    'сентября',
+    'октября',
+    'ноября',
+    'декабря',
   ];
   return '${local.day} ${months[local.month - 1]} ${local.year}';
 }

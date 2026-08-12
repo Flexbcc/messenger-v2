@@ -10,7 +10,10 @@ class FavoritesChat {
 
   static bool isId(String? conversationId) => conversationId == id;
 
-  static Conversation conversation({required String userId, DateTime? updatedAt}) {
+  static Conversation conversation({
+    required String userId,
+    DateTime? updatedAt,
+  }) {
     final now = updatedAt ?? DateTime.now();
     return Conversation(
       id: id,

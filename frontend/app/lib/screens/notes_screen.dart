@@ -40,7 +40,9 @@ class _NotesScreenState extends State<NotesScreen> {
     final created = note ?? await NotesStore.instance.create();
     if (!mounted) return;
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => NoteEditorScreen(note: created, isNew: note == null)),
+      MaterialPageRoute(
+        builder: (_) => NoteEditorScreen(note: created, isNew: note == null),
+      ),
     );
     await _load();
   }
@@ -60,52 +62,68 @@ class _NotesScreenState extends State<NotesScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _notes.isEmpty
-              ? Center(
-                  child: Padding(
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.screenPadding),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.note_alt_outlined,
+                      size: 48,
+                      color: colors.textMuted,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Личное пространство для заметок и ссылок',
+                      style: text.caption,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    AppButton(
+                      label: 'Создать заметку',
+                      onPressed: () => _openNote(),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                children: [
+                  Padding(
                     padding: const EdgeInsets.all(AppSpacing.screenPadding),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.note_alt_outlined, size: 48, color: colors.textMuted),
-                        const SizedBox(height: AppSpacing.md),
-                        Text('Личное пространство для заметок и ссылок', style: text.caption, textAlign: TextAlign.center),
-                        const SizedBox(height: AppSpacing.lg),
-                        AppButton(label: 'Создать заметку', onPressed: () => _openNote()),
-                      ],
+                    child: AppCard(
+                      child: Text(
+                        'Заметки хранятся только на этом устройстве и не синхронизируются с сервером.',
+                        style: text.caption,
+                      ),
                     ),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                  AppSettingsGroup(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.screenPadding,
+                    ),
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.all(AppSpacing.screenPadding),
-                        child: AppCard(
-                          child: Text(
-                            'Заметки хранятся только на этом устройстве и не синхронизируются с сервером.',
-                            style: text.caption,
+                      for (var i = 0; i < _notes.length; i++)
+                        AppTile(
+                          leading: Icon(
+                            Icons.sticky_note_2_outlined,
+                            color: colors.textSecondary,
                           ),
+                          title: _notes[i].displayTitle,
+                          subtitle: formatSyncTime(_notes[i].updatedAt),
+                          trailing: AppTile.chevron(context),
+                          showDivider: i < _notes.length - 1,
+                          onTap: () => _openNote(_notes[i]),
                         ),
-                      ),
-                      AppSettingsGroup(
-                        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-                        children: [
-                          for (var i = 0; i < _notes.length; i++)
-                            AppTile(
-                              leading: Icon(Icons.sticky_note_2_outlined, color: colors.textSecondary),
-                              title: _notes[i].displayTitle,
-                              subtitle: formatSyncTime(_notes[i].updatedAt),
-                              trailing: AppTile.chevron(context),
-                              showDivider: i < _notes.length - 1,
-                              onTap: () => _openNote(_notes[i]),
-                            ),
-                        ],
-                      ),
                     ],
                   ),
-                ),
+                ],
+              ),
+            ),
     );
   }
 }
@@ -161,8 +179,14 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         title: Text(widget.isNew ? 'Новая заметка' : 'Заметка'),
         actions: [
           if (!widget.isNew)
-            IconButton(icon: Icon(Icons.delete_outline, color: colors.danger), onPressed: _delete),
-          TextButton(onPressed: _saving ? null : _save, child: const Text('Сохранить')),
+            IconButton(
+              icon: Icon(Icons.delete_outline, color: colors.danger),
+              onPressed: _delete,
+            ),
+          TextButton(
+            onPressed: _saving ? null : _save,
+            child: const Text('Сохранить'),
+          ),
         ],
       ),
       body: Padding(

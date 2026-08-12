@@ -72,7 +72,10 @@ class DevScreenCapture {
   }
 
   /// Capture [boundaryKey] as-is (current viewport, including chrome).
-  static Future<File?> captureViewport(GlobalKey boundaryKey, {String? label}) async {
+  static Future<File?> captureViewport(
+    GlobalKey boundaryKey, {
+    String? label,
+  }) async {
     final image = await _toImage(boundaryKey);
     if (image == null) return null;
     return _save(image, label: label ?? 'viewport');
@@ -92,7 +95,8 @@ class DevScreenCapture {
     final boundaryContext = boundaryKey.currentContext;
     if (boundaryContext == null) return null;
 
-    final boundary = boundaryContext.findRenderObject() as RenderRepaintBoundary?;
+    final boundary =
+        boundaryContext.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null) return captureViewport(boundaryKey, label: label);
 
     final scrollable = _findBestVerticalScrollable(boundaryContext);
@@ -155,7 +159,9 @@ class DevScreenCapture {
 
         if (!scrollableContext.mounted) break;
         final box = scrollableContext.findRenderObject() as RenderBox?;
-        final b = boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+        final b =
+            boundaryKey.currentContext?.findRenderObject()
+                as RenderRepaintBoundary?;
         if (box == null || b == null || !_isVisiblyPainting(box)) break;
         final region = _rectInBoundary(b, box);
         if (region == null || region.height < 8) break;
@@ -200,7 +206,10 @@ class DevScreenCapture {
     return _save(one, label: label ?? 'full');
   }
 
-  static List<double> _scrollOffsets({required double maxExtent, required double viewH}) {
+  static List<double> _scrollOffsets({
+    required double maxExtent,
+    required double viewH,
+  }) {
     final offsets = <double>[0.0];
     var o = 0.0;
     while (o < maxExtent - 0.5) {
@@ -238,7 +247,8 @@ class DevScreenCapture {
             pos.hasContentDimensions) {
           final extent = pos.maxScrollExtent;
           final view = pos.viewportDimension;
-          final better = extent > bestExtent + 0.5 ||
+          final better =
+              extent > bestExtent + 0.5 ||
               ((extent - bestExtent).abs() <= 0.5 && view > bestView);
           if (better) {
             bestExtent = extent;
@@ -265,7 +275,10 @@ class DevScreenCapture {
     return object.attached;
   }
 
-  static Rect? _rectInBoundary(RenderRepaintBoundary boundary, RenderBox target) {
+  static Rect? _rectInBoundary(
+    RenderRepaintBoundary boundary,
+    RenderBox target,
+  ) {
     try {
       final topLeft = target.localToGlobal(Offset.zero, ancestor: boundary);
       final rect = topLeft & target.size;
@@ -277,7 +290,9 @@ class DevScreenCapture {
   }
 
   static Future<ui.Image?> _toImage(GlobalKey boundaryKey) async {
-    final boundary = boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    final boundary =
+        boundaryKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
     if (boundary == null) return null;
     try {
       return await boundary.toImage(pixelRatio: _pixelRatio);
@@ -287,14 +302,26 @@ class DevScreenCapture {
     }
   }
 
-  static Future<ui.Image?> _captureRegion(GlobalKey boundaryKey, Rect regionLogical) async {
+  static Future<ui.Image?> _captureRegion(
+    GlobalKey boundaryKey,
+    Rect regionLogical,
+  ) async {
     final full = await _toImage(boundaryKey);
     if (full == null) return null;
 
-    final left = (regionLogical.left * _pixelRatio).round().clamp(0, full.width);
+    final left = (regionLogical.left * _pixelRatio).round().clamp(
+      0,
+      full.width,
+    );
     final top = (regionLogical.top * _pixelRatio).round().clamp(0, full.height);
-    final right = (regionLogical.right * _pixelRatio).round().clamp(0, full.width);
-    final bottom = (regionLogical.bottom * _pixelRatio).round().clamp(0, full.height);
+    final right = (regionLogical.right * _pixelRatio).round().clamp(
+      0,
+      full.width,
+    );
+    final bottom = (regionLogical.bottom * _pixelRatio).round().clamp(
+      0,
+      full.height,
+    );
     final w = right - left;
     final h = bottom - top;
     if (w <= 0 || h <= 0) {
@@ -306,7 +333,12 @@ class DevScreenCapture {
     final canvas = Canvas(recorder);
     canvas.drawImageRect(
       full,
-      Rect.fromLTWH(left.toDouble(), top.toDouble(), w.toDouble(), h.toDouble()),
+      Rect.fromLTWH(
+        left.toDouble(),
+        top.toDouble(),
+        w.toDouble(),
+        h.toDouble(),
+      ),
       Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
       Paint(),
     );
@@ -324,7 +356,11 @@ class DevScreenCapture {
     final width = slices.map((s) => s.width).reduce(math.max);
     final parts = <({ui.Image image, double srcTop, double srcH})>[];
 
-    parts.add((image: slices.first, srcTop: 0, srcH: slices.first.height.toDouble()));
+    parts.add((
+      image: slices.first,
+      srcTop: 0,
+      srcH: slices.first.height.toDouble(),
+    ));
 
     for (var i = 1; i < slices.length; i++) {
       final delta = offsets[i] - offsets[i - 1];

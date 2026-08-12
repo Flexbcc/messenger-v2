@@ -88,5 +88,21 @@ class ConnectionManager:
                 del self.active_by_device[device_id]
         return len(conns) > 0
 
+    async def revoke_device(self, device_id: str) -> None:
+        ws = self.active_by_device.get(device_id)
+        if not ws:
+            return
+        try:
+            await ws.send_json({"type": "session_revoked"})
+            await ws.close(code=4401)
+        except Exception:
+            pass
+        self._device_of.pop(ws, None)
+        self.active_by_device.pop(device_id, None)
+        for user_id, conns in list(self.active.items()):
+            conns.discard(ws)
+            if not conns:
+                self.active.pop(user_id, None)
+
 
 manager = ConnectionManager()

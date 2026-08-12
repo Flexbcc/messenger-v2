@@ -13,12 +13,11 @@ import '../state/app_controller.dart';
 import '../state/notification_settings.dart';
 import '../state/settings_catalog_controller.dart';
 import '../state/theme_settings.dart';
+import '../services/local_settings_store.dart';
 import '../widgets/setting_title_label.dart';
 import 'about_screen.dart';
 import 'appearance_screen.dart';
 import 'data_storage_screen.dart';
-import 'debug_log_screen.dart';
-import 'diagnostics_screen.dart';
 import 'devices_screen.dart';
 import 'help_screen.dart';
 import 'notes_screen.dart';
@@ -40,18 +39,58 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  static const _serviceModeKey = 'ui.service_settings_unlocked';
+  final _localSettings = LocalSettingsStore();
+  int _titleTapCount = 0;
+  DateTime? _lastTitleTap;
+  bool _serviceMode = false;
+
   @override
   void initState() {
     super.initState();
     Future.microtask(() async {
+      final unlocked = await _localSettings.getBool(_serviceModeKey, false);
+      if (mounted) setState(() => _serviceMode = unlocked);
       await ref.read(notificationSettingsProvider).refreshPrivacyOverrides();
       await ref.read(appControllerProvider).refreshDevices();
+      try {
+        await ref.read(appControllerProvider).loadMyProfile();
+      } catch (_) {
+        // The settings hub remains usable offline with the cached session.
+      }
     });
+  }
+
+  Future<void> _handleSettingsTitleTap() async {
+    final now = DateTime.now();
+    if (_lastTitleTap == null ||
+        now.difference(_lastTitleTap!) > const Duration(seconds: 2)) {
+      _titleTapCount = 0;
+    }
+    _lastTitleTap = now;
+    _titleTapCount++;
+    if (_titleTapCount < 10) return;
+    _titleTapCount = 0;
+    final enabled = !_serviceMode;
+    await _localSettings.setBool(_serviceModeKey, enabled);
+    if (!mounted) return;
+    setState(() => _serviceMode = enabled);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          enabled
+              ? 'Служебные настройки открыты'
+              : 'Служебные настройки скрыты',
+        ),
+      ),
+    );
   }
 
   Future<void> _openCatalogSection(String sectionId) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => SettingsCatalogSectionScreen(sectionId: sectionId)),
+      MaterialPageRoute(
+        builder: (_) => SettingsCatalogSectionScreen(sectionId: sectionId),
+      ),
     );
     if (mounted) {
       await ref.read(notificationSettingsProvider).refreshPrivacyOverrides();
@@ -72,25 +111,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final pinConfigured = pmState.isConfigured;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Настройки')),
+      appBar: AppBar(
+        title: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _handleSettingsTitleTap,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text('Настройки'),
+          ),
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: AppSpacing.xl),
         children: [
           const SizedBox(height: AppSpacing.md),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
+            ),
             child: AppCard(
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
+              onTap: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
               child: Row(
                 children: [
-                  AppAvatar(label: session?.displayName, size: AppAvatarSize.large),
+                  AppAvatar(
+                    imageProvider: controller.profileAvatarBytes == null
+                        ? null
+                        : MemoryImage(controller.profileAvatarBytes!),
+                    label: session?.displayName,
+                    size: AppAvatarSize.large,
+                  ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(session?.displayName ?? '', style: text.title),
-                        Text('Имя, username, телефон, пароль', style: text.caption),
+                        Text(
+                          'Имя, username, телефон, пароль',
+                          style: text.caption,
+                        ),
                       ],
                     ),
                   ),
@@ -106,47 +167,69 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               AppTile(
                 leading: Icon(Icons.security_outlined, color: colors.primary),
                 title: 'Центр безопасности',
-                subtitle: pinConfigured ? 'E2E, PIN, recovery, журнал' : 'E2E, устройства, блокировка',
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SecurityDashboardScreen())),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SecurityDashboardScreen(),
+                  ),
+                ),
               ),
               AppTile(
                 leading: Icon(Icons.lock_outline, color: colors.secondary),
-                title: pinConfigured ? 'Конфиденциальность' : 'Блокировка и PIN',
-                subtitle: pinConfigured ? 'Скрытые разделы и дополнительная защита' : 'Защита приложения',
+                title: pinConfigured ? 'Приватный режим' : 'Блокировка и PIN',
                 trailing: AppTile.chevron(context),
                 onTap: () async {
                   await Navigator.of(context).push(privateModeEntryRoute());
-                  if (mounted) await ref.read(notificationSettingsProvider).refreshPrivacyOverrides();
+                  if (mounted) {
+                    await ref
+                        .read(notificationSettingsProvider)
+                        .refreshPrivacyOverrides();
+                  }
                 },
               ),
               AppTile(
-                leading: Icon(Icons.devices_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.devices_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Устройства и сеансы',
-                subtitle: 'Доверие, вход с новых устройств',
                 trailingText: deviceCount > 0 ? '$deviceCount' : null,
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DevicesScreen())),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DevicesScreen()),
+                ),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
           AppSettingsGroup(
-            title: 'Интерфейс',
+            title: 'Оформление',
             children: [
               AppTile(
-                leading: Icon(Icons.notifications_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.notifications_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Уведомления',
                 subtitle: notifSettings.sounds ? 'Звук включён' : 'Без звука',
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
+                ),
               ),
               AppTile(
-                leading: Icon(Icons.palette_outlined, color: colors.textSecondary),
-                title: 'Оформление',
+                leading: Icon(
+                  Icons.palette_outlined,
+                  color: colors.textSecondary,
+                ),
+                title: 'Тема и интерфейс',
                 trailingText: themeSettings.modeLabel,
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AppearanceScreen())),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AppearanceScreen()),
+                ),
               ),
             ],
           ),
@@ -164,20 +247,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 showDivider: true,
               ),
               AppTile(
-                leading: Icon(Icons.schedule_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.schedule_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Отложенные',
                 subtitle: controller.scheduledMessageCount > 0
                     ? '${controller.scheduledMessageCount} ожидают отправки'
-                    : 'Кнопка часов в чате',
+                    : null,
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ScheduledMessagesScreen())),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ScheduledMessagesScreen(),
+                  ),
+                ),
               ),
               AppTile(
-                leading: Icon(Icons.note_alt_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.note_alt_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Заметки',
-                subtitle: 'Личные записи на устройстве',
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotesScreen())),
+                onTap: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const NotesScreen())),
               ),
             ],
           ),
@@ -186,19 +280,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: 'Система',
             children: [
               AppTile(
-                leading: Icon(Icons.storage_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.storage_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Данные и хранилище',
-                subtitle: 'Автозагрузка, кэш, личное ПК',
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DataStorageScreen())),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DataStorageScreen()),
+                ),
               ),
-              AppTile(
-                leading: Icon(Icons.wifi_tethering, color: colors.textSecondary),
-                title: 'Состояние соединения',
-                subtitle: controller.websocketConnected ? 'WebSocket активен' : 'Только REST',
-                trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ConnectionStatusScreen())),
-              ),
+              if (_serviceMode)
+                AppTile(
+                  leading: Icon(
+                    Icons.wifi_tethering,
+                    color: colors.textSecondary,
+                  ),
+                  title: 'Состояние соединения',
+                  subtitle: controller.websocketConnected
+                      ? 'Канал событий активен'
+                      : 'Ограниченное соединение',
+                  trailing: AppTile.chevron(context),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ConnectionStatusScreen(),
+                    ),
+                  ),
+                ),
             ],
           ),
           ...catalogAsync.when(
@@ -209,36 +317,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               if (!values.loaded) {
                 ref.read(settingsCatalogValuesProvider).load(catalog);
               }
-              final developerOn = values.valueById('developer.enabled') == true;
-              return [
-                ..._catalogGroups(context, catalog),
-                if (developerOn) ...[
-                  const SizedBox(height: AppSpacing.lg),
-                  AppSettingsGroup(
-                    title: 'Для разработчиков',
-                    children: [
-                      AppTile(
-                        leading: Icon(Icons.bug_report_outlined, color: colors.textSecondary),
-                        title: 'Журнал отладки',
-                        subtitle: 'API, prekey, отправка',
-                        trailing: AppTile.chevron(context),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const DebugLogScreen()),
-                        ),
-                      ),
-                      AppTile(
-                        leading: Icon(Icons.monitor_heart_outlined, color: colors.textSecondary),
-                        title: 'Диагностика',
-                        subtitle: 'Очередь, WS, последняя ошибка',
-                        trailing: AppTile.chevron(context),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const DiagnosticsScreen()),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ];
+              return _catalogGroups(context, catalog);
             },
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -249,13 +328,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 leading: Icon(Icons.help_outline, color: colors.textSecondary),
                 title: 'Помощь',
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HelpScreen())),
+                onTap: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const HelpScreen())),
               ),
               AppTile(
                 leading: Icon(Icons.info_outline, color: colors.textSecondary),
                 title: 'О приложении',
                 trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AboutScreen())),
+                onTap: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const AboutScreen())),
               ),
             ],
           ),
@@ -267,10 +350,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   List<Widget> _catalogGroups(BuildContext context, SettingsCatalog catalog) {
     final colors = context.colors;
     final out = <Widget>[];
-    // Full catalog on the hub. Skip profile/identity — edited on ProfileScreen.
-    const skipSections = {'profile', 'identity'};
+    // Skip sections that have a dedicated rich screen on the hub:
+    // profile/identity → ProfileScreen, appearance → AppearanceScreen,
+    // devices → DevicesScreen, notifications → NotificationsScreen,
+    // data/backup → DataStorageScreen, security/hidden_chats → SecurityDashboardScreen.
     for (final block in kSettingsBlocks) {
-      final sections = block.sections(catalog).where((s) => !skipSections.contains(s.id)).toList();
+      final sections = block
+          .sections(catalog)
+          .where(
+            (section) =>
+                !kDedicatedSettingsSections.containsKey(section.id) &&
+                (_serviceMode ||
+                    !kServiceSettingsSectionIds.contains(section.id)),
+          )
+          .toList();
       if (sections.isEmpty) continue;
       out.add(const SizedBox(height: AppSpacing.lg));
       out.add(
@@ -279,13 +372,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           children: [
             for (var i = 0; i < sections.length; i++)
               AppTile(
-                leading: Icon(block.icon, color: colors.textSecondary, size: 22),
+                leading: Icon(
+                  block.icon,
+                  color: colors.textSecondary,
+                  size: 22,
+                ),
                 title: sections[i].title,
-                subtitle: sections[i].id == 'privacy'
-                    ? 'Видимость и поиск — не данные профиля'
-                    : sections[i].id == 'developer'
-                        ? 'Включите developer.enabled для логов и тестов'
-                        : '${sections[i].settings.length} параметров',
+                subtitle: _sectionSubtitle(sections[i].id),
                 trailing: AppTile.chevron(context),
                 showDivider: i < sections.length - 1,
                 onTap: () => _openCatalogSection(sections[i].id),
@@ -294,13 +387,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       );
     }
-    out.add(const SizedBox(height: AppSpacing.sm));
-    out.add(
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-        child: SettingsStubLegend(),
-      ),
-    );
+    if (_serviceMode) {
+      out.add(const SizedBox(height: AppSpacing.sm));
+      out.add(
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+          child: SettingsStubLegend(),
+        ),
+      );
+    }
     return out;
+  }
+
+  static String? _sectionSubtitle(String id) {
+    switch (id) {
+      case 'privacy':
+        return 'Поиск, онлайн-статус, приглашения';
+      case 'security':
+        return 'Ключи смены, блокировка при атаке';
+      case 'hidden_chats':
+        return 'Скрытые диалоги и PIN-доступ';
+      case 'contacts':
+        return 'Доверие, блокировки, уровни';
+      case 'notifications':
+        return 'Звук, предпросмотр, типы';
+      case 'messages':
+        return 'Отправка Enter, черновики, ссылки';
+      case 'calls':
+        return 'Видео, запись статуса';
+      case 'media':
+        return 'Качество, лимиты загрузки';
+      case 'data':
+        return 'Кэш, экспорт, удаление';
+      case 'backup':
+        return 'Резервные копии ключей';
+      case 'devices':
+        return 'Активные сеансы, подтверждение входа';
+      case 'node':
+        return 'Адрес ноды, протокол';
+      case 'sync':
+        return 'Интервал, фоновая синхронизация';
+      case 'storage_ownership':
+        return 'Децентрализованное хранилище';
+      case 'appearance':
+        return 'Тема, размер текста, анимации';
+      case 'developer':
+        return 'Логи, отладка — включить developer.enabled';
+      default:
+        return null;
+    }
   }
 }

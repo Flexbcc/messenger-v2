@@ -13,10 +13,12 @@ class LoginApprovalWaitingScreen extends ConsumerStatefulWidget {
   const LoginApprovalWaitingScreen({super.key});
 
   @override
-  ConsumerState<LoginApprovalWaitingScreen> createState() => _LoginApprovalWaitingScreenState();
+  ConsumerState<LoginApprovalWaitingScreen> createState() =>
+      _LoginApprovalWaitingScreenState();
 }
 
-class _LoginApprovalWaitingScreenState extends ConsumerState<LoginApprovalWaitingScreen> {
+class _LoginApprovalWaitingScreenState
+    extends ConsumerState<LoginApprovalWaitingScreen> {
   bool _checking = false;
 
   Future<void> _checkStatus() async {
@@ -43,9 +45,17 @@ class _LoginApprovalWaitingScreenState extends ConsumerState<LoginApprovalWaitin
           child: Column(
             children: [
               const Spacer(),
-              Icon(Icons.phonelink_lock_outlined, size: 72, color: colors.primary),
+              Icon(
+                Icons.phonelink_lock_outlined,
+                size: 72,
+                color: colors.primary,
+              ),
               const SizedBox(height: AppSpacing.xl),
-              Text('Ожидание подтверждения', style: text.largeTitle, textAlign: TextAlign.center),
+              Text(
+                'Ожидание подтверждения',
+                style: text.largeTitle,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: AppSpacing.md),
               Text(
                 'Новый вход с этого устройства. Подтвердите вход на доверенном устройстве или отклоните запрос.',

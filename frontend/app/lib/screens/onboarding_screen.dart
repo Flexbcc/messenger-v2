@@ -38,11 +38,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       _error = null;
     });
     try {
-      await ref.read(appControllerProvider).register(
+      await ref
+          .read(appControllerProvider)
+          .register(
             displayName: name,
             phone: phone,
-            login: _loginController.text.trim().isEmpty ? null : _loginController.text.trim(),
-            email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+            login: _loginController.text.trim().isEmpty
+                ? null
+                : _loginController.text.trim(),
+            email: _emailController.text.trim().isEmpty
+                ? null
+                : _emailController.text.trim(),
             password: password,
           );
     } catch (e) {
@@ -70,7 +76,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 children: [
                   Icon(Icons.shield_outlined, size: 64, color: colors.primary),
                   const SizedBox(height: AppSpacing.lg),
-                  Text('Создать аккаунт', textAlign: TextAlign.center, style: text.largeTitle),
+                  Text(
+                    'Создать аккаунт',
+                    textAlign: TextAlign.center,
+                    style: text.largeTitle,
+                  ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     'Приватная переписка со сквозным шифрованием.',
@@ -78,13 +88,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     style: text.secondary,
                   ),
                   const SizedBox(height: AppSpacing.xl),
-                  AppTextField(controller: _nameController, hintText: 'Имя', autofocus: true),
+                  AppTextField(
+                    controller: _nameController,
+                    hintText: 'Имя',
+                    autofocus: true,
+                  ),
                   const SizedBox(height: AppSpacing.sm),
-                  AppTextField(controller: _phoneController, hintText: 'Телефон', keyboardType: TextInputType.phone),
+                  AppTextField(
+                    controller: _phoneController,
+                    hintText: 'Телефон',
+                    keyboardType: TextInputType.phone,
+                  ),
                   const SizedBox(height: AppSpacing.sm),
-                  AppTextField(controller: _loginController, hintText: 'Логин (необязательно)'),
+                  AppTextField(
+                    controller: _loginController,
+                    hintText: 'Логин (необязательно)',
+                  ),
                   const SizedBox(height: AppSpacing.sm),
-                  AppTextField(controller: _emailController, hintText: 'Email (необязательно)', keyboardType: TextInputType.emailAddress),
+                  AppTextField(
+                    controller: _emailController,
+                    hintText: 'Email (необязательно)',
+                    keyboardType: TextInputType.emailAddress,
+                  ),
                   const SizedBox(height: AppSpacing.sm),
                   AppTextField(
                     controller: _passwordController,
@@ -95,29 +120,46 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: AppSpacing.md),
-                    Text(_error!, style: text.caption.copyWith(color: colors.danger)),
+                    Text(
+                      _error!,
+                      style: text.caption.copyWith(color: colors.danger),
+                    ),
                   ],
                   const SizedBox(height: AppSpacing.lg),
-                  AppButton(label: 'Продолжить', onPressed: _loading ? null : _submit, loading: _loading),
+                  AppButton(
+                    label: 'Продолжить',
+                    onPressed: _loading ? null : _submit,
+                    loading: _loading,
+                  ),
                   const SizedBox(height: AppSpacing.md),
                   TextButton(
                     onPressed: _loading
                         ? null
                         : () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => JoinNetworkScreen(
-                                  onJoined: () => Navigator.of(context).pop(),
-                                ),
+                            MaterialPageRoute(
+                              builder: (_) => JoinNetworkScreen(
+                                onJoined: () => Navigator.of(context).pop(),
                               ),
                             ),
-                    child: Text('Подключиться к сети (QR / ссылка)', style: TextStyle(color: colors.primary)),
+                          ),
+                    child: Text(
+                      'Подключиться к сети (QR / ссылка)',
+                      style: TextStyle(color: colors.primary),
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   TextButton(
                     onPressed: _loading
                         ? null
-                        : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
-                    child: Text('У меня уже есть аккаунт', style: TextStyle(color: colors.primary)),
+                        : () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                          ),
+                    child: Text(
+                      'У меня уже есть аккаунт',
+                      style: TextStyle(color: colors.primary),
+                    ),
                   ),
                 ],
               ),

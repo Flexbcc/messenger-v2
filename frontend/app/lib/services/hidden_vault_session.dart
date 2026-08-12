@@ -112,16 +112,18 @@ class HiddenVaultSession extends ChangeNotifier {
     final chats = data.chats.map((chat) {
       final maxAge = _maxAge(chat.disappearingTimer);
       if (maxAge == null) return chat;
-      final kept = chat.messages.where((m) => now.difference(m.createdAt) < maxAge).toList();
+      final kept = chat.messages
+          .where((m) => now.difference(m.createdAt) < maxAge)
+          .toList();
       return chat.copyWith(messages: kept);
     }).toList();
     return data.copyWith(chats: chats);
   }
 
   Duration? _maxAge(String timer) => switch (timer) {
-        'oneHour' => const Duration(hours: 1),
-        'oneDay' => const Duration(days: 1),
-        'oneWeek' => const Duration(days: 7),
-        _ => null,
-      };
+    'oneHour' => const Duration(hours: 1),
+    'oneDay' => const Duration(days: 1),
+    'oneWeek' => const Duration(days: 7),
+    _ => null,
+  };
 }

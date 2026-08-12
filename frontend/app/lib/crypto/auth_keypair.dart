@@ -48,8 +48,9 @@ class AuthKeyPair {
 
   static Future<void> importSeed(String encodedSeed) async {
     final seed = base64Decode(encodedSeed);
-    if (seed.length != 32)
+    if (seed.length != 32) {
       throw const FormatException('Некорректный Ed25519 ключ');
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, encodedSeed);
   }

@@ -18,10 +18,10 @@ class PeerHomeEntry {
   final DateTime cachedAt;
 
   String encode() => [
-        homeUrl,
-        updatedAt?.toIso8601String() ?? '',
-        cachedAt.toIso8601String(),
-      ].join('|');
+    homeUrl,
+    updatedAt?.toIso8601String() ?? '',
+    cachedAt.toIso8601String(),
+  ].join('|');
 
   static PeerHomeEntry? decode(String? raw) {
     if (raw == null || raw.isEmpty) return null;

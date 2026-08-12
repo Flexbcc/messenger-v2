@@ -26,10 +26,10 @@ enum _AutoDownload { never, wifi, wifiAndMobile }
 
 extension on _AutoDownload {
   String get label => switch (this) {
-        _AutoDownload.never => 'Никогда',
-        _AutoDownload.wifi => 'Wi-Fi',
-        _AutoDownload.wifiAndMobile => 'Wi-Fi и мобильная сеть',
-      };
+    _AutoDownload.never => 'Никогда',
+    _AutoDownload.wifi => 'Wi-Fi',
+    _AutoDownload.wifiAndMobile => 'Wi-Fi и мобильная сеть',
+  };
 }
 
 class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
@@ -54,7 +54,10 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
     final videos = await _store.getString('dl_videos', _AutoDownload.wifi.name);
     final files = await _store.getString('dl_files', _AutoDownload.wifi.name);
     final audio = await _store.getString('dl_audio', _AutoDownload.wifi.name);
-    final totals = await ref.read(appControllerProvider).networkUsage.getTotals();
+    final totals = await ref
+        .read(appControllerProvider)
+        .networkUsage
+        .getTotals();
     if (!mounted) return;
     setState(() {
       _photos = _AutoDownload.values.byName(photos);
@@ -68,7 +71,11 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
 
   String get _cacheLabel => formatBytes(MediaCache.instance.totalBytes);
 
-  Future<void> _pickAutoDownload(String title, _AutoDownload current, ValueChanged<_AutoDownload> onSelected) async {
+  Future<void> _pickAutoDownload(
+    String title,
+    _AutoDownload current,
+    ValueChanged<_AutoDownload> onSelected,
+  ) async {
     final selected = await showAppBottomSheet<_AutoDownload>(
       context: context,
       builder: (context) {
@@ -85,7 +92,9 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
               for (final option in _AutoDownload.values)
                 ListTile(
                   title: Text(option.label, style: text.body),
-                  trailing: option == current ? Icon(Icons.check, color: colors.primary) : null,
+                  trailing: option == current
+                      ? Icon(Icons.check, color: colors.primary)
+                      : null,
                   onTap: () => Navigator.of(context).pop(option),
                 ),
               const SizedBox(height: AppSpacing.sm),
@@ -100,9 +109,9 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
   Future<void> _confirmClearCache() async {
     final sizeLabel = _cacheLabel;
     if (MediaCache.instance.totalBytes == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Кэш уже пуст')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Кэш уже пуст')));
       return;
     }
 
@@ -110,12 +119,20 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Очистить кэш?'),
-        content: Text('Будет освобождено $sizeLabel. Загруженные медиафайлы нужно будет скачать заново.'),
+        content: Text(
+          'Будет освобождено $sizeLabel. Загруженные медиафайлы нужно будет скачать заново.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Очистить', style: TextStyle(color: context.colors.danger)),
+            child: Text(
+              'Очистить',
+              style: TextStyle(color: context.colors.danger),
+            ),
           ),
         ],
       ),
@@ -123,9 +140,9 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
     if (confirmed == true && mounted) {
       MediaCache.instance.clear();
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Кэш очищен')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Кэш очищен')));
     }
   }
 
@@ -140,7 +157,10 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
           'За последние 30 дней.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Закрыть')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Закрыть'),
+          ),
         ],
       ),
     );
@@ -159,7 +179,10 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
           AppSettingsGroup(
             children: [
               AppTile(
-                leading: Icon(Icons.data_usage_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.data_usage_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Использование сети',
                 subtitle: 'За последние 30 дней',
                 trailing: AppTile.chevron(context),
@@ -171,10 +194,47 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
           AppSettingsGroup(
             title: 'Автозагрузка',
             children: [
-              AppTile(title: 'Фото', trailingText: _photos.label, trailing: AppTile.chevron(context), onTap: () => _pickAutoDownload('Фото', _photos, (v) async { setState(() => _photos = v); await _store.setString('dl_photos', v.name); await CatalogSync.syncMedia(); })),
-              AppTile(title: 'Видео', trailingText: _videos.label, trailing: AppTile.chevron(context), onTap: () => _pickAutoDownload('Видео', _videos, (v) async { setState(() => _videos = v); await _store.setString('dl_videos', v.name); await CatalogSync.syncMedia(); })),
-              AppTile(title: 'Файлы', trailingText: _files.label, trailing: AppTile.chevron(context), onTap: () => _pickAutoDownload('Файлы', _files, (v) async { setState(() => _files = v); await _store.setString('dl_files', v.name); await CatalogSync.syncMedia(); })),
-              AppTile(title: 'Аудио', trailingText: _audio.label, trailing: AppTile.chevron(context), showDivider: false, onTap: () => _pickAutoDownload('Аудио', _audio, (v) async { setState(() => _audio = v); await _store.setString('dl_audio', v.name); await CatalogSync.syncMedia(); })),
+              AppTile(
+                title: 'Фото',
+                trailingText: _photos.label,
+                trailing: AppTile.chevron(context),
+                onTap: () => _pickAutoDownload('Фото', _photos, (v) async {
+                  setState(() => _photos = v);
+                  await _store.setString('dl_photos', v.name);
+                  await CatalogSync.syncMedia();
+                }),
+              ),
+              AppTile(
+                title: 'Видео',
+                trailingText: _videos.label,
+                trailing: AppTile.chevron(context),
+                onTap: () => _pickAutoDownload('Видео', _videos, (v) async {
+                  setState(() => _videos = v);
+                  await _store.setString('dl_videos', v.name);
+                  await CatalogSync.syncMedia();
+                }),
+              ),
+              AppTile(
+                title: 'Файлы',
+                trailingText: _files.label,
+                trailing: AppTile.chevron(context),
+                onTap: () => _pickAutoDownload('Файлы', _files, (v) async {
+                  setState(() => _files = v);
+                  await _store.setString('dl_files', v.name);
+                  await CatalogSync.syncMedia();
+                }),
+              ),
+              AppTile(
+                title: 'Аудио',
+                trailingText: _audio.label,
+                trailing: AppTile.chevron(context),
+                showDivider: false,
+                onTap: () => _pickAutoDownload('Аудио', _audio, (v) async {
+                  setState(() => _audio = v);
+                  await _store.setString('dl_audio', v.name);
+                  await CatalogSync.syncMedia();
+                }),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -186,13 +246,35 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
               return AppSettingsGroup(
                 title: 'Сводка хранилища (каталог)',
                 children: [
-                  AppTile(title: 'Сообщения', trailingText: d['messages'] ?? '—'),
+                  AppTile(
+                    title: 'Сообщения',
+                    trailingText: d['messages'] ?? '—',
+                  ),
                   AppTile(title: 'Медиа', trailingText: d['media'] ?? '—'),
-                  AppTile(title: 'Ноды / RF', trailingText: '${d['nodes'] ?? '—'} · ${d['replication'] ?? '1'}'),
-                  AppTile(title: 'S3', trailingText: (d['s3_endpoint'] ?? '').isEmpty ? 'не задан' : '${d['s3_bucket']}'),
-                  AppTile(title: 'Ключи / бэкап', trailingText: '${d['key_location']} / ${d['backup_location']}'),
-                  AppTile(title: 'TTL медиа', trailingText: d['media_ttl'] ?? '—'),
-                  AppTile(title: 'Последний sync', trailingText: d['last_sync'] ?? '—'),
+                  AppTile(
+                    title: 'Ноды / RF',
+                    trailingText:
+                        '${d['nodes'] ?? '—'} · ${d['replication'] ?? '1'}',
+                  ),
+                  AppTile(
+                    title: 'S3',
+                    trailingText: (d['s3_endpoint'] ?? '').isEmpty
+                        ? 'не задан'
+                        : '${d['s3_bucket']}',
+                  ),
+                  AppTile(
+                    title: 'Ключи / бэкап',
+                    trailingText:
+                        '${d['key_location']} / ${d['backup_location']}',
+                  ),
+                  AppTile(
+                    title: 'TTL медиа',
+                    trailingText: d['media_ttl'] ?? '—',
+                  ),
+                  AppTile(
+                    title: 'Последний sync',
+                    trailingText: d['last_sync'] ?? '—',
+                  ),
                   AppTile(
                     title: 'Последний backup',
                     trailingText: d['last_backup'] ?? '—',
@@ -207,13 +289,17 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
             title: 'Хранилище',
             children: [
               AppTile(
-                leading: Icon(Icons.storage_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.storage_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Личное хранилище (ПК)',
-                subtitle: 'Сопряжение с storage-app на домашнем ПК',
                 trailing: AppTile.chevron(context),
                 showDivider: false,
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const PersonalPcPairingScreen()),
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PersonalPcPairingScreen(),
+                  ),
                 ),
               ),
             ],
@@ -222,7 +308,10 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
           AppSettingsGroup(
             children: [
               AppTile(
-                leading: Icon(Icons.delete_sweep_outlined, color: colors.danger),
+                leading: Icon(
+                  Icons.delete_sweep_outlined,
+                  color: colors.danger,
+                ),
                 title: 'Очистить кэш',
                 trailingText: _cacheLabel,
                 danger: true,

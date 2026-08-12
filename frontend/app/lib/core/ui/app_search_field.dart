@@ -38,9 +38,19 @@ class AppSearchField extends StatelessWidget {
         hintStyle: text.body.copyWith(color: colors.textMuted),
         filled: true,
         fillColor: colors.card,
-        prefixIcon: Icon(Icons.search_outlined, color: colors.textMuted, size: 20),
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide.none),
+        prefixIcon: Icon(
+          Icons.search_outlined,
+          color: colors.textMuted,
+          size: 20,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide.none,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: BorderSide(color: colors.divider),
@@ -103,8 +113,14 @@ class AppTextField extends StatelessWidget {
         fillColor: colors.card,
         prefixIcon: leading,
         suffixIcon: trailing,
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.md), borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide.none,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: BorderSide(color: colors.divider),

@@ -27,7 +27,7 @@ from app.federation import (
     notify_remote_home_changed,
     resolve_home_node,
 )
-from app.models import Conversation, ConversationParticipant, Message, MessageDeliveryAck, User
+from app.models import Conversation, ConversationParticipant, Device, Message, MessageDeliveryAck, User
 from app.outbox import enqueue_outbox
 from app.ws import manager
 
@@ -57,7 +57,13 @@ def _envelope_from_message(conversation_id: str, message) -> dict:
     return env
 
 
-async def _deliver_locally(user_id: str, envelope: dict) -> bool:
+async def _deliver_locally(
+    db: AsyncSession,
+    user_id: str,
+    envelope: dict,
+    *,
+    exclude_device_id: str | None = None,
+) -> bool:
     """
     Deliver to a local user. If envelope has device_envelopes, route each
     ciphertext to the specific device's WebSocket. Falls back to broadcast
@@ -67,9 +73,19 @@ async def _deliver_locally(user_id: str, envelope: dict) -> bool:
     device_envelopes: list[dict] | None = envelope.get("device_envelopes")
 
     if device_envelopes:
+        owned_device_ids = set((await db.execute(
+            select(Device.id).where(Device.user_id == user_id)
+        )).scalars().all())
+        targeted_envelopes = [
+            item for item in device_envelopes
+            if item.get("device_id") in owned_device_ids
+            and item.get("device_id") != exclude_device_id
+        ]
+        if not targeted_envelopes:
+            return False
         # Per-device E2EE: send each ciphertext only to its target device
         delivered_any = False
-        for de in device_envelopes:
+        for de in targeted_envelopes:
             device_id = de.get("device_id")
             if not device_id:
                 continue
@@ -111,7 +127,7 @@ async def fan_out_message(db: AsyncSession, conversation: Conversation, message)
 
         local_user = await db.get(User, p.user_id)
         if local_user:
-            delivered = await _deliver_locally(p.user_id, envelope)
+            delivered = await _deliver_locally(db, p.user_id, envelope)
             # Входящий звонок — оффлайн получатель: пробудить через push
             if not delivered and is_call_offer:
                 sender_user = await db.get(User, message.sender_user_id)
@@ -166,10 +182,15 @@ async def fan_out_message(db: AsyncSession, conversation: Conversation, message)
                         last_error=str(e),
                     )
 
-    # Multi-device mirror v0 (spec/0405_MULTI_DEVICE.md): echo сообщения на
-    # все остальные устройства отправителя (tablet/desktop пока phone шлёт).
-    # WS per-user, не per-device — клиент дедуплицирует по packet_id.
-    await manager.send_to_user(message.sender_user_id, {"type": "new_message", "message": envelope})
+    # Mirror only the sender-specific envelopes to the sender's other devices.
+    # Broadcasting the recipient ciphertext here made linked devices receive
+    # an undecryptable shell (or the literal "...").
+    await _deliver_locally(
+        db,
+        message.sender_user_id,
+        envelope,
+        exclude_device_id=message.sender_device_id,
+    )
 
 
 async def upsert_conversation_mirror(db: AsyncSession, conversation_meta: dict) -> Conversation:
@@ -283,7 +304,7 @@ async def deliver_locally_for_federated_message(db: AsyncSession, conversation_m
         local_user = await db.get(User, uid)
         if not local_user:
             continue
-        await _deliver_locally(uid, envelope)
+        await _deliver_locally(db, uid, envelope)
 
 
 async def upsert_delivery_ack(

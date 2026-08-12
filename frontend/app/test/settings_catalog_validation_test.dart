@@ -4,9 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:messenger_app/models/settings_catalog.dart';
 
 void main() {
-  SettingDef setting(Map<String, dynamic> data) => SettingDef.fromJson(
-        jsonDecode(jsonEncode(data)) as Map<String, dynamic>,
-      );
+  SettingDef setting(Map<String, dynamic> data) =>
+      SettingDef.fromJson(jsonDecode(jsonEncode(data)) as Map<String, dynamic>);
 
   test('catalog text validation enforces length and pattern', () {
     final username = setting({
@@ -16,12 +15,13 @@ void main() {
       'data': {
         'minLength': 3,
         'maxLength': 32,
-        'pattern': r'^[a-zA-Z][a-zA-Z0-9_]{2,31}$',
+        'pattern': r'^[a-zA-Z0-9_]{3,32}$',
       },
     });
 
     expect(username.validateInput('ab', number: false), isNotNull);
-    expect(username.validateInput('1invalid', number: false), isNotNull);
+    expect(username.validateInput('invalid-name', number: false), isNotNull);
+    expect(username.validateInput('1valid', number: false), isNull);
     expect(username.validateInput('valid_user', number: false), isNull);
   });
 

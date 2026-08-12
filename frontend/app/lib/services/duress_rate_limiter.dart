@@ -29,7 +29,10 @@ class DuressRateLimiter {
     };
   }
 
-  static String policyLabel({required bool wipeEnabled, String wipeAfter = '5'}) {
+  static String policyLabel({
+    required bool wipeEnabled,
+    String wipeAfter = '5',
+  }) {
     if (wipeEnabled) {
       return '1–2: предупреждение · 3+: задержка · $wipeAfter: стирание';
     }

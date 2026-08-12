@@ -70,7 +70,9 @@ class _DevScreenCaptureHostState extends State<DevScreenCaptureHost> {
       }
       await Clipboard.setData(ClipboardData(text: file.path));
       await DevScreenCapture.revealInFileManager(file);
-      _toast(fullScroll ? 'Полный экран → ${file.path}' : 'Viewport → ${file.path}');
+      _toast(
+        fullScroll ? 'Полный экран → ${file.path}' : 'Viewport → ${file.path}',
+      );
       debugPrint('DevScreenCapture saved: ${file.path}');
     } catch (e, st) {
       debugPrint('DevScreenCapture failed: $e\n$st');
@@ -103,10 +105,7 @@ class _DevScreenCaptureHostState extends State<DevScreenCaptureHost> {
 
     return Stack(
       children: [
-        RepaintBoundary(
-          key: _boundaryKey,
-          child: widget.child,
-        ),
+        RepaintBoundary(key: _boundaryKey, child: widget.child),
         if (_busy)
           const Positioned(
             right: 16,

@@ -13,7 +13,8 @@ class TrustedContactsScreen extends ConsumerStatefulWidget {
   const TrustedContactsScreen({super.key});
 
   @override
-  ConsumerState<TrustedContactsScreen> createState() => _TrustedContactsScreenState();
+  ConsumerState<TrustedContactsScreen> createState() =>
+      _TrustedContactsScreenState();
 }
 
 class _TrustedContactsScreenState extends ConsumerState<TrustedContactsScreen> {
@@ -46,8 +47,14 @@ class _TrustedContactsScreenState extends ConsumerState<TrustedContactsScreen> {
           decoration: const InputDecoration(hintText: 'UUID пользователя'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
-          TextButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Добавить')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Добавить'),
+          ),
         ],
       ),
     );
@@ -69,7 +76,9 @@ class _TrustedContactsScreenState extends ConsumerState<TrustedContactsScreen> {
     }
     if (!mounted) return;
     if (options.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Нет личных чатов для выбора')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Нет личных чатов для выбора')),
+      );
       return;
     }
 
@@ -131,14 +140,20 @@ class _TrustedContactsScreenState extends ConsumerState<TrustedContactsScreen> {
             title: 'Добавить',
             children: [
               AppTile(
-                leading: Icon(Icons.person_add_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.person_add_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'Из списка чатов',
                 trailing: AppTile.chevron(context),
                 onTap: _pickFromChats,
                 showDivider: true,
               ),
               AppTile(
-                leading: Icon(Icons.badge_outlined, color: colors.textSecondary),
+                leading: Icon(
+                  Icons.badge_outlined,
+                  color: colors.textSecondary,
+                ),
                 title: 'По User ID',
                 trailing: AppTile.chevron(context),
                 onTap: _addById,
@@ -152,13 +167,21 @@ class _TrustedContactsScreenState extends ConsumerState<TrustedContactsScreen> {
               children: [
                 for (var i = 0; i < _ids.length; i++)
                   AppTile(
-                    leading: Icon(Icons.verified_user_outlined, color: colors.textSecondary),
+                    leading: Icon(
+                      Icons.verified_user_outlined,
+                      color: colors.textSecondary,
+                    ),
                     title: controller.labelFor(_ids[i]),
                     subtitle: _ids[i],
                     trailing: IconButton(
-                      icon: Icon(Icons.remove_circle_outline, color: colors.danger),
+                      icon: Icon(
+                        Icons.remove_circle_outline,
+                        color: colors.danger,
+                      ),
                       onPressed: () async {
-                        await DuressPolicySession.instance.removeTrusted(_ids[i]);
+                        await DuressPolicySession.instance.removeTrusted(
+                          _ids[i],
+                        );
                         await _load();
                       },
                     ),

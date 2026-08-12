@@ -52,7 +52,12 @@ class AppIconButton extends StatelessWidget {
 
 /// Circular action button for profile quick actions.
 class AppQuickAction extends StatelessWidget {
-  const AppQuickAction({super.key, required this.icon, required this.label, this.onTap});
+  const AppQuickAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
 
   final IconData icon;
   final String label;

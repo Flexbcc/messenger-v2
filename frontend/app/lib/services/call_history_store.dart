@@ -15,7 +15,9 @@ class CallHistoryStore {
     if (raw == null || raw.isEmpty) return [];
     try {
       final list = jsonDecode(raw) as List<dynamic>;
-      return list.map((e) => CallHistoryEntry.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => CallHistoryEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
     } catch (_) {
       return [];
     }
@@ -28,7 +30,10 @@ class CallHistoryStore {
       all.removeRange(_maxEntries, all.length);
     }
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode(all.map((e) => e.toJson()).toList()));
+    await prefs.setString(
+      _key,
+      jsonEncode(all.map((e) => e.toJson()).toList()),
+    );
   }
 
   Future<void> clear() async {

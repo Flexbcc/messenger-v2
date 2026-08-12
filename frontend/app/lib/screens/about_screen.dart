@@ -28,13 +28,22 @@ class AboutScreen extends StatelessWidget {
                 gradient: colors.accentGradient,
                 borderRadius: BorderRadius.circular(AppRadius.lg),
               ),
-              child: Icon(Icons.shield_outlined, color: colors.textPrimary, size: 40),
+              child: Icon(
+                Icons.shield_outlined,
+                color: colors.textPrimary,
+                size: 40,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.md),
           Center(child: Text('Messenger', style: text.title)),
           const SizedBox(height: AppSpacing.sm),
-          Center(child: Text('Версия ${AppInfo.version} (${AppInfo.buildNumber})', style: text.caption)),
+          Center(
+            child: Text(
+              'Версия ${AppInfo.version} (${AppInfo.buildNumber})',
+              style: text.caption,
+            ),
+          ),
           const SizedBox(height: AppSpacing.xl),
           AppCard(
             child: Column(
@@ -42,7 +51,10 @@ class AboutScreen extends StatelessWidget {
               children: [
                 Text('Сервер', style: text.subtitle),
                 const SizedBox(height: AppSpacing.sm),
-                Text('Home Node: ${AppConfig.homeNodeUrl}\nMedia Node: ${AppConfig.mediaNodeUrl}', style: text.caption),
+                Text(
+                  'Home Node: ${AppConfig.homeNodeUrl}\nMedia Node: ${AppConfig.mediaNodeUrl}',
+                  style: text.caption,
+                ),
               ],
             ),
           ),
@@ -53,7 +65,10 @@ class AboutScreen extends StatelessWidget {
               children: [
                 Text('Конфиденциальность', style: text.subtitle),
                 const SizedBox(height: AppSpacing.sm),
-                Text('Сообщения шифруются на устройстве. Сервер не имеет доступа к содержимому.', style: text.caption),
+                Text(
+                  'Сообщения шифруются на устройстве. Сервер не имеет доступа к содержимому.',
+                  style: text.caption,
+                ),
               ],
             ),
           ),
@@ -64,7 +79,10 @@ class AboutScreen extends StatelessWidget {
               children: [
                 Text('Open Source', style: text.subtitle),
                 const SizedBox(height: AppSpacing.sm),
-                Text('Flutter · Riverpod · libsignal · flutter_webrtc', style: text.caption),
+                Text(
+                  'Flutter · Riverpod · libsignal · flutter_webrtc',
+                  style: text.caption,
+                ),
               ],
             ),
           ),

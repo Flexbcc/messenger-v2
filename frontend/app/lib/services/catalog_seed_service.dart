@@ -19,9 +19,9 @@ class CatalogSeedService {
     LocalSettingsStore? store,
     CatalogListStore? lists,
     SettingsCatalogBridge? bridge,
-  })  : _store = store ?? LocalSettingsStore(),
-        _lists = lists ?? CatalogListStore(),
-        _bridge = bridge ?? SettingsCatalogBridge();
+  }) : _store = store ?? LocalSettingsStore(),
+       _lists = lists ?? CatalogListStore(),
+       _bridge = bridge ?? SettingsCatalogBridge();
 
   final LocalSettingsStore _store;
   final CatalogListStore _lists;
@@ -48,7 +48,10 @@ class CatalogSeedService {
   }
 
   /// Apply `{ "values": { "profile_display_name": "..." }, "lists": { ... } }`.
-  Future<int> applyJson(SettingsCatalog catalog, Map<String, dynamic> json) async {
+  Future<int> applyJson(
+    SettingsCatalog catalog,
+    Map<String, dynamic> json,
+  ) async {
     final values = (json['values'] as Map<String, dynamic>?) ?? const {};
     final lists = (json['lists'] as Map<String, dynamic>?) ?? const {};
     var count = 0;
@@ -118,7 +121,10 @@ class CatalogSeedService {
     if (LocalSettingsStore.activeUserId == null) return;
     final done = await _store.getBool(seededFlag, false);
     if (done) return;
-    final probe = await _store.getString(SettingsCatalogBridge.catalogKey('profile.bio'), '');
+    final probe = await _store.getString(
+      SettingsCatalogBridge.catalogKey('profile.bio'),
+      '',
+    );
     if (probe.isNotEmpty) {
       await _store.setBool(seededFlag, true);
       return;

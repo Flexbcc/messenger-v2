@@ -18,6 +18,7 @@ class ConnectionProbeResult {
   final int? latencyMs;
   final String? nodeRole;
   final String? error;
+
   /// False for federation-only nodes (Relay) — not probed via /health from client.
   final bool clientDirect;
 

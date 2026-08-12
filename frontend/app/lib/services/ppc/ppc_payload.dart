@@ -21,10 +21,10 @@ class PpcRelayReach {
   }
 
   Map<String, Object?> toJson() => {
-        'discovery_url': discoveryUrl,
-        'storage_node_id': storageNodeId,
-        'relay_url': relayUrl,
-      };
+    'discovery_url': discoveryUrl,
+    'storage_node_id': storageNodeId,
+    'relay_url': relayUrl,
+  };
 
   bool get isComplete => relayUrl.isNotEmpty && storageNodeId.isNotEmpty;
 }
@@ -132,8 +132,8 @@ class PpcPairingPayload {
 
     final version = (data['v'] as num?)?.toInt() ?? 1;
     final reach = _reachFromPayload(data, version);
-    final intent = (data['intent'] as String? ?? (version == 1 ? 'node' : 'node'))
-        .trim();
+    final intent =
+        (data['intent'] as String? ?? (version == 1 ? 'node' : 'node')).trim();
 
     return PpcPairingPayload(
       version: version,

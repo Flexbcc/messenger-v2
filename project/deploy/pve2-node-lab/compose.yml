@@ -1,0 +1,243 @@
+name: ouo-node-lab
+
+x-node: &node
+  restart: unless-stopped
+  networks: [ouo-internal]
+  cpus: 1.0
+  mem_limit: 768m
+  pids_limit: 256
+  security_opt: [no-new-privileges:true]
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=2)"]
+    interval: 20s
+    timeout: 3s
+    retries: 3
+    start_period: 20s
+  environment: &node-env
+    CLUSTER_ID: pve2-node-lab
+    ENROLLMENT_MODE: strict
+    INTERNAL_SECURITY_MODE: signed
+    FEDERATION_NODE_ID_MODE: enforce
+    FEDERATION_CAPABILITY_MODE: enforce
+    FEDERATION_ENVELOPE_MODE: signed
+    DISCOVERY_NODE_URL: http://discovery-d1:8003
+    FEDERATION_DISCOVERY_URLS: http://discovery-d1:8003,http://discovery-d2:8003,http://discovery-d3:8003
+    FEDERATION_MINIMUM_DISCOVERY_SOURCES: "2"
+    NODE_CHALLENGE_OBSERVER_ENABLED: "true"
+    NODE_CHALLENGE_ALLOW_HTTP: ${NODE_CHALLENGE_ALLOW_HTTP:-true}
+    NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: /data/operational_credential_chain.json
+    NODE_CAPABILITY_CERTIFICATE_PATH: ${NODE_CAPABILITY_CERTIFICATE_PATH:-}
+    NODE_CAPABILITY_AUTHORITY_STATE_PATH: ${NODE_CAPABILITY_AUTHORITY_STATE_PATH:-}
+    NODE_BUILD_HASH: ${NODE_BUILD_HASH:-main-local}
+
+x-discovery: &discovery
+  <<: *node
+  build: {context: ../.., dockerfile: services/discovery-node/Dockerfile}
+  mem_limit: 512m
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health', timeout=2)"]
+  environment: &discovery-env
+    DISCOVERY_DB_PATH: /data/discovery.db
+    ENROLLMENT_MODE: strict
+    INTERNAL_SECURITY_MODE: signed
+    NODE_IDENTITY_MODE: enforce
+    OPERATIONAL_CREDENTIAL_STATE_MODE: enforce
+    OPERATIONAL_CREDENTIAL_REVOCATION_MODE: enforce
+    NODE_ADVERTISEMENT_MODE: enforce
+    CAPABILITY_CERTIFICATE_MODE: enforce
+    TRANSPORT_CERTIFICATE_MODE: enforce
+    TRUST_LEDGER_MODE: enforce
+    TRUST_DEGRADATION_MODE: observe
+    TRUST_PROPOSAL_MODE: report
+    RANDOMNESS_CHECKPOINT_MODE: enforce
+    CHALLENGE_PROPOSAL_SCHEDULER_MODE: enforce
+    CAPABILITY_AUTHORITY_STATE_PATH: ${CAPABILITY_AUTHORITY_STATE_PATH:-}
+    TRUST_AUTHORITY_STATE_PATH: ${TRUST_AUTHORITY_STATE_PATH:-}
+    DISCOVERY_ADMIN_SECRET: ${DISCOVERY_ADMIN_SECRET:?required}
+    MESH_NOTIFY_SECRET: ${MESH_NOTIFY_SECRET:?required}
+    AUTHORITY_GOSSIP_ENABLED: "true"
+    NODE_ADVERTISEMENT_GOSSIP_ENABLED: "true"
+    TRUST_RECORD_GOSSIP_ENABLED: "true"
+    CHALLENGE_ASSIGNMENT_GOSSIP_ENABLED: "true"
+
+x-home: &home
+  <<: *node
+  build: {context: ../.., dockerfile: services/home-node/Dockerfile}
+  mem_limit: 1024m
+  environment: &home-env
+    <<: *node-env
+    HOME_DB_PATH: /data/home.db
+    ROUTE_RESOLUTION_MODE: enforce
+    ROUTE_DISCOVERY_URLS: http://discovery-d1:8003,http://discovery-d2:8003,http://discovery-d3:8003
+    ROUTE_MINIMUM_DISCOVERY_SOURCES: "2"
+    RELAY_TRANSPORT_MODE: websocket-preferred
+    STORAGE_NODE_URLS: http://storage-a:8002,http://storage-b:8002
+    STORAGE_REPLICATION_FACTOR: "2"
+    STORAGE_WRITE_QUORUM: "1"
+    JWT_SECRET: ${JWT_SECRET:?required}
+    PUSH_PROXY_URL: ""
+
+x-storage: &storage
+  <<: *node
+  build: {context: ../.., dockerfile: services/storage-node/Dockerfile}
+  mem_limit: 512m
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=2)"]
+  environment: &storage-env
+    <<: *node-env
+    STORAGE_DB_PATH: /data/storage.db
+    STORAGE_MAX_OPAQUE_BYTES: "1073741824"
+    STORAGE_MAX_PADDED_POLL_BYTES: "1048576"
+
+x-relay: &relay
+  <<: *node
+  build: {context: ../.., dockerfile: services/relay-node/Dockerfile}
+  mem_limit: 512m
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/health', timeout=2)"]
+  environment: &relay-env
+    <<: *node-env
+    RELAY_TARGET_VALIDATION_MODE: enforce
+    MIX_DISCOVERY_URLS: http://discovery-d1:8003,http://discovery-d2:8003,http://discovery-d3:8003
+    MIX_MINIMUM_DISCOVERY_SOURCES: "2"
+    MIX_POOL_MAX_CELLS: "1024"
+    MIX_POOL_MAX_BYTES: "67108864"
+
+services:
+  discovery-d1:
+    <<: *discovery
+    ports: ["127.0.0.1:18031:8003"]
+    environment:
+      <<: *discovery-env
+      DISCOVERY_NODE_ID: discovery-d1
+      DISCOVERY_NODE_PUBLIC_URL: http://discovery-d1:8003
+      AUTHORITY_GOSSIP_PEERS: http://discovery-d2:8003,http://discovery-d3:8003
+      NODE_ADVERTISEMENT_GOSSIP_PEERS: http://discovery-d2:8003,http://discovery-d3:8003
+      TRUST_RECORD_GOSSIP_PEERS: http://discovery-d2:8003,http://discovery-d3:8003
+      CHALLENGE_ASSIGNMENT_GOSSIP_PEERS: http://discovery-d2:8003,http://discovery-d3:8003
+    volumes: [discovery-d1:/data]
+  discovery-d2:
+    <<: *discovery
+    ports: ["127.0.0.1:18032:8003"]
+    environment:
+      <<: *discovery-env
+      DISCOVERY_NODE_ID: discovery-d2
+      DISCOVERY_NODE_PUBLIC_URL: http://discovery-d2:8003
+      AUTHORITY_GOSSIP_PEERS: http://discovery-d1:8003,http://discovery-d3:8003
+      NODE_ADVERTISEMENT_GOSSIP_PEERS: http://discovery-d1:8003,http://discovery-d3:8003
+      TRUST_RECORD_GOSSIP_PEERS: http://discovery-d1:8003,http://discovery-d3:8003
+      CHALLENGE_ASSIGNMENT_GOSSIP_PEERS: http://discovery-d1:8003,http://discovery-d3:8003
+    volumes: [discovery-d2:/data]
+  discovery-d3:
+    <<: *discovery
+    ports: ["127.0.0.1:18033:8003"]
+    environment:
+      <<: *discovery-env
+      DISCOVERY_NODE_ID: discovery-d3
+      DISCOVERY_NODE_PUBLIC_URL: http://discovery-d3:8003
+      AUTHORITY_GOSSIP_PEERS: http://discovery-d1:8003,http://discovery-d2:8003
+      NODE_ADVERTISEMENT_GOSSIP_PEERS: http://discovery-d1:8003,http://discovery-d2:8003
+      TRUST_RECORD_GOSSIP_PEERS: http://discovery-d1:8003,http://discovery-d2:8003
+      CHALLENGE_ASSIGNMENT_GOSSIP_PEERS: http://discovery-d1:8003,http://discovery-d2:8003
+    volumes: [discovery-d3:/data]
+
+  home-a:
+    <<: *home
+    environment: {<<: *home-env, HOME_NODE_ID: home-a, HOME_NODE_PUBLIC_URL: "http://home-a:8001"}
+    volumes: [home-a:/data]
+  home-b:
+    <<: *home
+    environment: {<<: *home-env, HOME_NODE_ID: home-b, HOME_NODE_PUBLIC_URL: "http://home-b:8001"}
+    volumes: [home-b:/data]
+  home-c:
+    <<: *home
+    environment: {<<: *home-env, HOME_NODE_ID: home-c, HOME_NODE_PUBLIC_URL: "http://home-c:8001"}
+    volumes: [home-c:/data]
+
+  storage-a:
+    <<: *storage
+    environment: {<<: *storage-env, STORAGE_NODE_ID: storage-a, STORAGE_NODE_PUBLIC_URL: "http://storage-a:8002"}
+    volumes: [storage-a:/data]
+  storage-b:
+    <<: *storage
+    environment: {<<: *storage-env, STORAGE_NODE_ID: storage-b, STORAGE_NODE_PUBLIC_URL: "http://storage-b:8002"}
+    volumes: [storage-b:/data]
+
+  relay-a:
+    <<: *relay
+    environment: {<<: *relay-env, RELAY_NODE_ID: relay-a, RELAY_NODE_PUBLIC_URL: "http://relay-a:8005"}
+    volumes: [relay-a:/data]
+  relay-b:
+    <<: *relay
+    environment: {<<: *relay-env, RELAY_NODE_ID: relay-b, RELAY_NODE_PUBLIC_URL: "http://relay-b:8005"}
+    volumes: [relay-b:/data]
+
+  gateway:
+    <<: *node
+    build: {context: ../.., dockerfile: services/gateway-node/Dockerfile}
+    mem_limit: 384m
+    ports: ["127.0.0.1:18080:8007"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8007/health', timeout=2)"]
+    environment:
+      <<: *node-env
+      GATEWAY_NODE_ID: gateway-lab
+      GATEWAY_NODE_PUBLIC_URL: http://gateway:8007
+      GATEWAY_DISCOVERY_PUBLIC_URL: http://discovery-d1:8003
+      DEFAULT_HOME_NODE_URL: http://home-a:8001
+      GATEWAY_TLS_ENABLED: "false"
+      GATEWAY_INVITE_SECRET: ${GATEWAY_INVITE_SECRET:?required}
+    volumes: [gateway:/data]
+
+  turn-api:
+    <<: *node
+    build: {context: ../.., dockerfile: services/turn-node/Dockerfile}
+    mem_limit: 384m
+    depends_on: [coturn]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8006/health', timeout=2)"]
+    environment:
+      <<: *node-env
+      TURN_NODE_ID: turn-lab
+      TURN_NODE_PUBLIC_URL: http://turn-api:8006
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:?required}
+      TURN_SERVER_HOST: coturn
+      JWT_SECRET: ${JWT_SECRET:?required}
+    volumes: [turn-api:/data]
+
+  coturn:
+    image: coturn/coturn:4.6.3
+    restart: unless-stopped
+    networks: [ouo-internal]
+    cpus: 0.5
+    mem_limit: 256m
+    pids_limit: 128
+    security_opt: [no-new-privileges:true]
+    command:
+      - --no-cli
+      - --fingerprint
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_SHARED_SECRET:?required}
+      - --realm=ouo-lab.internal
+      - --listening-port=3478
+      - --min-port=49160
+      - --max-port=49200
+      - --no-multicast-peers
+
+networks:
+  ouo-internal:
+    internal: true
+
+volumes:
+  discovery-d1: {}
+  discovery-d2: {}
+  discovery-d3: {}
+  home-a: {}
+  home-b: {}
+  home-c: {}
+  storage-a: {}
+  storage-b: {}
+  relay-a: {}
+  relay-b: {}
+  gateway: {}
+  turn-api: {}

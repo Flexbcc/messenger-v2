@@ -12,8 +12,11 @@ from app.storage_service import purge_expired
 from shared.mesh.install import install_mesh
 from shared.security.health import security_health_snapshot
 from shared.security.nonce_cleanup import start_nonce_cleanup
+from shared.security.relay_challenge_receiver import install_relay_challenge_receiver
+from app.media_auth import get_federation_security
 
 app = FastAPI(title="Media Node", version="0.2.0")
+install_relay_challenge_receiver(app, get_federation_security)
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,6 +38,8 @@ async def on_startup():
 @app.get("/health")
 def health():
     settings = get_settings()
+    from app.media_auth import get_federation_security
+    fs = get_federation_security()
     files_count = 0
     bytes_total = 0
     root = settings.media.local_path
@@ -47,6 +52,8 @@ def health():
     return {
         "status": "ok",
         "node_role": "media",
+        "node_id": fs.node_id,
+        "node_alias": node_settings.node_id,
         "load": {
             "files_count": files_count,
             "bytes_total": bytes_total,

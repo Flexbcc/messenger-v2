@@ -1,7 +1,7 @@
 # 0602. Storage node
 
 ## Статус
-Черновик
+Opaque mailbox реализован; legacy buffer сохранён только для миграции.
 
 ## Назначение
 Узел, отвечающий за временное хранение сообщений для офлайн-получателей
@@ -41,3 +41,11 @@ Storage Node шардируется по ассоциированной Home Nod
 реплицируется для устойчивости к отказу отдельного узла хранения —
 поскольку данные уже зашифрованы end-to-end, репликация не увеличивает
 поверхность утечки содержимого сообщений.
+
+## Реализованный opaque mailbox
+
+Новый API хранит только endpoint-encrypted fixed-size cell, expiry и hash
+случайной 256-bit mailbox capability. Raw bearer token в БД не сохраняется.
+Store/fetch/ACK требуют signed Home admission, имеют per-mailbox и общий disk
+budget. Клиент Storage выполняет параллельную запись с write quorum, объединяет
+реплики по ciphertext hash и ACK'ает локальный receipt каждой Storage.

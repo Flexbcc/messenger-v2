@@ -28,6 +28,11 @@ async def verify_incoming_federation(
     nonce_store: NonceStore,
     audit: Optional[FederationAuditLog] = None,
     expected_origin_node_id: Optional[str] = None,
+    conversation_meta: Optional[dict] = None,
+    expected_target_node_id: Optional[str] = None,
+    expected_recipient_user_id: Optional[str] = None,
+    expected_ttl_seconds: Optional[int] = None,
+    expected_routes: Optional[set[str]] = None,
     consume_nonce: bool = True,
 ) -> str:
     """
@@ -49,6 +54,11 @@ async def verify_incoming_federation(
         federation,
         envelope=envelope,
         origin_node_id=expected_origin_node_id,
+        conversation_meta=conversation_meta,
+        expected_target_node_id=expected_target_node_id,
+        expected_recipient_user_id=expected_recipient_user_id,
+        expected_ttl_seconds=expected_ttl_seconds,
+        expected_routes=expected_routes,
     )
     if field_err:
         _audit_fail(audit, endpoint, packet_id, origin, field_err)

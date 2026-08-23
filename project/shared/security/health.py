@@ -14,4 +14,5 @@ def security_health_snapshot() -> dict:
         "capability_denied": m.capability_denied,
         "timestamp_rejected": m.timestamp_rejected,
         "rate_limit_hits": m.rate_limit_hits,
+        "admission_rejected": m.admission_rejected,
     }

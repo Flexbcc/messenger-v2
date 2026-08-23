@@ -44,3 +44,8 @@ discovery-регистрации, но не даёт настоящего мед
 | `TURN_SERVER_HOST` / `TURN_SERVER_PORT` | `localhost` / `3478` | Адрес реального TURN-сервера, который отдаётся клиенту в `uris` |
 | `TURN_SHARED_SECRET` | dev-значение | Должен совпадать с `static-auth-secret` TURN-сервера. **Обязательно сменить вне разработки.** |
 | `TURN_CREDENTIAL_TTL_SECONDS` | `600` | Срок жизни выданных credential |
+
+Credential username имеет форму `expiry:opaque-random`; UserID и DeviceID в
+coturn не передаются. Ответ содержит `ice_transport_policy=relay`, realm и
+только разрешённые URI (`turn` UDP/TCP, опционально `turns` TCP). В secure mode
+startup завершается fail closed при development secret или JWT secret.

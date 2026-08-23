@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import os
+import secrets
 
 from fastapi import APIRouter, Header, HTTPException
 
 from shared.mesh.registry import get_mesh_registry
 from shared.mesh.schemas import MeshPeerJoinedRequest, MeshPeerListResponse, MeshPeerRecord
+from shared.security.config import INTERNAL_SECURITY_MODE
 
 MESH_NOTIFY_SECRET = os.environ.get("MESH_NOTIFY_SECRET", "")
 
@@ -14,11 +16,17 @@ MESH_NOTIFY_SECRET = os.environ.get("MESH_NOTIFY_SECRET", "")
 def _check_mesh_notify_secret(x_mesh_notify_secret: str | None) -> None:
     if not MESH_NOTIFY_SECRET:
         return
-    if not x_mesh_notify_secret or x_mesh_notify_secret != MESH_NOTIFY_SECRET:
+    if not x_mesh_notify_secret or not secrets.compare_digest(
+        x_mesh_notify_secret, MESH_NOTIFY_SECRET
+    ):
         raise HTTPException(status_code=403, detail="Invalid mesh notify secret")
 
 
 def create_mesh_router() -> APIRouter:
+    if INTERNAL_SECURITY_MODE == "signed" and not MESH_NOTIFY_SECRET:
+        raise RuntimeError(
+            "MESH_NOTIFY_SECRET is required when INTERNAL_SECURITY_MODE=signed"
+        )
     router = APIRouter(prefix="/internal/mesh", tags=["mesh"])
 
     @router.post("/peer-joined")

@@ -1,0 +1,159 @@
+name: ouo-pve2-lab
+
+x-common-node: &common-node
+  restart: unless-stopped
+  networks:
+    - ouo-control
+  environment: &common-environment
+    CLUSTER_ID: pve2-lab
+    DISCOVERY_NODE_URL: http://discovery:8003
+    ENROLLMENT_MODE: legacy
+    INTERNAL_SECURITY_MODE: legacy
+    FEDERATION_ENVELOPE_MODE: legacy
+    NODE_BUILD_HASH: ${NODE_BUILD_HASH:-main-unknown}
+
+x-home-node: &home-node
+  <<: *common-node
+  build:
+    context: .
+    dockerfile: services/home-node/Dockerfile
+  depends_on:
+    - discovery
+    - storage
+  environment: &home-environment
+    <<: *common-environment
+    HOME_DB_PATH: /data/home.db
+    STORAGE_NODE_URL: http://storage:8002
+    JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+    PUSH_PROXY_URL: ""
+    NODE_RESOURCE_POLICY: private
+    NODE_PARTICIPATE_RELAY: "false"
+    NODE_PARTICIPATE_STORAGE: "false"
+    NODE_PARTICIPATE_WITNESS: "false"
+    NODE_PARTICIPATE_MEDIA_CACHE: "false"
+    NODE_PARTICIPATE_NAT_ASSIST: "false"
+
+services:
+  discovery:
+    <<: *common-node
+    build:
+      context: .
+      dockerfile: services/discovery-node/Dockerfile
+    environment:
+      DISCOVERY_DB_PATH: /data/discovery.db
+      ENROLLMENT_MODE: legacy
+      ATTESTATION_MODE: "off"
+      MTLS_MODE: "off"
+      DISCOVERY_OFFLINE_THRESHOLD_SECONDS: "120"
+      DISCOVERY_HEALTHCHECK_ENABLED: "true"
+      DISCOVERY_HEALTHCHECK_INTERVAL_SECONDS: "10"
+      DISCOVERY_HEALTHCHECK_TIMEOUT_SECONDS: "2"
+    volumes:
+      - discovery-data:/data
+
+  gateway:
+    <<: *common-node
+    build:
+      context: .
+      dockerfile: services/gateway-node/Dockerfile
+    depends_on:
+      - discovery
+      - home-a
+    environment:
+      <<: *common-environment
+      GATEWAY_NODE_ID: gateway-pve2
+      GATEWAY_NODE_PUBLIC_URL: http://gateway:8007
+      GATEWAY_DISCOVERY_PUBLIC_URL: http://discovery:8003
+      DEFAULT_HOME_NODE_URL: http://home-a:8001
+      DEFAULT_MEDIA_NODE_URL: ""
+      GATEWAY_TLS_ENABLED: "false"
+    volumes:
+      - gateway-data:/data
+
+  home-a:
+    <<: *home-node
+    environment:
+      <<: *home-environment
+      HOME_NODE_ID: home-a
+      HOME_NODE_PUBLIC_URL: http://home-a:8001
+    volumes:
+      - home-a-data:/data
+
+  home-b:
+    <<: *home-node
+    environment:
+      <<: *home-environment
+      HOME_NODE_ID: home-b
+      HOME_NODE_PUBLIC_URL: http://home-b:8001
+    volumes:
+      - home-b-data:/data
+
+  home-c:
+    <<: *home-node
+    environment:
+      <<: *home-environment
+      HOME_NODE_ID: home-c
+      HOME_NODE_PUBLIC_URL: http://home-c:8001
+    volumes:
+      - home-c-data:/data
+
+  storage:
+    <<: *common-node
+    build:
+      context: .
+      dockerfile: services/storage-node/Dockerfile
+    depends_on:
+      - discovery
+    environment:
+      <<: *common-environment
+      STORAGE_NODE_ID: storage-pve2
+      STORAGE_NODE_PUBLIC_URL: http://storage:8002
+      STORAGE_DB_PATH: /data/storage.db
+    volumes:
+      - storage-data:/data
+
+  relay:
+    <<: *common-node
+    build:
+      context: .
+      dockerfile: services/relay-node/Dockerfile
+    depends_on:
+      - discovery
+    environment:
+      <<: *common-environment
+      RELAY_NODE_ID: relay-pve2
+      RELAY_NODE_PUBLIC_URL: http://relay:8005
+    volumes:
+      - relay-data:/data
+
+  turn-api:
+    <<: *common-node
+    build:
+      context: .
+      dockerfile: services/turn-node/Dockerfile
+    depends_on:
+      - discovery
+    environment:
+      <<: *common-environment
+      TURN_NODE_ID: turn-pve2
+      TURN_NODE_PUBLIC_URL: http://turn-api:8006
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:?TURN_SHARED_SECRET is required}
+      TURN_SERVER_HOST: turn.invalid
+      TURN_SERVER_PORT: "3478"
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+    volumes:
+      - turn-data:/data
+
+networks:
+  ouo-control:
+    internal: true
+
+volumes:
+  discovery-data:
+  gateway-data:
+  home-a-data:
+  home-b-data:
+  home-c-data:
+  storage-data:
+  relay-data:
+  turn-data:

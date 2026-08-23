@@ -2,6 +2,18 @@
 
 Цель: работать над **каждым модулем отдельно**, не загружая в контекст весь репозиторий.
 
+## Целевая безопасность OUO v1
+
+- [Security Architecture & Threat Model v1](OUO-SECURITY-ARCHITECTURE-v1.md)
+- [Implementation roadmap и gap-анализ](OUO-SECURITY-IMPLEMENTATION-ROADMAP-v1.md)
+- [Каталог threat tests инфраструктуры](OUO-THREAT-TEST-CATALOG-v1.md)
+- [Read-only аудит Proxmox](ops/PROXMOX-READONLY-AUDIT.md)
+- [Secure compose baseline для нод](ops/SECURE-NODE-COMPOSE.md)
+- [Migration и fail-closed security profiles](ops/SECURITY-PROFILES.md)
+- [Локальный восьмипроцессный кластер и проверки](ops/LOCAL-NODE-CLUSTER.md)
+- [Trust/Sybil simulator](ops/TRUST-SIMULATOR.md)
+- [Emergency Authority Recovery runbook](ops/AUTHORITY-RECOVERY.md)
+
 ## Как пользоваться
 
 1. Откройте **только** папку модуля, над которым работаете (`docs/modules/<имя>/`).

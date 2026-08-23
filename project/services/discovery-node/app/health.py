@@ -113,8 +113,8 @@ async def _health_loop() -> None:
                 logger.warning("Health-check run failed: %s", e)
 
 
-def start_health_monitor() -> None:
+def start_health_monitor() -> asyncio.Task | None:
     """Start the background health-check loop if enabled (called on startup)."""
     if not HEALTHCHECK_ENABLED:
-        return
-    asyncio.create_task(_health_loop())
+        return None
+    return asyncio.create_task(_health_loop())

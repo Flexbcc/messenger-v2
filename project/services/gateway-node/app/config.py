@@ -28,6 +28,22 @@ class Settings:
     build_hash: str = os.environ.get("NODE_BUILD_HASH", "")
     tls_cert_fingerprint: str = os.environ.get("NODE_TLS_CERT_FINGERPRINT", "")
     release_signature: str = os.environ.get("NODE_RELEASE_SIGNATURE", "")
+    signing_key_path: str = os.environ.get("NODE_SIGNING_KEY_PATH", "/data/node_signing_key")
+    root_key_path: str = os.environ.get("NODE_ROOT_KEY_PATH", "/data/node_root_key")
+    operational_certificate_path: str = os.environ.get(
+        "NODE_OPERATIONAL_CERTIFICATE_PATH", "/data/node_operational_certificate.json"
+    )
+    operational_credential_chain_path: str = os.environ.get(
+        "NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH", ""
+    )
+    capability_certificate_path: str = os.environ.get("NODE_CAPABILITY_CERTIFICATE_PATH", "")
+    transport_key_path: str = os.environ.get("NODE_TRANSPORT_KEY_PATH", "/data/node_transport_key")
+    transport_certificate_path: str = os.environ.get(
+        "NODE_TRANSPORT_CERTIFICATE_PATH", "/data/node_transport_certificate.json"
+    )
+    capability_authority_state_path: str = os.environ.get(
+        "NODE_CAPABILITY_AUTHORITY_STATE_PATH", ""
+    )
 
 
 settings = Settings()

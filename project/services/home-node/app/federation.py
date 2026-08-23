@@ -7,6 +7,8 @@ broadcasting to every configured peer.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 import time
 from typing import Awaitable, Callable, Optional
@@ -18,6 +20,8 @@ from app.fed_security import get_federation_security
 from shared.security.http_client import federation_delete, federation_get, federation_post
 from shared.security.record_verifier import verify_user_record_response
 from shared.security.sealed_sender import seal_sender
+from shared.transport.relay_adapter import RelayTransportAdapter
+from shared.transport.ws_relay_client import RelayTransportError
 from shared.security.payload_builder import (
     build_buffer_payload,
     build_deliver_payload,
@@ -52,6 +56,29 @@ def get_federation_counters() -> dict[str, int]:
 # asyncio: lookups/writes are synchronous with no `await` in between, so
 # there's no interleaving point for a race.
 _home_node_cache: dict[str, tuple[str, float]] = {}
+_home_node_stale_cache: dict[str, tuple[str, float]] = {}
+_relay_transport: RelayTransportAdapter | None = None
+
+
+def _get_relay_transport() -> RelayTransportAdapter:
+    global _relay_transport
+    if _relay_transport is None:
+        fs = get_federation_security()
+        _relay_transport = RelayTransportAdapter(
+            signing_key=fs.signing_key,
+            node_id=fs.node_id,
+            mode=settings.relay_transport_mode,
+            timeout_seconds=10.0,
+        )
+    return _relay_transport
+
+
+async def close_relay_transport() -> None:
+    global _relay_transport
+    client = _relay_transport
+    _relay_transport = None
+    if client is not None:
+        await client.close()
 
 
 def _cache_lookup(cache: dict[str, tuple[str, float]], user_id: str, now: float) -> Optional[str]:
@@ -152,10 +179,11 @@ async def notify_remote_home_changed(
     fs = get_federation_security()
     payload = build_home_changed_payload(
         signing_key=fs.signing_key,
-        origin_node_id=settings.node_id,
+        origin_node_id=fs.node_id,
         user_id=user_id,
         new_home_node_url=new_home_node_url,
         home_updated_at=home_updated_at,
+        target_node_id=target_home_node_url,
     )
     async with httpx.AsyncClient(timeout=5.0) as client:
         resp = await federation_post(
@@ -186,7 +214,7 @@ async def notify_remote_delivery_ack(
     fs = get_federation_security()
     payload = build_delivery_ack_payload(
         signing_key=fs.signing_key,
-        origin_node_id=settings.node_id,
+        origin_node_id=fs.node_id,
         packet_id=packet_id,
         conversation_id=conversation_id,
         from_user_id=from_user_id,
@@ -226,15 +254,19 @@ async def resolve_home_node(user_id: str, *, force_refresh: bool = False) -> Opt
             resp = await client.get(f"{settings.discovery_url}/registry/users/{user_id}")
         except httpx.HTTPError as e:
             logger.warning("Discovery lookup failed for %s: %s", user_id, e)
-            return None
+            stale = _cache_lookup(_home_node_stale_cache, user_id, now)
+            if stale is not None:
+                logger.warning("Using last-known Home route for %s while Discovery is unavailable", user_id)
+            return stale
     if resp.status_code != 200:
         return None
     record = resp.json()
     home_node_url = record["home_node_url"]
 
     # Verify Discovery's Ed25519 signature on the user→home mapping.
-    # If verification fails we refuse to use the record — an attacker who
-    # compromises a Discovery node cannot silently redirect traffic.
+    # This detects transport/cache tampering but does NOT protect against a
+    # compromised Discovery signing key. User-signed BootstrapRecord and
+    # RouteDescriptor are required for that stronger property (spec roadmap).
     # If Discovery doesn't yet include a signature (old version / key missing)
     # we log a warning and continue so existing deployments don't break.
     sig = record.get("record_signature")
@@ -259,6 +291,13 @@ async def resolve_home_node(user_id: str, *, force_refresh: bool = False) -> Opt
         )
 
     _cache_store(_home_node_cache, user_id, home_node_url, now, settings.discovery_resolve_cache_ttl_seconds)
+    _cache_store(
+        _home_node_stale_cache,
+        user_id,
+        home_node_url,
+        now,
+        settings.discovery_resolve_stale_if_error_seconds,
+    )
     return home_node_url
 
 
@@ -270,6 +309,28 @@ async def _list_discovery_nodes(capability: str, cluster_id: Optional[str]) -> l
     Sorting here means the _rank_reachable ping-race will usually confirm the
     already-fastest node first, rather than producing a random ordering.
     """
+    if capability == "relay" and settings.signed_peer_selection_mode != "off":
+        from app.peer_runtime import signed_relay_urls
+
+        signed = signed_relay_urls()
+        if signed:
+            return signed
+        if settings.signed_peer_selection_mode == "enforce":
+            logger.warning("Signed peer selection is enforced but has no valid Relay set")
+            return []
+    if capability in {"storage", "media", "turn", "gateway"} and settings.signed_peer_selection_mode != "off":
+        from app.peer_runtime import signed_capability_urls
+
+        signed = signed_capability_urls(capability)
+        if signed:
+            return signed
+        if settings.signed_peer_selection_mode == "enforce":
+            logger.warning(
+                "Signed peer selection is enforced but has no valid %s set",
+                capability,
+            )
+            return []
+
     from shared.mesh.registry import get_mesh_registry
 
     registry = get_mesh_registry()
@@ -391,22 +452,67 @@ async def _reachable_relays() -> list[str]:
     """All live relays from Discovery, fastest-first, for retry-across-relays."""
     if settings.resource_policy == "local":
         return []
+    if settings.signed_peer_selection_mode != "off":
+        from app.peer_runtime import signed_relay_urls, signed_reserve_urls
+
+        active = signed_relay_urls()
+        if active:
+            reachable = await _rank_reachable(active)
+            if reachable:
+                return reachable
+        reserves = signed_reserve_urls()
+        if reserves:
+            return await _rank_reachable(reserves)
+        if settings.signed_peer_selection_mode == "enforce":
+            return []
     cluster_id = _discovery_cluster_filter()
     candidates = await _list_discovery_nodes("relay", cluster_id)
     return await _rank_reachable(candidates)
 
 
 async def _resolve_storage_url() -> str:
-    discovered = await _find_capability_node("storage")
-    if discovered:
-        return discovered
-    return settings.storage_node_url
+    return (await _resolve_storage_urls())[0]
+
+
+async def _resolve_storage_urls() -> list[str]:
+    """Return a bounded, de-duplicated Storage replica set.
+
+    Discovery candidates are capability-filtered by the same registry path as
+    other infrastructure services. Configured URLs remain a bootstrap/fallback
+    set, including for local policy. The replication factor is deliberately
+    capped in Settings so one message cannot create an unbounded fan-out.
+    """
+    configured = list(
+        dict.fromkeys(
+            [*settings.storage_node_urls, settings.storage_node_url.rstrip("/")]
+        )
+    )
+    if settings.resource_policy == "local":
+        selected = configured
+    else:
+        candidates = await _list_discovery_nodes(
+            "storage", _discovery_cluster_filter()
+        )
+        reachable = await _rank_reachable(candidates)
+        selected = (
+            reachable
+            if settings.signed_peer_selection_mode == "enforce"
+            else list(dict.fromkeys([*reachable, *configured]))
+        )
+    if not selected:
+        raise RuntimeError("No Storage Node is configured or discoverable")
+    return selected[: settings.storage_replication_factor]
 
 
 async def _resolve_media_url() -> str:
     discovered = await _find_capability_node("media")
     if discovered:
         return discovered
+    if (
+        settings.resource_policy != "local"
+        and settings.signed_peer_selection_mode == "enforce"
+    ):
+        raise RuntimeError("No quorum-observed Media Node is available")
     return settings.media_node_url
 
 
@@ -463,7 +569,7 @@ async def deliver_to_remote_home_node(home_node_url: str, envelope: dict, conver
 
     deliver_payload = build_deliver_payload(
         signing_key=fs.signing_key,
-        origin_node_id=settings.node_id,
+        origin_node_id=fs.node_id,
         envelope=sealed_envelope,
         conversation_meta=conversation_meta,
         route="direct",
@@ -502,7 +608,7 @@ async def deliver_to_remote_home_node(home_node_url: str, envelope: dict, conver
 
     relay_payload = build_relay_forward_payload(
         signing_key=fs.signing_key,
-        origin_node_id=settings.node_id,
+        origin_node_id=fs.node_id,
         envelope=envelope,
         conversation_meta=conversation_meta,
         target_home_node_url=home_node_url,
@@ -511,26 +617,19 @@ async def deliver_to_remote_home_node(home_node_url: str, envelope: dict, conver
     # Retry across relays: a relay can pass /health yet fail the actual forward
     # (or die between ping and forward) — try the next live relay instead of
     # failing the whole delivery on the first one.
+    transport_mode = settings.relay_transport_mode
+    if transport_mode not in ("http", "websocket-preferred", "websocket-required"):
+        raise RuntimeError(f"Unsupported RELAY_TRANSPORT_MODE: {transport_mode}")
+
     last_error: Optional[Exception] = None
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        for relay_url in relay_urls:
-            try:
-                resp = await federation_post(
-                    client,
-                    f"{relay_url}/relay/forward",
-                    path="/relay/forward",
-                    payload=relay_payload,
-                    signing_key=fs.signing_key,
-                    node_id=fs.node_id,
-                )
-                resp.raise_for_status()
-                _fed_counters["relay_ok"] += 1
-                return
-            except httpx.HTTPError as e:
-                last_error = e
-                logger.warning(
-                    "Relay %s forward failed (%s), trying next relay", relay_url, e
-                )
+    for relay_url in relay_urls:
+        try:
+            await _get_relay_transport().forward(relay_url, relay_payload)
+            _fed_counters["relay_ok"] += 1
+            return
+        except RelayTransportError as e:
+            last_error = e
+            logger.warning("Relay %s transport failed (%s), trying next relay", relay_url, e)
 
     # All relays (including their hub escalations) failed — buffer to Storage Node
     # so recipients can drain when connectivity recovers, and enqueue outbox retry.
@@ -569,6 +668,9 @@ async def _buffer_envelope_for_recipients(envelope: dict, conversation_meta: dic
             logger.warning(
                 "Storage-node buffer fallback failed for %s: %s", recipient_user_id, buf_err
             )
+            raise RuntimeError(
+                f"Storage-node did not persist fallback for recipient {recipient_user_id}"
+            ) from buf_err
 
 
 async def buffer_for_offline_user(user_id: str, envelope: dict) -> None:
@@ -578,28 +680,46 @@ async def buffer_for_offline_user(user_id: str, envelope: dict) -> None:
     per-device (see app/fanout.py) — so we pass user_id into that field.
     Revisit when per-device multi-device fan-out is implemented.
     """
-    storage_url = await _resolve_storage_url()
+    storage_urls = await _resolve_storage_urls()
     fs = get_federation_security()
     buffer_payload = build_buffer_payload(
         signing_key=fs.signing_key,
-        origin_node_id=settings.node_id,
+        origin_node_id=fs.node_id,
         recipient_device_id=user_id,
         envelope=envelope,
         ttl_seconds=60 * 60 * 24 * 30,
     )
-    async with httpx.AsyncClient(timeout=5.0) as client:
+    async def store(storage_url: str) -> None:
         try:
-            resp = await federation_post(
-                client,
-                f"{storage_url}/buffer",
-                path="/buffer",
-                payload=buffer_payload,
-                signing_key=fs.signing_key,
-                node_id=fs.node_id,
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await federation_post(
+                    client,
+                    f"{storage_url}/buffer",
+                    path="/buffer",
+                    payload=buffer_payload,
+                    signing_key=fs.signing_key,
+                    node_id=fs.node_id,
+                )
+                resp.raise_for_status()
+        except Exception as exc:
+            logger.warning(
+                "Failed to buffer message for %s on %s: %s",
+                user_id,
+                storage_url,
+                exc,
             )
-            resp.raise_for_status()
-        except httpx.HTTPError as e:
-            logger.warning("Failed to buffer message for %s: %s", user_id, e)
+            raise
+
+    results = await asyncio.gather(
+        *(store(storage_url) for storage_url in storage_urls),
+        return_exceptions=True,
+    )
+    successful = sum(not isinstance(result, BaseException) for result in results)
+    if successful < settings.storage_write_quorum:
+        raise RuntimeError(
+            "Storage write quorum was not reached "
+            f"({successful}/{settings.storage_write_quorum})"
+        )
 
 
 async def drain_buffer(user_id: str, deliver: Callable[[dict], Awaitable[bool]]) -> None:
@@ -610,38 +730,60 @@ async def drain_buffer(user_id: str, deliver: Callable[[dict], Awaitable[bool]])
     reconnect instead of being lost (see R3-message-lifecycle.md: DELETE
     buffer до client ACK / drain race).
     """
-    storage_url = await _resolve_storage_url()
+    storage_urls = await _resolve_storage_urls()
     fs = get_federation_security()
-    async with httpx.AsyncClient(timeout=5.0) as client:
+    copies_by_packet: dict[str, dict] = {}
+    for storage_url in storage_urls:
         try:
-            resp = await federation_get(
-                client,
-                f"{storage_url}/buffer/{user_id}",
-                path=f"/buffer/{user_id}",
-                signing_key=fs.signing_key,
-                node_id=fs.node_id,
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await federation_get(
+                    client,
+                    f"{storage_url}/buffer/{user_id}",
+                    path=f"/buffer/{user_id}",
+                    signing_key=fs.signing_key,
+                    node_id=fs.node_id,
+                )
+            if resp.status_code != 200:
+                continue
+            for entry in resp.json()["envelopes"]:
+                envelope = entry["envelope"]
+                packet_id = envelope.get("packet_id")
+                if not isinstance(packet_id, str) or not packet_id:
+                    packet_id = hashlib.sha256(
+                        json.dumps(
+                            envelope,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ).encode("utf-8")
+                    ).hexdigest()
+                group = copies_by_packet.setdefault(
+                    packet_id, {"envelope": envelope, "copies": []}
+                )
+                group["copies"].append((storage_url, entry["id"]))
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+            logger.warning(
+                "Failed to drain buffer for %s from %s: %s",
+                user_id,
+                storage_url,
+                exc,
             )
-        except httpx.HTTPError as e:
-            logger.warning("Failed to drain buffer for %s: %s", user_id, e)
-            return
-    if resp.status_code != 200:
-        return
-    entries = resp.json()["envelopes"]
-    for entry in entries:
+
+    for group in copies_by_packet.values():
         try:
-            delivered = await deliver(entry["envelope"])
+            delivered = await deliver(group["envelope"])
         except Exception:
             delivered = False
         if not delivered:
             continue
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                await federation_delete(
-                    client,
-                    f"{storage_url}/buffer/{entry['id']}",
-                    path=f"/buffer/{entry['id']}",
-                    signing_key=fs.signing_key,
-                    node_id=fs.node_id,
-                )
-        except httpx.HTTPError:
-            pass
+        for storage_url, entry_id in group["copies"]:
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await federation_delete(
+                        client,
+                        f"{storage_url}/buffer/{entry_id}",
+                        path=f"/buffer/{entry_id}",
+                        signing_key=fs.signing_key,
+                        node_id=fs.node_id,
+                    )
+            except httpx.HTTPError:
+                pass

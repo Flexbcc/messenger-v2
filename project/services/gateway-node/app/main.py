@@ -29,8 +29,11 @@ from app.mtls import (
 )
 from app.node_registration import start_node_registration
 from shared.mesh.install import install_mesh
+from shared.security.relay_challenge_receiver import install_relay_challenge_receiver
+from app.fed_security import get_federation_security
 
 app = FastAPI(title="Gateway Node", version="0.2.0")
+install_relay_challenge_receiver(app, get_federation_security)
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,6 +79,12 @@ async def on_startup():
     start_node_registration()
 
 
+@app.on_event("shutdown")
+async def on_shutdown():
+    from app.node_registration import stop_node_registration
+    await stop_node_registration()
+
+
 class InviteCreateRequest(BaseModel):
     cluster_id: Optional[str] = None
     ttl_seconds: Optional[int] = Field(None, ge=30, le=86400)
@@ -114,11 +123,14 @@ async def _bootstrap_payload(cluster_id: str, strategy: str = "nearest") -> dict
 
 @app.get("/health")
 def health():
+    from app.node_registration import node_registration_status, runtime_node_id
     return {
         "status": "ok",
         "node_role": "gateway",
-        "node_id": settings.node_id,
+        "node_id": runtime_node_id(),
+        "node_alias": settings.node_id,
         "load": {"proxied_requests": _proxy_count},
+        "runtime": {"capabilities": settings.capabilities, "registration": node_registration_status()},
         "mtls": {
             "tls_enabled": GATEWAY_TLS_ENABLED,
             "tls_port": GATEWAY_TLS_PORT if GATEWAY_TLS_ENABLED else None,
@@ -140,7 +152,9 @@ def mtls_info():
 
 
 async def _discovery_get(path: str, *, params: Optional[dict] = None) -> httpx.Response:
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(
+        timeout=10.0, follow_redirects=False, trust_env=False
+    ) as client:
         return await client.get(f"{settings.discovery_url.rstrip('/')}{path}", params=params)
 
 
@@ -176,20 +190,31 @@ async def client_routing(
     resp = await _discovery_get("/registry/nodes", params={"cluster_id": cluster_id})
     resp.raise_for_status()
     nodes = resp.json().get("nodes", [])
+    def certified(node: dict, capability: str) -> bool:
+        return (
+            node.get("status") == "online"
+            and node.get("trust_status") == "trusted"
+            and node.get("node_identity_status") == "valid"
+            and node.get("node_advertisement_status") == "valid"
+            and node.get("capability_certificate_status") == "valid"
+            and capability in node.get("certified_capabilities", [])
+            and node.get("node_url", "").rstrip("/")
+            in {url.rstrip("/") for url in node.get("advertised_endpoints", [])}
+        )
     gateways = [
         {"node_id": n["node_id"], "url": n["node_url"]}
         for n in nodes
-        if "gateway" in n.get("capabilities", [])
+        if certified(n, "gateway")
     ]
     media_nodes = [
         {"node_id": n["node_id"], "url": n["node_url"]}
         for n in nodes
-        if "media" in n.get("capabilities", [])
+        if certified(n, "media")
     ]
     home_nodes = [
         {"node_id": n["node_id"], "url": n["node_url"]}
         for n in nodes
-        if "home" in n.get("capabilities", [])
+        if certified(n, "home")
     ]
     ranked_gateways = await _rank_nodes(gateways)
     ranked_media = await _rank_nodes(media_nodes)

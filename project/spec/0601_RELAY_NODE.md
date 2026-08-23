@@ -1,7 +1,7 @@
 # 0601. Relay node
 
 ## Статус
-Черновик
+Basic Relay реализован; Mix/Sphinx остаётся следующим privacy layer.
 
 ## Назначение
 Узел, обеспечивающий пересылку пакетов между клиентами/узлами, когда прямое
@@ -42,6 +42,36 @@ Relay Node видит: адрес предыдущего и следующего
 Relay Node не хранит состояние сессии дольше времени пересылки одного
 Packet (Stateless Communication, [[0003_ENGINEERING_PRINCIPLES]]), что
 позволяет свободно добавлять и удалять экземпляры Relay Node без
-координации с остальной сетью — любой участник сообщества может поднять
-собственный Relay Node и немедленно начать обслуживать трафик (Community
-Driven Infrastructure).
+координации с message state. Любой участник может поднять ноду, но обслуживать
+чужой transit traffic она начинает только после получения отдельной Relay
+Capability через Trust Protocol.
+
+## Реализованный Basic data plane
+
+HTTP и persistent WSS скрыты за одним Transport Adapter. WSS использует binary
+batches, строгую persistent link sequence, per-hop cell ID/expiry и bounded
+connection/frame/cell/time budgets. Capability Certificate сужает connection,
+cell и bandwidth quotas. Target допускается только при валидных Node Identity,
+NodeAdvertisement и Home Capability. Повтор envelope на одном Relay hop
+отклоняется отдельным replay tag.
+
+Relay пока видит target Home URL и legacy endpoint packet metadata. Это честный
+Basic Relay baseline, не Mix Network.
+
+Target Home и аварийный L2+ hub выбираются не по неподписанному каталогу
+одного Discovery. Relay требует совпадающее security-состояние от настроенного
+кворума Discovery, локально проверяет Transport Certificate и Capability, а
+при конфликтующем quorum-backed view исключает ноду из маршрутизации.
+Кэш маршрута ограничен самым ранним expiry Advertisement, Observation,
+Operational/Capability/Transport credentials.
+
+## Реализованный Mix ingress foundation
+
+`POST /mix/ingress` принимает подписанные запросы только от Home/Relay peers,
+применяет certified traffic quota, проверяет opaque fixed-size envelope,
+вызывает injected onion provider и сохраняет hash per-hop replay tag в bounded
+TTL store. Next-hop dispatch проходит через bounded Mix Pool с jitter; ошибка
+downstream возвращает неотправленную часть batch в очередь до expiry.
+
+Без reviewed Sphinx provider endpoint отвечает fail closed. Relay-only role не
+может принять final payload — это право destination ingress/Home handler.

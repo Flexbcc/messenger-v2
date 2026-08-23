@@ -28,8 +28,12 @@ async def deliver(
     verified_origin: str = FederationAuthDep,
 ):
     if INTERNAL_SECURITY_MODE == "signed" and verified_origin != "legacy":
-        if payload.origin_node_id != verified_origin:
-            raise HTTPException(status_code=403, detail="origin_node_id does not match federation signature")
+        expected_transport_origin = payload.forwarded_by_node_id or payload.origin_node_id
+        if expected_transport_origin != verified_origin:
+            raise HTTPException(
+                status_code=403,
+                detail="transport origin does not match federation request signature",
+            )
 
     fs = get_federation_security()
     await verify_incoming_federation(
@@ -40,6 +44,9 @@ async def deliver(
         nonce_store=fs.nonce_store,
         audit=fs.audit_log,
         expected_origin_node_id=payload.origin_node_id,
+        conversation_meta=payload.conversation_meta,
+        expected_target_node_id=settings.public_url,
+        expected_routes={"direct", "relay"},
     )
 
     conv = await upsert_conversation_mirror(db, payload.conversation_meta)
@@ -120,6 +127,9 @@ async def home_changed(
         nonce_store=fs.nonce_store,
         audit=fs.audit_log,
         expected_origin_node_id=payload.origin_node_id,
+        expected_target_node_id=settings.public_url,
+        expected_recipient_user_id=payload.user_id,
+        expected_routes={"control"},
     )
 
     await push_home_changed_to_local_contacts(
@@ -156,6 +166,9 @@ async def delivery_ack(
         nonce_store=fs.nonce_store,
         audit=fs.audit_log,
         expected_origin_node_id=payload.origin_node_id,
+        expected_target_node_id=settings.public_url,
+        expected_recipient_user_id=payload.from_user_id,
+        expected_routes={"control"},
     )
 
     message = await db.get(Message, payload.packet_id)

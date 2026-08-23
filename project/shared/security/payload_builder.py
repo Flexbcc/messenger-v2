@@ -33,6 +33,7 @@ def build_deliver_payload(
             route=route,
             target_node_id=target_node_id,
             conversation_id=conversation_meta.get("conversation_id", ""),
+            conversation_meta=conversation_meta,
         )
     return payload
 
@@ -71,6 +72,7 @@ def build_relay_forward_payload(
             route="relay",
             target_node_id=target_home_node_url,
             conversation_id=conversation_meta.get("conversation_id", ""),
+            conversation_meta=conversation_meta,
         )
     return payload
 
@@ -82,6 +84,7 @@ def build_home_changed_payload(
     user_id: str,
     new_home_node_url: str,
     home_updated_at: Optional[str],
+    target_node_id: str = "",
 ) -> dict[str, Any]:
     """Post-R5 CONTROL notify (docs/reality/R4-routing.md Gaps "Нет notify
     смены Home"): same signed-envelope machinery as build_deliver_payload,
@@ -102,7 +105,7 @@ def build_home_changed_payload(
             origin_node_id=origin_node_id,
             envelope=envelope,
             route="control",
-            target_node_id=new_home_node_url,
+            target_node_id=target_node_id,
             recipient_user_id=user_id,
         )
     return payload

@@ -173,6 +173,7 @@ class InternalDeliverRequest(BaseModel):
     envelope: dict
     conversation_meta: dict
     origin_node_id: str
+    forwarded_by_node_id: Optional[str] = None
     federation: Optional[dict] = None
 
 

@@ -5,9 +5,9 @@ docs/reality/R3-message-lifecycle.md ("Нет outbox на federation fail: Ти�
 ("Durable outbox на Local Home при fail federation (backoff), не только log").
 
 Scope is intentionally minimal: a server-side federation DLQ with retry +
-backoff. There is no client ACK packet yet, so a `delivered` row here means
-"the remote Home Node accepted /internal/deliver or a relay forward", not
-end-to-end delivery — same semantics deliver_to_remote_home_node already had.
+backoff. Removing an outbox row means the remote Home Node or Relay accepted
+the packet; end-to-end delivery acknowledgement is tracked separately in
+``message_delivery_acks`` and is not conflated with transport acceptance.
 """
 from __future__ import annotations
 
@@ -166,5 +166,5 @@ async def _worker_loop() -> None:
         await asyncio.sleep(WORKER_POLL_INTERVAL_SECONDS)
 
 
-def start_outbox_worker() -> None:
-    asyncio.create_task(_worker_loop())
+def start_outbox_worker() -> asyncio.Task:
+    return asyncio.create_task(_worker_loop())

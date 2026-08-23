@@ -8,6 +8,9 @@ ENDPOINT_CAPABILITIES: dict[tuple[str, str], set[str]] = {
     ("POST", "/buffer"): {"home", "relay"},
     ("GET", "/buffer"): {"home"},  # prefix match handled separately
     ("DELETE", "/buffer"): {"home"},
+    ("POST", "/mailbox/store"): {"home"},
+    ("POST", "/mailbox/fetch"): {"home"},
+    ("POST", "/mailbox/ack"): {"home"},
     ("POST", "/media"): {"home"},
     ("GET", "/media"): {"home"},  # prefix /media/{id}
 }

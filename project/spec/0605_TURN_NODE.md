@@ -1,7 +1,7 @@
 # 0605. Turn node
 
 ## Статус
-Черновик
+Credential service и coturn contract реализованы; live NAT verification pending.
 
 ## Назначение
 Узел ретрансляции медиапотоков звонков (SRTP), когда прямое P2P-соединение
@@ -68,6 +68,18 @@ Node на время звонка — по тем же критериям (ге�
 
 ## Масштабирование
 Как и Relay Node, Turn Node не хранит состояние дольше одного звонка —
-любой участник сообщества может поднять собственный Turn Node и начать
-обслуживать трафик без координации с остальной сетью (Community Driven
-Infrastructure, тот же принцип, что и для Relay Node).
+любой участник может поднять собственный Turn Node, но публиковать его для
+чужого трафика можно только после отдельной Turn Capability. Это не требует
+координации состояния звонков между нодами.
+
+## Реализованный service contract
+
+FastAPI service не реализует TURN самостоятельно, а выдаёт time-limited REST
+credentials для coturn с тем же `static-auth-secret`. Username содержит expiry
+и случайный opaque suffix, но не UserID/DeviceID. Доступ требует device JWT,
+имеет rate limit и TTL 60–3600 секунд.
+
+Ответ перечисляет только включённые UDP/TCP/TLS URI, realm и обязательную для
+privacy mode клиентскую политику `relay`. Secure startup fail closed при
+development secrets. Health публикует только aggregate credential count и
+эффективный contract, не идентификаторы звонящих.

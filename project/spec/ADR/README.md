@@ -52,3 +52,5 @@ YYYY-MM-DD
 | [0009](0009-node-enrollment.md) | Node Enrollment: Discovery как Control Plane (trust lifecycle, node_token) | Accepted |
 | [0010](0010-node-attestation-and-gateway.md) | Attestation (build hash, signed release) + Gateway Node | Accepted |
 | [0011](0011-service-to-service-security.md) | Service-to-service federation auth (signed internal API) | Accepted |
+| [0012](0012-node-implementation-languages.md) | Языки нод: Python для control plane, Rust для hot path | Accepted |
+| [0013](0013-reviewed-transport-providers.md) | Reviewed Rust providers для Sphinx и K-of-N | Proposed |

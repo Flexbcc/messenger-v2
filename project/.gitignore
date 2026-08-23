@@ -1,9 +1,11 @@
 .env
 .env.local
+.env.secure
 data/
 __pycache__/
 .pytest_cache/
 .venv/
+test-results/
 *.pyc
 
 # Flutter / frontend build artifacts

@@ -63,7 +63,7 @@ def _purge_and_count(nonce_store) -> int:
         return len(expired)
 
 
-def start_nonce_cleanup(nonce_store) -> None:
+def start_nonce_cleanup(nonce_store) -> asyncio.Task:
     """
     Запускает фоновый воркер очистки nonce.
     Вызывать из @app.on_event("startup") после инициализации nonce_store.
@@ -77,5 +77,6 @@ def start_nonce_cleanup(nonce_store) -> None:
             fs = get_federation_security()
             start_nonce_cleanup(fs.nonce_store)
     """
-    asyncio.create_task(_cleanup_loop(nonce_store))
+    task = asyncio.create_task(_cleanup_loop(nonce_store))
     logger.info("Nonce cleanup scheduled (interval=%ds)", NONCE_CLEANUP_INTERVAL_SECONDS)
+    return task

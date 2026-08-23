@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -62,11 +62,28 @@ from shared.security.nonce_cleanup import start_nonce_cleanup
 from app.routers import auth, conversations, device_links, devices, internal, media_proxy, messages, monitor, push_subscriptions, security_signals, storage, users, ws
 from app.ws import manager
 from shared.security.health import security_health_snapshot
+from shared.security.body_limit import FederationBodyLimitMiddleware
+from shared.transport.mix_pool import MixPoolFull
+from app.fed_security import FederationAuthDep, get_federation_security
+from shared.security.relay_challenge_receiver import install_relay_challenge_receiver
 from app.federation import get_federation_counters
 
 PANEL_DIR = Path(__file__).parent / "panel"
 
 app = FastAPI(title="Home Node", version="0.1.0")
+install_relay_challenge_receiver(app, get_federation_security)
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _track(task: asyncio.Task | None) -> None:
+    if task is not None:
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+
+app.add_middleware(
+    FederationBodyLimitMiddleware,
+    path_prefixes=("/internal/", "/mix/"),
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,38 +96,96 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    from app.route_resolver import validate_route_runtime_configuration
+    validate_route_runtime_configuration()
     start_node_registration()
-    start_outbox_worker()
+    _track(start_outbox_worker())
+    from app.peer_runtime import start_peer_runtime
+    _track(start_peer_runtime())
     from app.fed_security import get_federation_security
-    start_nonce_cleanup(get_federation_security().nonce_store)
-    asyncio.create_task(_device_cleanup_loop())
-    asyncio.create_task(_revoked_tokens_cleanup_loop())
+    _track(start_nonce_cleanup(get_federation_security().nonce_store))
+    _track(asyncio.create_task(_device_cleanup_loop()))
+    _track(asyncio.create_task(_revoked_tokens_cleanup_loop()))
+    from app.mix_service import start_mix_runtime
+    _track(start_mix_runtime())
     # Исчезающие сообщения (Task #70): sweep expired messages
     from app.disappearing import delete_expired_messages
     from app.db import async_session
-    asyncio.create_task(delete_expired_messages(async_session))
+    _track(asyncio.create_task(delete_expired_messages(async_session)))
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    tasks = list(_background_tasks)
+    for task in tasks:
+        task.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+    _background_tasks.clear()
+    from app.federation import close_relay_transport
+    await close_relay_transport()
+    from app.mix_service import stop_mix_runtime
+    await stop_mix_runtime()
+    from app.node_registration import stop_node_registration
+    await stop_node_registration()
 
 
 @app.get("/health")
 def health():
     from app.fed_security import get_federation_security
     fs = get_federation_security()
+    from app.peer_runtime import peer_runtime_status
+    from app.route_resolver import route_runtime_status
+    from app.transport_routes import transport_route_status
+    from app.node_registration import node_registration_status
     resp: dict = {
         "status": "ok",
         "node_role": "home",
-        "node_id": settings.node_id,
+        "node_id": fs.node_id,
+        "node_alias": settings.node_id,
         "load": {
             "online_users": len(manager.active),
             "active_ws_connections": sum(len(conns) for conns in manager.active.values()),
             "federation": get_federation_counters(),
+            "signed_peer_selection": peer_runtime_status(),
+            "route_runtime": route_runtime_status(),
+            "transport_routes": transport_route_status(),
         },
         "security": security_health_snapshot(),
+        "runtime": {"capabilities": settings.capabilities, "registration": node_registration_status()},
     }
     # Sealed sender (Task #68): публикуем X25519 public key для шифрования sender_user_id
     curve_pk = fs.curve_public_key
     if curve_pk:
         resp["curve_public_key"] = curve_pk
     return resp
+
+
+@app.get("/mix/health")
+async def mix_health():
+    from app.mix_service import mix_status
+    return await mix_status()
+
+
+@app.post("/mix/ingress", status_code=202)
+async def mix_ingress(payload: dict, origin_node_id: str = FederationAuthDep):
+    from app.fed_security import get_federation_security
+    fs = get_federation_security()
+    if not await fs.trust_cache.has_capability(origin_node_id, "relay"):
+        raise HTTPException(
+            status_code=403,
+            detail="destination Mix ingress requires Relay peer",
+        )
+    from app.mix_service import get_mix_runtime
+    try:
+        await get_mix_runtime().admit(payload)
+    except MixPoolFull as exc:
+        raise HTTPException(status_code=429, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"status": "accepted"}
 
 
 app.include_router(auth.router)

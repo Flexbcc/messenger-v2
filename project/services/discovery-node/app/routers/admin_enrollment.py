@@ -1,9 +1,15 @@
 """Discovery Control Plane admin API (ADR-0009, step 3)."""
+from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 
-from app.config import QUARANTINE_MODES
+from app.config import (
+    QUARANTINE_MODES,
+    RECOVERY_AUTHORITY_STATE_PATH,
+    TRUST_AUTHORITY_STATE_PATH,
+    TRUST_LEDGER_MODE,
+)
 from app.db import get_conn
 from app.deps import require_admin
 from app import policy
@@ -27,11 +33,20 @@ from app.schemas import (
     SuspendNodeRequest,
     TrustLevelHistoryEntry,
     VulnerabilityPolicyResponse,
+    AuthorityRecoveryRequest,
+    AuthorityRecoveryResponse,
 )
 from app.security import generate_enrollment_secret, hash_value
 from app.trust import now_iso
 from app.routers.registry import _node_response, _apply_version_policy, _row_field
 from app.mesh_notify import schedule_mesh_peer_notify
+from app.network_guard import get_network_view_guard, require_governance_available
+from app.trust_admission import node_trust_denial_at, require_node_trust_active
+from app.authority_checkpoint_store import (
+    AuthorityCheckpointConflict,
+    publish_authority_recovery,
+)
+from shared.security.capability_enrollment import load_capability_authority_state
 
 # --- Trust level promotion thresholds ---
 # To move from L0 → L1: need 1000 total messages AND uptime > 3 days AND error_rate < 5%
@@ -123,6 +138,72 @@ def audit_history(limit: int = 100):
     )
 
 
+@router.post("/authority/recovery", response_model=AuthorityRecoveryResponse)
+def recover_authority(
+    payload: AuthorityRecoveryRequest,
+    request: Request,
+    actor: str = Depends(_actor),
+):
+    """Apply a threshold offline recovery only while control plane is frozen."""
+    guard = get_network_view_guard()
+    before = guard.decision()
+    if before.governance_allowed:
+        raise HTTPException(
+            status_code=409,
+            detail="emergency authority recovery requires frozen control plane",
+        )
+    try:
+        recovery_state = load_capability_authority_state(
+            RECOVERY_AUTHORITY_STATE_PATH
+        )
+        bootstrap_state = load_capability_authority_state(
+            TRUST_AUTHORITY_STATE_PATH
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=f"invalid recovery trust state: {exc}")
+    if recovery_state is None:
+        raise HTTPException(status_code=503, detail="offline recovery public state is unavailable")
+    if bootstrap_state is None:
+        raise HTTPException(status_code=503, detail="bootstrap authority state is unavailable")
+    try:
+        recovery_hash, replacement_hash, authority_epoch, accepted = (
+            publish_authority_recovery(
+                payload.recovery,
+                recovery_state=recovery_state,
+                bootstrap_state=bootstrap_state,
+                minimum_authority_epoch=before.highest_epoch,
+            )
+        )
+    except AuthorityCheckpointConflict as exc:
+        guard.force_freeze("conflicting emergency AuthorityRecovery objects detected")
+        raise HTTPException(status_code=409, detail=str(exc))
+    after = guard.apply_recovery_checkpoint(
+        authority_epoch=authority_epoch,
+        checkpoint_hash=replacement_hash,
+        quorum_verified=True,
+    )
+    with get_conn() as conn:
+        log_admin_action(
+            conn,
+            actor=actor,
+            action="authority_recovery",
+            node_id="authority-control-plane",
+            detail=(
+                f"epoch={authority_epoch}; recovery_hash={recovery_hash}; "
+                f"replacement_hash={replacement_hash}"
+            ),
+            client_ip=_client_ip(request),
+        )
+        conn.commit()
+    return AuthorityRecoveryResponse(
+        recovery_hash=recovery_hash,
+        replacement_checkpoint_hash=replacement_hash,
+        authority_epoch=authority_epoch,
+        accepted=accepted,
+        governance_allowed=after.governance_allowed,
+    )
+
+
 @router.post("/registry/nodes/{node_id}/approve", response_model=AdminActionResponse)
 def approve_node(node_id: str, request: Request, actor: str = Depends(_actor)):
     now = now_iso()
@@ -133,6 +214,11 @@ def approve_node(node_id: str, request: Request, actor: str = Depends(_actor)):
             raise HTTPException(status_code=404, detail="Unknown node_id")
         if row["trust_status"] == "compromised":
             raise HTTPException(status_code=409, detail="Compromised node must be re-enrolled before approval")
+        identity_node_id = _row_field(row, "identity_node_id")
+        if identity_node_id:
+            require_node_trust_active(
+                identity_node_id, at_time=datetime.now(timezone.utc)
+            )
 
         conn.execute(
             """
@@ -210,6 +296,11 @@ def reinstate_node(node_id: str, request: Request, actor: str = Depends(_actor))
             raise HTTPException(status_code=404, detail="Unknown node_id")
         if row["trust_status"] != "suspended":
             raise HTTPException(status_code=409, detail="Only suspended nodes can be reinstated")
+        identity_node_id = _row_field(row, "identity_node_id")
+        if identity_node_id:
+            require_node_trust_active(
+                identity_node_id, at_time=datetime.now(timezone.utc)
+            )
         conn.execute(
             """
             UPDATE node_capabilities SET
@@ -276,6 +367,11 @@ def re_enroll_node(node_id: str, actor: str = Depends(_actor)):
                 status_code=409,
                 detail=f"Only {'/'.join(RE_ENROLLABLE_STATUSES)} nodes can be re-enrolled",
             )
+        identity_node_id = _row_field(row, "identity_node_id")
+        if identity_node_id:
+            require_node_trust_active(
+                identity_node_id, at_time=datetime.now(timezone.utc)
+            )
 
         enrollment_secret_plain = generate_enrollment_secret()
         conn.execute(
@@ -317,13 +413,24 @@ def re_enroll_node(node_id: str, actor: str = Depends(_actor)):
 def grandfather_all():
     """One-shot: mark all nodes trusted (migration helper for legacy → strict)."""
     with get_conn() as conn:
-        conn.execute(
-            """
-            UPDATE node_capabilities
-            SET trust_status = 'trusted'
-            WHERE trust_status IN ('unknown', 'pending')
-            """
-        )
+        rows = conn.execute(
+            """SELECT node_id, identity_node_id FROM node_capabilities
+               WHERE trust_status IN ('unknown', 'pending')"""
+        ).fetchall()
+        allowed = []
+        now = datetime.now(timezone.utc)
+        for row in rows:
+            identity_node_id = _row_field(row, "identity_node_id")
+            if identity_node_id and node_trust_denial_at(
+                identity_node_id, at_time=now
+            ) is not None:
+                continue
+            allowed.append(row["node_id"])
+        if allowed:
+            conn.executemany(
+                "UPDATE node_capabilities SET trust_status = 'trusted' WHERE node_id = ?",
+                [(node_id,) for node_id in allowed],
+            )
         conn.commit()
         count = conn.execute(
             "SELECT COUNT(*) FROM node_capabilities WHERE trust_status = 'trusted'"
@@ -393,6 +500,12 @@ def promote_node(node_id: str, payload: PromoteRequest = PromoteRequest(), actor
     Checks thresholds but operator can override with explicit reason.
     Requires: trust_status=trusted.
     """
+    require_governance_available()
+    if TRUST_LEDGER_MODE == "enforce":
+        raise HTTPException(
+            status_code=409,
+            detail="manual promotion is disabled; quorum TrustRecord required",
+        )
     now = now_iso()
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM node_capabilities WHERE node_id = ?", (node_id,)).fetchone()
@@ -449,6 +562,12 @@ def promote_node(node_id: str, payload: PromoteRequest = PromoteRequest(), actor
 @router.post("/registry/nodes/{node_id}/demote", response_model=AdminActionResponse)
 def demote_node(node_id: str, payload: PromoteRequest = PromoteRequest(), actor: str = Depends(_actor)):
     """Manually demote a node's trust level by one step."""
+    require_governance_available()
+    if TRUST_LEDGER_MODE == "enforce":
+        raise HTTPException(
+            status_code=409,
+            detail="manual demotion is disabled; quorum TrustRecord required",
+        )
     now = now_iso()
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM node_capabilities WHERE node_id = ?", (node_id,)).fetchone()

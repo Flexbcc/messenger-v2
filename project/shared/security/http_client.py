@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 import httpx
 
-from shared.security.config import INTERNAL_SECURITY_MODE
+from shared.security.config import HDR_NODE_ID, INTERNAL_SECURITY_MODE
 from shared.security.federation_auth import sign_federation_request
 from shared.security.keys import SigningKey
 
@@ -23,7 +23,9 @@ async def federation_post(
 ) -> httpx.Response:
     body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
     headers = {"Content-Type": "application/json"}
-    if not _mode_legacy() and signing_key is not None:
+    if _mode_legacy():
+        headers[HDR_NODE_ID] = node_id
+    elif signing_key is not None:
         headers.update(
             sign_federation_request(
                 signing_key=signing_key,
@@ -46,7 +48,9 @@ async def federation_get(
 ) -> httpx.Response:
     body = b""
     headers: dict[str, str] = {}
-    if not _mode_legacy() and signing_key is not None:
+    if _mode_legacy():
+        headers[HDR_NODE_ID] = node_id
+    elif signing_key is not None:
         headers.update(
             sign_federation_request(
                 signing_key=signing_key,
@@ -69,7 +73,9 @@ async def federation_delete(
 ) -> httpx.Response:
     body = b""
     headers: dict[str, str] = {}
-    if not _mode_legacy() and signing_key is not None:
+    if _mode_legacy():
+        headers[HDR_NODE_ID] = node_id
+    elif signing_key is not None:
         headers.update(
             sign_federation_request(
                 signing_key=signing_key,

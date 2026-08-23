@@ -24,6 +24,7 @@ from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import httpx
 from nacl.signing import SigningKey
 
 # ── Фаза 2.1: подписанные User Records ──────────────────────────────────────
@@ -411,3 +412,104 @@ class TestBufferFallback:
         assert "bob" in buffered
         assert "carol" in buffered
         assert len(buffered) == 2
+
+    async def test_storage_failure_is_propagated_for_outbox_retry(self):
+        envelope = {
+            "packet_id": "p-failed-storage",
+            "sender_user_id": "alice",
+            "ciphertext": "ENCRYPTED",
+        }
+        conversation_meta = {
+            "conversation_id": "conv-failed-storage",
+            "type": "direct",
+            "participant_user_ids": ["alice", "bob"],
+        }
+        federation = _service_module("home-node", "federation")
+        with patch.object(
+            federation,
+            "buffer_for_offline_user",
+            new=AsyncMock(side_effect=RuntimeError("storage unavailable")),
+        ):
+            with pytest.raises(RuntimeError, match="did not persist fallback"):
+                await federation._buffer_envelope_for_recipients(envelope, conversation_meta)
+
+
+@pytest.mark.asyncio
+class TestDeliveryFailureMatrix:
+    @staticmethod
+    def _payloads():
+        return (
+            {
+                "packet_id": "packet-failure-matrix",
+                "sender_user_id": "alice",
+                "ciphertext": "opaque",
+            },
+            {
+                "conversation_id": "conversation-failure-matrix",
+                "type": "direct",
+                "participant_user_ids": ["alice", "bob"],
+            },
+        )
+
+    @staticmethod
+    def _client_context():
+        client = MagicMock()
+        context = MagicMock()
+        context.__aenter__ = AsyncMock(return_value=client)
+        context.__aexit__ = AsyncMock(return_value=None)
+        return context
+
+    async def test_direct_failure_then_relay_success(self):
+        federation = _service_module("home-node", "federation")
+        envelope, conversation_meta = self._payloads()
+        security = MagicMock(node_id="home-a", signing_key=SigningKey.generate())
+        success = MagicMock()
+        success.raise_for_status.return_value = None
+        direct_error = httpx.ConnectError("home-b offline")
+        with (
+            patch.object(federation, "get_federation_security", return_value=security),
+            patch.object(federation, "_get_target_curve_public_key", new=AsyncMock(return_value=None)),
+            patch.object(federation, "_reachable_relays", new=AsyncMock(return_value=["http://relay-a"])),
+            patch.object(federation.httpx, "AsyncClient", side_effect=lambda **_kwargs: self._client_context()),
+            patch.object(
+                federation,
+                "federation_post",
+                new=AsyncMock(side_effect=[direct_error, success]),
+            ),
+        ):
+            await federation.deliver_to_remote_home_node(
+                "http://home-b", envelope, conversation_meta
+            )
+
+    async def test_direct_and_all_relays_fail_then_storage_is_attempted(self):
+        federation = _service_module("home-node", "federation")
+        envelope, conversation_meta = self._payloads()
+        security = MagicMock(node_id="home-a", signing_key=SigningKey.generate())
+        storage = AsyncMock(return_value=None)
+        with (
+            patch.object(federation, "get_federation_security", return_value=security),
+            patch.object(federation, "_get_target_curve_public_key", new=AsyncMock(return_value=None)),
+            patch.object(
+                federation,
+                "_reachable_relays",
+                new=AsyncMock(return_value=["http://relay-a", "http://relay-b"]),
+            ),
+            patch.object(federation, "_buffer_envelope_for_recipients", new=storage),
+            patch.object(federation.httpx, "AsyncClient", side_effect=lambda **_kwargs: self._client_context()),
+            patch.object(
+                federation,
+                "federation_post",
+                new=AsyncMock(
+                    side_effect=[
+                        httpx.ConnectError("home offline"),
+                        httpx.ConnectError("relay-a offline"),
+                        httpx.ConnectError("relay-b offline"),
+                    ]
+                ),
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="buffered"):
+                await federation.deliver_to_remote_home_node(
+                    "http://home-b", envelope, conversation_meta
+                )
+        storage.assert_awaited_once_with(envelope, conversation_meta)

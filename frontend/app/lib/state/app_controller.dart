@@ -83,6 +83,7 @@ import '../utils/crypto_serial_queue.dart';
 import '../services/realtime_service.dart';
 import '../services/session_store.dart';
 import '../services/settings_runtime.dart';
+import '../services/surb_delivery_store.dart';
 import '../services/catalog_list_store.dart';
 import '../services/web_push_service.dart';
 
@@ -1028,6 +1029,10 @@ class AppController extends ChangeNotifier {
       await _processIncomingDistribution(msg);
       return; // control message — never shown as a chat bubble
     }
+    if (msg.contentType == surbBundleContentType) {
+      await _processIncomingSurbBundle(msg);
+      return; // opaque route material — never shown or notified
+    }
     if (CallSignalingService.isCallSignal(msg.contentType)) {
       await _handleIncomingCallSignal(msg);
       return; // control message — never shown as a chat bubble
@@ -1183,6 +1188,54 @@ class AppController extends ChangeNotifier {
         // that sender's group messages until they redistribute (e.g. next send).
       }
     });
+  }
+
+  Future<void> _processIncomingSurbBundle(ChatMessage msg) async {
+    final localUserId = session?.userId;
+    if (localUserId == null || msg.senderUserId == localUserId) return;
+    await _cryptoDecryptQueue.run('direct:${msg.senderUserId}', () async {
+      try {
+        final plaintext = await _decryptDirectMessage(msg);
+        final bundle = SurbBundle.decode(utf8.decode(plaintext));
+        await SurbDeliveryStore.instance.addBundle(
+          localUserId,
+          msg.senderUserId,
+          bundle,
+        );
+      } catch (e) {
+        DebugLog.instance.warn('transport', 'SURB bundle rejected: $e');
+      }
+    });
+  }
+
+  /// Sends endpoint-created SURBs to every device of [peerUserId] through
+  /// the established pairwise E2EE sessions. Home only sees ciphertext and
+  /// the control content type; it never receives the SURB or hidden route.
+  Future<void> sendSurbBundle(
+    String peerUserId,
+    List<SurbReplyBlock> replyBlocks,
+  ) async {
+    if (session == null || replyBlocks.isEmpty) return;
+    final conversation = await _findOrCreateDirectConversation(peerUserId);
+    final bundle = SurbBundle(bundleId: _uuid.v4(), replyBlocks: replyBlocks);
+    final encrypted = await _encryptForConversation(
+      conversation,
+      Uint8List.fromList(utf8.encode(bundle.encode())),
+    );
+    await _api.sendMessage(
+      conversationId: conversation.id,
+      ciphertext: encrypted.fallback,
+      contentType: surbBundleContentType,
+      clientMsgId: bundle.bundleId,
+      deviceEnvelopes: encrypted.deviceEnvelopes,
+    );
+  }
+
+  /// Atomically reserves one received block for a reply to [peerUserId].
+  Future<SurbReplyBlock?> consumeSurbFor(String peerUserId) async {
+    final localUserId = session?.userId;
+    if (localUserId == null) return null;
+    return SurbDeliveryStore.instance.consume(localUserId, peerUserId);
   }
 
   /// Applies an incoming call-signaling message to [currentCall] — see
@@ -2280,7 +2333,8 @@ class AppController extends ChangeNotifier {
   bool _isNonChatEnvelope(ChatMessage m) {
     if (m.contentType == 'read_receipt' ||
         m.contentType == 'login_approval_grant' ||
-        m.contentType == 'sender_key_distribution') {
+        m.contentType == 'sender_key_distribution' ||
+        m.contentType == surbBundleContentType) {
       return true;
     }
     return CallSignalingService.isCallSignal(m.contentType);
@@ -2293,6 +2347,8 @@ class AppController extends ChangeNotifier {
       await _handleLoginApprovalSignal(m);
     } else if (m.contentType == 'sender_key_distribution') {
       await _processIncomingDistribution(m);
+    } else if (m.contentType == surbBundleContentType) {
+      await _processIncomingSurbBundle(m);
     } else if (CallSignalingService.isCallSignal(m.contentType)) {
       await _handleIncomingCallSignal(m);
     }

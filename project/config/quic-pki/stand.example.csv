@@ -1,0 +1,6 @@
+# node_name,dns_names(; separated),ip_addresses(; separated)
+relay-01,relay-01;relay-01.ouo.test,10.77.0.31
+relay-02,relay-02;relay-02.ouo.test,10.77.0.32
+relay-03,relay-03;relay-03.ouo.test,10.77.0.33
+relay-04,relay-04;relay-04.ouo.test,10.77.0.34
+relay-05,relay-05;relay-05.ouo.test,10.77.0.35

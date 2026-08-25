@@ -33,6 +33,7 @@ project/config/deploy/gitea.env
 **/config/mtls/operators/
 **/config/mtls/clients/
 **/config/mtls/*.key
+**/config/quic-pki/generated/
 operator-console/certs/*
 !operator-console/certs/.gitkeep
 !operator-console/certs/README.md

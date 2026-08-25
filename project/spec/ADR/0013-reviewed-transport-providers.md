@@ -27,7 +27,8 @@ X25519 keys, replay tag и SURB concepts:
 
 Crates.io archive checksums, которые должны совпасть с будущим `Cargo.lock`:
 
-- `nym-sphinx 1.21.5`: `77657434dfc9954c74e90620a7f8b0acd32c8ce6fcb89dffe678ae010e182b05`;
+- `nym-sphinx-types 1.21.5`: `0665206060531580f90b118cdd40617dab6e2bba1420eec710f57d658ed38976`;
+- `sphinx-packet 0.6.0`: `c26f0c20d909fdda1c5d0ece3973127ca421984d55b000215df365e93722fc6e`;
 - `reed-solomon-erasure 6.0.0`: `7263373d500d4d4f505d43a2a662d475a894aa94503a1ee28e9188b5f3960d4f`.
 
 ## Gate до активации

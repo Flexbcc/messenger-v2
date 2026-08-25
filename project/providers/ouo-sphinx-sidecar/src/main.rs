@@ -112,9 +112,9 @@ struct EncodedShard {
 }
 
 #[derive(Serialize)]
-struct Response<'a> {
+struct Response {
     protocol_version: &'static str,
-    request_id: &'a str,
+    request_id: String,
     ok: bool,
     #[serde(flatten)]
     body: Value,
@@ -172,7 +172,7 @@ async fn serve_connection(mut stream: UnixStream) -> io::Result<()> {
     }
 }
 
-fn dispatch(encoded: &[u8]) -> Response<'_> {
+fn dispatch(encoded: &[u8]) -> Response {
     let request: CommonRequest = match serde_json::from_slice(encoded) {
         Ok(value) => value,
         Err(_) => return failure("", "invalid_request"),
@@ -204,7 +204,7 @@ fn dispatch(encoded: &[u8]) -> Response<'_> {
     match result {
         Ok(body) => Response {
             protocol_version: PROTOCOL,
-            request_id: &request.request_id,
+            request_id: request.request_id.clone(),
             ok: true,
             body,
         },
@@ -373,10 +373,10 @@ fn validate_erasure_parameters(required: usize, total: usize) -> Result<(), &'st
     Ok(())
 }
 
-fn failure(request_id: &str, code: &str) -> Response<'_> {
+fn failure(request_id: &str, code: &str) -> Response {
     Response {
         protocol_version: PROTOCOL,
-        request_id,
+        request_id: request_id.to_owned(),
         ok: false,
         body: json!({"error_code": code}),
     }

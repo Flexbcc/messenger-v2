@@ -39,6 +39,9 @@ Provider должен оставаться выключенным в production-
 OUO_SPHINX_SOCKET=/run/ouo/sphinx.sock cargo run --release
 ```
 
-`Cargo.lock` намеренно не создан вручную: его должен сформировать Cargo из
-зафиксированных direct dependencies, после чего lockfile и checksums подлежат
-review и коммиту.
+`Cargo.lock` создан Cargo 1.87.0 из зафиксированных direct dependencies и
+коммитится вместе с provider. Воспроизводимая локальная сборка:
+
+```bash
+cargo +1.87.0 build --locked --release
+```

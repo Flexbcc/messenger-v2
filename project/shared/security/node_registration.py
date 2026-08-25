@@ -166,6 +166,9 @@ class NodeRegistrationClient:
                 transport_certificate_path=(
                     getattr(self.settings, "transport_certificate_path", "") or None
                 ),
+                supported_transports=getattr(
+                    self.settings, "supported_transports", ("https",)
+                ),
             )
         )
         return payload

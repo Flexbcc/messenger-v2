@@ -2,7 +2,8 @@
 
 ## Статус
 
-Proposed — integration boundary реализована, зависимости не установлены.
+Proposed — integration boundary и provider source реализованы, зависимости не
+собраны и conformance/security gates не пройдены.
 
 ## Решение
 
@@ -11,18 +12,23 @@ Provider работает отдельным Rust process за Unix socket `0600
 bounded length-prefixed `ouo-onion-sidecar/1`. Соединение persistent, запросы
 имеют UUID binding и timeout; неизвестные/ошибочные ответы fail closed.
 
-Кандидат Sphinx для conformance spike: поддерживаемый Apache-2.0 проект Nym
-Sphinx и его crate `nym-sphinx`. Он предоставляет packet builder/processor,
+Выбранный Sphinx provider: поддерживаемый Apache-2.0 проект Nym, crate
+`nym-sphinx-types = 1.21.5` (`sphinx-packet = 0.6.0`). Он предоставляет packet builder/processor,
 X25519 keys, replay tag и SURB concepts:
 
 - https://github.com/nymtech/sphinx
 - https://docs.rs/nym-sphinx
 
-Кандидат K-of-N: Rust `reed-solomon-erasure` с отдельной обязательной AEAD/hash
+Выбранный K-of-N provider: Rust `reed-solomon-erasure = 6.0.0` (MIT) с отдельной обязательной AEAD/hash
 проверкой каждого shard и reconstructed container:
 
 - https://github.com/rust-rse/reed-solomon-erasure
 - https://docs.rs/reed-solomon-erasure
+
+Crates.io archive checksums, которые должны совпасть с будущим `Cargo.lock`:
+
+- `nym-sphinx 1.21.5`: `77657434dfc9954c74e90620a7f8b0acd32c8ce6fcb89dffe678ae010e182b05`;
+- `reed-solomon-erasure 6.0.0`: `7263373d500d4d4f505d43a2a662d475a894aa94503a1ee28e9188b5f3960d4f`.
 
 ## Gate до активации
 

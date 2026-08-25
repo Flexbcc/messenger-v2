@@ -9,6 +9,12 @@
 #   ./scripts/node-update.sh home-node storage-node   # override services
 set -euo pipefail
 
+if [[ "${OUO_PUBLIC_UPDATE_MODE:-false}" = true ]]; then
+  echo "Legacy git-based node-update is disabled in public update mode." >&2
+  echo "Use prepare-secure-node-update.py and an approved atomic installer." >&2
+  exit 78
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/deploy-common.sh
 source "$SCRIPT_DIR/lib/deploy-common.sh"

@@ -13,3 +13,10 @@ Rust sidecar adapter реализует bounded async operations `erasure_encode
 одинаковый размер shards и memory limits. Целостность reconstructed container
 обязательно подтверждается endpoint AEAD: Reed-Solomon не является
 authentication mechanism.
+
+Provider использует systematic `reed-solomon-erasure 6.0.0`. До кодирования
+container получает framing `OUORS001 || K:u8 || N:u8 || length:u32be || data`;
+padding доводит data-part до K равных shards. Reconstruction восстанавливает
+отсутствующие data shards, проверяет framing/K/N/length и отрезает padding.
+При K, для которого shard превысил бы 1 MiB, encode отклоняется вместо скрытого
+повышения memory limit.

@@ -31,6 +31,12 @@ class ReplyPacket:
     expires_at: datetime
 
 
+@dataclass(frozen=True)
+class ReplyBlock:
+    surb: bytes
+    expires_at: datetime
+
+
 class OnionPacketProvider(Protocol):
     provider_id: str
 
@@ -41,6 +47,14 @@ class OnionPacketProvider(Protocol):
     async def unwrap(self, *, private_key: bytes, packet: bytes) -> UnwrappedHop: ...
 
     async def build_reply(self, *, surb: bytes, payload: bytes) -> ReplyPacket: ...
+
+    async def create_reply_block(
+        self,
+        *,
+        route: Sequence[OnionHop],
+        expires_at: datetime,
+        packet_size: int,
+    ) -> ReplyBlock: ...
 
 
 class UnavailableOnionProvider:
@@ -55,4 +69,13 @@ class UnavailableOnionProvider:
         raise RuntimeError("reviewed Sphinx packet provider is not configured")
 
     async def build_reply(self, *, surb: bytes, payload: bytes) -> ReplyPacket:
+        raise RuntimeError("reviewed Sphinx packet provider is not configured")
+
+    async def create_reply_block(
+        self,
+        *,
+        route: Sequence[OnionHop],
+        expires_at: datetime,
+        packet_size: int,
+    ) -> ReplyBlock:
         raise RuntimeError("reviewed Sphinx packet provider is not configured")

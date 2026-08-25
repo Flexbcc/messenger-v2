@@ -94,8 +94,12 @@ class Settings:
     relay_transport_mode: str = _env_choice(
         "RELAY_TRANSPORT_MODE",
         "http",
-        ("http", "websocket-preferred", "websocket-required"),
+        (
+            "http", "websocket-preferred", "websocket-required",
+            "quic-preferred", "quic-required",
+        ),
     )
+    relay_quic_ca_file: str = os.environ.get("RELAY_QUIC_CA_FILE", "")
     signed_peer_selection_mode: str = _env_choice(
         "SIGNED_PEER_SELECTION_MODE",
         "off",

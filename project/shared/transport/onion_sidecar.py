@@ -12,13 +12,13 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Sequence
 
-from shared.transport.onion_provider import OnionHop, ReplyPacket, UnwrappedHop
+from shared.transport.onion_provider import OnionHop, ReplyBlock, ReplyPacket, UnwrappedHop
 from shared.transport.opaque_ingress import PACKET_SIZES
 
 
 FRAME = struct.Struct(">I")
-MAX_REQUEST_BYTES = 2 * 1024 * 1024
-MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+MAX_REQUEST_BYTES = 12 * 1024 * 1024
+MAX_RESPONSE_BYTES = 12 * 1024 * 1024
 RESPONSE_COMMON_FIELDS = {"protocol_version", "request_id", "ok"}
 
 
@@ -93,7 +93,8 @@ class OnionSidecarProvider:
         self, operation: str, body: dict[str, Any]
     ) -> dict[str, Any]:
         if operation not in {
-            "build", "unwrap", "build_reply", "erasure_encode", "erasure_reconstruct"
+            "build", "unwrap", "build_reply", "create_reply_block",
+            "erasure_encode", "erasure_reconstruct"
         }:
             raise ValueError("unsupported sidecar operation")
         return await self._request(operation, body)
@@ -221,6 +222,50 @@ class OnionSidecarProvider:
             packet=packet,
             expires_at=_parse_expiry(response.get("expires_at")),
         )
+
+    async def create_reply_block(
+        self,
+        *,
+        route: Sequence[OnionHop],
+        expires_at: datetime,
+        packet_size: int,
+    ) -> ReplyBlock:
+        if not 2 <= len(route) <= 5 or packet_size not in PACKET_SIZES:
+            raise ValueError("invalid reply-block route or packet size")
+        expiry = _format_expiry(expires_at)
+        for index, hop in enumerate(route):
+            expected = "home" if index == len(route) - 1 else "relay"
+            if (
+                not isinstance(hop.node_id, str)
+                or not 1 <= len(hop.node_id) <= 256
+                or not isinstance(hop.public_key, bytes)
+                or len(hop.public_key) != 32
+                or hop.capability != expected
+            ):
+                raise ValueError("invalid reply-block route")
+        response = await self._request(
+            "create_reply_block",
+            {
+                "route": [
+                    {
+                        "node_id": hop.node_id,
+                        "capability": hop.capability,
+                        "public_key_b64": base64.urlsafe_b64encode(hop.public_key).decode(),
+                    }
+                    for hop in route
+                ],
+                "expires_at": expiry,
+                "packet_size": packet_size,
+            },
+        )
+        _require_response_fields(response, {"surb_b64", "expires_at"})
+        surb = _decode(response.get("surb_b64"), "SURB")
+        if not 1 <= len(surb) <= 256 * 1024:
+            raise ValueError("sidecar returned invalid SURB")
+        returned_expiry = _parse_expiry(response.get("expires_at"))
+        if returned_expiry != _parse_expiry(expiry):
+            raise ValueError("sidecar returned mismatched SURB expiry")
+        return ReplyBlock(surb=surb, expires_at=returned_expiry)
 
     async def close(self) -> None:
         writer = self._writer

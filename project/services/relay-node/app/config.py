@@ -35,6 +35,11 @@ class Settings:
     )
 
     capabilities: list = ["relay"]
+    supported_transports: tuple[str, ...] = (
+        ("https", "quic")
+        if os.environ.get("RELAY_QUIC_ENABLED", "false").lower() == "true"
+        else ("https",)
+    )
     software_version: str = os.environ.get("NODE_SOFTWARE_VERSION", "0.1.0")
     cluster_id: str = os.environ.get("CLUSTER_ID", "default")
 

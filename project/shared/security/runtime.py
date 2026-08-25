@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
 from nacl.public import PrivateKey
 from nacl.signing import SigningKey
@@ -117,6 +117,7 @@ def federation_registration_fields(
     allow_existing_credential_genesis: bool = False,
     transport_key_path: Optional[str] = None,
     transport_certificate_path: Optional[str] = None,
+    supported_transports: Sequence[str] = ("https",),
 ) -> dict:
     if not signing_key_path:
         return {}
@@ -147,7 +148,7 @@ def federation_registration_fields(
                 operational_signing_key=get_signing_key(signing_key_path),
                 operational_certificate=fields["operational_certificate"],
                 endpoints=[node_url],
-                supported_transports=["https"],
+                supported_transports=supported_transports,
                 supported_protocols=[
                     "ouo-federation-auth/1",
                     "ouo-federation-envelope/1",

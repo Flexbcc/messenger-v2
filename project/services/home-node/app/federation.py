@@ -69,6 +69,7 @@ def _get_relay_transport() -> RelayTransportAdapter:
             node_id=fs.node_id,
             mode=settings.relay_transport_mode,
             timeout_seconds=10.0,
+            quic_ca_file=settings.relay_quic_ca_file or None,
         )
     return _relay_transport
 
@@ -618,7 +619,10 @@ async def deliver_to_remote_home_node(home_node_url: str, envelope: dict, conver
     # (or die between ping and forward) — try the next live relay instead of
     # failing the whole delivery on the first one.
     transport_mode = settings.relay_transport_mode
-    if transport_mode not in ("http", "websocket-preferred", "websocket-required"):
+    if transport_mode not in (
+        "http", "websocket-preferred", "websocket-required",
+        "quic-preferred", "quic-required",
+    ):
         raise RuntimeError(f"Unsupported RELAY_TRANSPORT_MODE: {transport_mode}")
 
     last_error: Optional[Exception] = None

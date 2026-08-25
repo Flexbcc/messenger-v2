@@ -11,7 +11,31 @@ SPEC.loader.exec_module(MODULE)
 
 def _valid_values():
     values = dict(MODULE.REQUIRED_MODES)
-    values["CAPABILITY_AUTHORITY_STATE_PATH"] = "/data/capability_authority.json"
+    values.update(
+        {
+            "CAPABILITY_AUTHORITY_STATE_PATH": "/data/capability_authority.json",
+            "TRUST_AUTHORITY_STATE_PATH": "/data/trust_authority.json",
+            "TRUST_RECORD_GOSSIP_ENABLED": "true",
+            "TRUST_RECORD_GOSSIP_PEERS": "https://d2.example,https://d3.example",
+            "AUTHORITY_GOSSIP_ENABLED": "true",
+            "AUTHORITY_GOSSIP_PEERS": "https://d2.example,https://d3.example",
+            "TRUST_PROPOSAL_MODE": "report",
+            "CHALLENGE_ASSIGNMENT_GOSSIP_ENABLED": "true",
+            "CHALLENGE_ASSIGNMENT_GOSSIP_PEERS": "https://d2.example,https://d3.example",
+            "CHALLENGE_PROPOSAL_SCHEDULER_MODE": "enforce",
+            "NODE_CHALLENGE_OBSERVER_ENABLED": "true",
+            "NODE_ADVERTISEMENT_GOSSIP_ENABLED": "true",
+            "NODE_ADVERTISEMENT_GOSSIP_PEERS": "https://d2.example,https://d3.example",
+            "NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH": "/data/operational-chain.json",
+            "PEER_DISCOVERY_URLS": "https://d1.example,https://d2.example",
+            "PEER_AUTHORITY_STATE_PATH": "/data/peer-authority.json",
+            "PEER_DISCOVERY_SOURCE_SET_PATH": "/data/discovery-sources.json",
+            "ROUTE_DISCOVERY_URLS": "https://d1.example,https://d2.example",
+            "ROUTE_MINIMUM_DISCOVERY_SOURCES": "2",
+            "FEDERATION_DISCOVERY_URLS": "https://d1.example,https://d2.example",
+            "FEDERATION_MINIMUM_DISCOVERY_SOURCES": "2",
+        }
+    )
     for index, key in enumerate(MODULE.REQUIRED_SECRETS):
         values[key] = f"{index:02d}-" + (chr(65 + index) * 40)
     for index, key in enumerate(MODULE.NODE_ID_FIELDS):
@@ -61,6 +85,8 @@ def test_enforced_signed_peer_selection_requires_two_origins_and_bootstrap_files
     values = _valid_values()
     values["SIGNED_PEER_SELECTION_MODE"] = "enforce"
     values["PEER_DISCOVERY_URLS"] = "https://d1.example"
+    values["PEER_AUTHORITY_STATE_PATH"] = ""
+    values["PEER_DISCOVERY_SOURCE_SET_PATH"] = ""
     errors = MODULE.validate_secure_environment(values)
     assert "enforced signed peer selection requires at least two Discovery origins" in errors
     assert any("PEER_AUTHORITY_STATE_PATH is required" in error for error in errors)
@@ -116,6 +142,9 @@ def test_capability_enforce_requires_authority_state():
 def test_trust_ledger_enforce_requires_authority_and_replica_gossip():
     values = _valid_values()
     values["TRUST_LEDGER_MODE"] = "enforce"
+    values["TRUST_AUTHORITY_STATE_PATH"] = ""
+    values["TRUST_RECORD_GOSSIP_ENABLED"] = "false"
+    values["AUTHORITY_GOSSIP_ENABLED"] = "false"
     errors = MODULE.validate_secure_environment(values)
     assert any("TRUST_AUTHORITY_STATE_PATH" in error for error in errors)
     assert any("TRUST_RECORD_GOSSIP_ENABLED" in error for error in errors)
@@ -176,6 +205,7 @@ def test_challenge_assignment_gossip_requires_two_peer_origins():
 def test_randomness_enforce_requires_assignment_lifecycle_gossip():
     values = _valid_values()
     values["RANDOMNESS_CHECKPOINT_MODE"] = "enforce"
+    values["CHALLENGE_ASSIGNMENT_GOSSIP_ENABLED"] = "false"
     errors = MODULE.validate_secure_environment(values)
     assert (
         "RANDOMNESS_CHECKPOINT_MODE=enforce requires "
@@ -192,6 +222,9 @@ def test_randomness_enforce_requires_assignment_lifecycle_gossip():
 def test_operational_credential_enforce_requires_replica_gossip():
     values = _valid_values()
     values["OPERATIONAL_CREDENTIAL_STATE_MODE"] = "enforce"
+    values["NODE_ADVERTISEMENT_GOSSIP_ENABLED"] = "false"
+    values["CHALLENGE_ASSIGNMENT_GOSSIP_ENABLED"] = "false"
+    values["NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH"] = ""
     errors = MODULE.validate_secure_environment(values)
     assert (
         "OPERATIONAL_CREDENTIAL_STATE_MODE=enforce requires "
@@ -203,6 +236,7 @@ def test_operational_credential_enforce_requires_replica_gossip():
     ) in errors
 
     values["NODE_ADVERTISEMENT_GOSSIP_ENABLED"] = "true"
+    values["CHALLENGE_ASSIGNMENT_GOSSIP_ENABLED"] = "true"
     values["NODE_ADVERTISEMENT_GOSSIP_PEERS"] = (
         "https://d2.example,https://d3.example"
     )
@@ -226,6 +260,8 @@ def test_operational_credential_enforce_requires_replica_gossip():
 def test_operational_credential_revocation_enforce_requires_chain_and_authority():
     values = _valid_values()
     values["OPERATIONAL_CREDENTIAL_REVOCATION_MODE"] = "enforce"
+    values["OPERATIONAL_CREDENTIAL_STATE_MODE"] = "report"
+    values["TRUST_AUTHORITY_STATE_PATH"] = ""
     errors = MODULE.validate_secure_environment(values)
     assert any("STATE_MODE=enforce" in error for error in errors)
     assert any("TRUST_AUTHORITY_STATE_PATH" in error for error in errors)

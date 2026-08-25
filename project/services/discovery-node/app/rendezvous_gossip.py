@@ -5,6 +5,7 @@ import logging
 from urllib.parse import urlsplit
 
 import httpx
+from shared.security.outbound_tls import outbound_tls_verify
 
 from app.bootstrap_record_store import (
     BootstrapRecordConflict,
@@ -125,7 +126,7 @@ async def _loop() -> None:
         async with httpx.AsyncClient(
             timeout=RENDEZVOUS_GOSSIP_TIMEOUT_SECONDS,
             follow_redirects=False,
-            trust_env=False,
+            trust_env=False, verify=outbound_tls_verify(),
         ) as client:
             for peer in peers:
                 try:

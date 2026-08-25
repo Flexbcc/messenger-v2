@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+from shared.security.outbound_tls import outbound_tls_verify
 from fastapi import HTTPException
 
 from app.authority_checkpoint_store import (
@@ -171,7 +172,7 @@ async def poll_authority_peers_once(
         client = httpx.AsyncClient(
             timeout=AUTHORITY_GOSSIP_TIMEOUT_SECONDS,
             follow_redirects=False,
-            trust_env=False,
+            trust_env=False, verify=outbound_tls_verify(),
         )
     fetched = accepted = failed = 0
     try:

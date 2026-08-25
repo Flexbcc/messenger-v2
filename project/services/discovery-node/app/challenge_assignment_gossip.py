@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 import httpx
+from shared.security.outbound_tls import outbound_tls_verify
 from fastapi import HTTPException
 
 from app.authority_checkpoint_store import load_authority_state_at_epoch
@@ -141,7 +142,7 @@ async def poll_assignment_peers_once(
         client = httpx.AsyncClient(
             timeout=CHALLENGE_ASSIGNMENT_GOSSIP_TIMEOUT_SECONDS,
             follow_redirects=False,
-            trust_env=False,
+            trust_env=False, verify=outbound_tls_verify(),
         )
     fetched = accepted = failed = 0
     try:

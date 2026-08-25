@@ -7,6 +7,7 @@ import os
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
+from shared.security.outbound_tls import outbound_tls_verify
 from fastapi import APIRouter, HTTPException, Request
 
 from app.fed_security import ChallengeObserverAuthDep, get_federation_security
@@ -65,7 +66,7 @@ async def deliver(request: Request, _observer: str = ChallengeObserverAuthDep):
     base = _endpoint(destination.get("node_url"))
     path = "/internal/challenge/relay/receive"
     try:
-        async with httpx.AsyncClient(timeout=5.0, follow_redirects=False, trust_env=False) as client:
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=False, trust_env=False, verify=outbound_tls_verify()) as client:
             response = await federation_post(
                 client,
                 f"{base}{path}",

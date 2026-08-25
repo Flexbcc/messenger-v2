@@ -11,6 +11,7 @@ from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 import httpx
+from shared.security.outbound_tls import outbound_tls_verify
 from fastapi import HTTPException
 
 from app.authority_checkpoint_store import load_effective_authority_state
@@ -613,7 +614,7 @@ async def poll_advertisement_peers_once(
         client = httpx.AsyncClient(
             timeout=NODE_ADVERTISEMENT_GOSSIP_TIMEOUT_SECONDS,
             follow_redirects=False,
-            trust_env=False,
+            trust_env=False, verify=outbound_tls_verify(),
         )
     fetched = accepted = failed = 0
     try:

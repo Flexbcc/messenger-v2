@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+from shared.security.outbound_tls import outbound_tls_verify
 
 from app.config import settings
 from shared.security.route_runtime import RouteResolution, resolve_route_view
@@ -62,7 +63,7 @@ async def resolve_user_route(user_id: str) -> RouteResolution:
     if len(origins) < settings.route_minimum_discovery_sources:
         raise ValueError("insufficient configured Discovery sources for route quorum")
     async with httpx.AsyncClient(
-        timeout=5.0, follow_redirects=False, trust_env=False
+        timeout=5.0, follow_redirects=False, trust_env=False, verify=outbound_tls_verify()
     ) as client:
         results = await asyncio.gather(
             *(_fetch_source(client, origin, user_id) for origin in origins),

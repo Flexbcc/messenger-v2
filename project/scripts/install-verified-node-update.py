@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
@@ -16,9 +17,22 @@ import urllib.request
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
-sys.path.insert(0, os.fspath(Path(__file__).resolve().parents[1]))
 
-from shared.security.update_policy import UpdateDecision, commit_state, load_state
+def _load_update_policy():
+    path = Path(__file__).resolve().parents[1] / "shared/security/update_policy.py"
+    spec = importlib.util.spec_from_file_location("ouo_update_policy", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("cannot load update policy")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_update_policy = _load_update_policy()
+UpdateDecision = _update_policy.UpdateDecision
+commit_state = _update_policy.commit_state
+load_state = _update_policy.load_state
 
 
 RECEIPT_FIELDS = {

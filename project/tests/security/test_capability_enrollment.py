@@ -19,11 +19,11 @@ from shared.security.node_identity import node_id_from_root_public_key
 NOW = datetime(2026, 8, 19, 12, 0, tzinfo=timezone.utc)
 
 
-def _authority():
+def _authority(epoch=10):
     keys = {f"validator-{index}": SigningKey.generate() for index in range(7)}
     state = parse_capability_authority_state(
         {
-            "epoch": 10,
+            "epoch": epoch,
             "committee": sorted(keys),
             "threshold": 5,
             "validators": {
@@ -124,7 +124,22 @@ def test_same_epoch_capability_equivocation_is_rejected():
 
 
 def test_capability_update_must_extend_stored_hash_chain():
-    keys, authority = _authority()
+    keys, _ = _authority()
+    authority = parse_capability_authority_state(
+        {
+            "epoch": 11,
+            "committee": sorted(keys),
+            "threshold": 5,
+            "validators": {
+                validator_id: {
+                    "public_key": public_key_b64(key),
+                    "valid_until": "2026-08-21T12:00:00Z",
+                    "revoked": False,
+                }
+                for validator_id, key in keys.items()
+            },
+        }
+    )
     subject = node_id_from_root_public_key(bytes(SigningKey.generate().verify_key))
     stored = _signed_certificate(keys, subject)
     broken = _signed_certificate(keys, subject, epoch=11)

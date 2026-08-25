@@ -46,6 +46,7 @@ authorityKeyIdentifier = keyid:always
 EOF
 
 openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-384 \
+  -pkeyopt ec_param_enc:named_curve \
   -out "$STAGE/root/root-ca.key"
 openssl req -new -x509 -sha384 -days 3650 \
   -key "$STAGE/root/root-ca.key" \
@@ -61,6 +62,7 @@ authorityKeyIdentifier = keyid:always
 EOF
 
 openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-384 \
+  -pkeyopt ec_param_enc:named_curve \
   -out "$STAGE/issuer/quic-issuing-ca.key"
 openssl req -new -sha384 -key "$STAGE/issuer/quic-issuing-ca.key" \
   -subj "/O=OUO Test Network/CN=OUO QUIC Issuing CA" \
@@ -85,6 +87,7 @@ while IFS=, read -r NAME DNS_NAMES IP_ADDRESSES; do
   NODE_DIR="$STAGE/nodes/$NAME"
   mkdir -p "$NODE_DIR"
   openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 \
+    -pkeyopt ec_param_enc:named_curve \
     -out "$NODE_DIR/tls.key"
   openssl req -new -sha256 -key "$NODE_DIR/tls.key" \
     -subj "/O=OUO Test Network/CN=$NAME" -out "$NODE_DIR/tls.csr"

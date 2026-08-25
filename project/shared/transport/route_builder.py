@@ -25,7 +25,6 @@ TRANSPORT_CONSENSUS_FIELDS = {
     "validated",
     "advertisement_epoch",
     "advertisement_expires_at",
-    "observation_valid_until",
     "operational_certificate",
     "operational_valid_until",
     "capability_epoch",

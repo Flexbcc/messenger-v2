@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 import httpx
+from shared.security.outbound_tls import outbound_tls_verify
 from fastapi import HTTPException
 
 from app.config import (
@@ -94,7 +95,7 @@ async def poll_trust_record_peers_once(
         client = httpx.AsyncClient(
             timeout=TRUST_RECORD_GOSSIP_TIMEOUT_SECONDS,
             follow_redirects=False,
-            trust_env=False,
+            trust_env=False, verify=outbound_tls_verify(),
         )
     fetched = accepted = applied = failed = 0
     try:

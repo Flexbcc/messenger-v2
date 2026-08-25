@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
+from shared.security.outbound_tls import outbound_tls_verify
 
 from app.config import settings
 from shared.security.capability_enrollment import load_capability_authority_state
@@ -220,7 +221,7 @@ async def refresh_signed_peer_set(
     )
     own_client = client is None
     if own_client:
-        client = httpx.AsyncClient(timeout=5.0, follow_redirects=False, trust_env=False)
+        client = httpx.AsyncClient(timeout=5.0, follow_redirects=False, trust_env=False, verify=outbound_tls_verify())
     try:
         observations = await _fetch_observations(client)
     finally:

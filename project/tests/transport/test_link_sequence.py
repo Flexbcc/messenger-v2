@@ -15,5 +15,6 @@ def test_sequence_replay_and_reorder_are_rejected_across_restart(tmp_path):
 
 def test_connection_ids_have_independent_sequences(tmp_path):
     store = LinkSequenceStore(str(tmp_path / "sequence.db"))
-    assert store.accept(peer_node_id="home-a", connection_id="connection-1", sequence=7)
+    assert not store.accept(peer_node_id="home-a", connection_id="connection-1", sequence=7)
+    assert store.accept(peer_node_id="home-a", connection_id="connection-1", sequence=1)
     assert store.accept(peer_node_id="home-a", connection_id="connection-2", sequence=1)

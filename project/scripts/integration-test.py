@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import sys
 import time
@@ -140,6 +141,16 @@ def test_register_and_prekeys() -> None:
             {"id": 12, "public_key": "cGsz"},
         ],
     }
+    challenge_code, challenge_body = get(f"{HOME}/auth/pow-challenge")
+    if challenge_code != 200:
+        fail("registration PoW challenge", f"code={challenge_code} {challenge_body}")
+        return
+    challenge = str(challenge_body.get("challenge", ""))
+    difficulty = int(challenge_body.get("difficulty", 0))
+    prefix = "0" * difficulty
+    nonce = 0
+    while not hashlib.sha256(f"{challenge}:{nonce}".encode()).hexdigest().startswith(prefix):
+        nonce += 1
     code, reg = post(
         f"{HOME}/auth/register",
         {
@@ -150,6 +161,8 @@ def test_register_and_prekeys() -> None:
             "device_type": "desktop",
             "auth_public_key": "dGVzdA==",
             "identity_key_bundle": bundle,
+            "pow_challenge": challenge,
+            "pow_nonce": str(nonce),
         },
     )
     if code != 200:
@@ -201,7 +214,12 @@ def test_internal_deliver() -> None:
         },
     }
 
-    code, body = post(f"{HOME}/internal/deliver", payload)
+    legacy_headers = (
+        {"X-Federation-Node-Id": home_node_id}
+        if security_mode == "legacy"
+        else None
+    )
+    code, body = post(f"{HOME}/internal/deliver", payload, headers=legacy_headers)
     if security_mode == "legacy":
         if code != 200:
             fail("internal deliver legacy", f"code={code} {body}")

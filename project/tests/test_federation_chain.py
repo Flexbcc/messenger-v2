@@ -31,6 +31,7 @@ from nacl.signing import SigningKey
 
 from shared.security.record_verifier import verify_user_record_response
 from shared.security.keys import public_key_b64
+from shared.transport.ws_relay_client import RelayTransportError
 
 
 def _service_module(service: str, module: str):
@@ -466,15 +467,18 @@ class TestDeliveryFailureMatrix:
         success = MagicMock()
         success.raise_for_status.return_value = None
         direct_error = httpx.ConnectError("home-b offline")
+        relay_transport = MagicMock()
+        relay_transport.forward = AsyncMock(return_value={"status": "forwarded"})
         with (
             patch.object(federation, "get_federation_security", return_value=security),
             patch.object(federation, "_get_target_curve_public_key", new=AsyncMock(return_value=None)),
             patch.object(federation, "_reachable_relays", new=AsyncMock(return_value=["http://relay-a"])),
+            patch.object(federation, "_get_relay_transport", return_value=relay_transport),
             patch.object(federation.httpx, "AsyncClient", side_effect=lambda **_kwargs: self._client_context()),
             patch.object(
                 federation,
                 "federation_post",
-                new=AsyncMock(side_effect=[direct_error, success]),
+                new=AsyncMock(side_effect=direct_error),
             ),
         ):
             await federation.deliver_to_remote_home_node(
@@ -486,6 +490,10 @@ class TestDeliveryFailureMatrix:
         envelope, conversation_meta = self._payloads()
         security = MagicMock(node_id="home-a", signing_key=SigningKey.generate())
         storage = AsyncMock(return_value=None)
+        relay_transport = MagicMock()
+        relay_transport.forward = AsyncMock(
+            side_effect=RelayTransportError("relay unavailable")
+        )
         with (
             patch.object(federation, "get_federation_security", return_value=security),
             patch.object(federation, "_get_target_curve_public_key", new=AsyncMock(return_value=None)),
@@ -494,18 +502,13 @@ class TestDeliveryFailureMatrix:
                 "_reachable_relays",
                 new=AsyncMock(return_value=["http://relay-a", "http://relay-b"]),
             ),
+            patch.object(federation, "_get_relay_transport", return_value=relay_transport),
             patch.object(federation, "_buffer_envelope_for_recipients", new=storage),
             patch.object(federation.httpx, "AsyncClient", side_effect=lambda **_kwargs: self._client_context()),
             patch.object(
                 federation,
                 "federation_post",
-                new=AsyncMock(
-                    side_effect=[
-                        httpx.ConnectError("home offline"),
-                        httpx.ConnectError("relay-a offline"),
-                        httpx.ConnectError("relay-b offline"),
-                    ]
-                ),
+                new=AsyncMock(side_effect=httpx.ConnectError("home offline")),
             ),
         ):
             with pytest.raises(RuntimeError, match="buffered"):

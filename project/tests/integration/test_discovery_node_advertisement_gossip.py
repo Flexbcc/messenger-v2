@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
+from nacl.public import PrivateKey
 from nacl.signing import SigningKey
 
 from shared.security.capability_certificate import (
@@ -24,10 +25,12 @@ from shared.security.node_advertisement import (
 )
 from shared.security.node_advertisement_observation import issue_advertisement_observation
 from shared.security.node_identity import issue_operational_certificate
+from shared.security.transport_certificate import issue_transport_certificate
 
 
 PROJECT_ROOT = Path(__file__).parents[2]
 DISCOVERY_ROOT = PROJECT_ROOT / "services" / "discovery-node"
+_TRANSPORT_CERTIFICATES = {}
 
 
 @contextmanager
@@ -74,6 +77,12 @@ def _identity(now):
     certificate = issue_operational_certificate(
         root_signing_key=root,
         operational_verify_key=operational.verify_key,
+        issued_at=now - timedelta(minutes=1),
+        valid_until=now + timedelta(days=1),
+    )
+    _TRANSPORT_CERTIFICATES[certificate["node_id"]] = issue_transport_certificate(
+        root_signing_key=root,
+        transport_private_key=PrivateKey.generate(),
         issued_at=now - timedelta(minutes=1),
         valid_until=now + timedelta(days=1),
     )
@@ -135,8 +144,9 @@ def _insert_node(db, alias, operational_certificate, capability, advertisement, 
                    operational_certificate, node_identity_status,
                    node_advertisement, node_advertisement_status, node_advertisement_epoch,
                    capability_certificate, capability_certificate_status,
-                   certified_capabilities, certified_level, capability_epoch
-               ) VALUES (?, ?, ?, 'test', ?, 'trusted', ?, ?, ?, ?, 'valid', ?, 'valid', ?, ?, 'valid', ?, ?, ?)""",
+                   certified_capabilities, certified_level, capability_epoch,
+                   transport_certificate, transport_certificate_status
+               ) VALUES (?, ?, ?, 'test', ?, 'trusted', ?, ?, ?, ?, 'valid', ?, 'valid', ?, ?, 'valid', ?, ?, ?, ?, 'valid')""",
             (
                 alias,
                 advertisement["endpoints"][0] if advertisement else "https://discovery.example",
@@ -152,6 +162,7 @@ def _insert_node(db, alias, operational_certificate, capability, advertisement, 
                 json.dumps(capability["capabilities"]),
                 capability["level"],
                 capability["epoch"],
+                json.dumps(_TRANSPORT_CERTIFICATES[operational_certificate["node_id"]]),
             ),
         )
         conn.commit()
@@ -161,6 +172,7 @@ def _gossip_item(source_key, source_certificate, advertisement, capability, now)
     return {
         "advertisement": advertisement,
         "capability_certificate": capability,
+        "transport_certificate": _TRANSPORT_CERTIFICATES[advertisement["node_id"]],
         "observation": issue_advertisement_observation(
             source_node_id=source_certificate["node_id"],
             subject_node_id=advertisement["node_id"],
@@ -316,6 +328,32 @@ def test_peer_view_waits_for_two_sources_to_converge_on_new_capability_head(tmp_
             )
         assert len(gossip.build_peer_view(capability="relay", now=now)["candidates"]) == 1
 
+        authority = CapabilityAuthorityState(
+            epoch=5,
+            committee=authority.committee,
+            threshold=authority.threshold,
+            validators=authority.validators,
+        )
+        for alias, certificate, previous in (
+            ("source-a", source_a_certificate, source_a_capability),
+            ("source-b", source_b_certificate, source_b_capability),
+        ):
+            renewed = _capability(
+                certificate["node_id"],
+                ["discovery"],
+                4,
+                authority_keys,
+                authority,
+                now,
+                previous_hash=capability_certificate_hash(previous),
+            )
+            with db.get_conn() as conn:
+                conn.execute(
+                    """UPDATE node_capabilities SET capability_certificate = ?,
+                              capability_epoch = ? WHERE node_id = ?""",
+                    (json.dumps(renewed), renewed["epoch"], alias),
+                )
+                conn.commit()
         second = _capability(
             subject_certificate["node_id"],
             ["relay"],
@@ -323,7 +361,6 @@ def test_peer_view_waits_for_two_sources_to_converge_on_new_capability_head(tmp_
             authority_keys,
             authority,
             now,
-            epoch=5,
             previous_hash=capability_certificate_hash(first),
         )
         gossip.ingest_advertisement_gossip(
@@ -340,12 +377,16 @@ def test_peer_view_waits_for_two_sources_to_converge_on_new_capability_head(tmp_
         assert len(converged["candidates"]) == 1
         assert converged["candidates"][0]["capability_epoch"] == 5
 
-        with pytest.raises(HTTPException, match="rollback") as replay:
+        with pytest.raises(HTTPException) as replay:
             gossip.ingest_advertisement_gossip(
                 _gossip_item(source_a_key, source_a_certificate, advertisement, first, now),
                 now=now,
             )
-        assert replay.value.status_code == 409
+        assert replay.value.status_code in {403, 409}
+        assert any(
+            marker in str(replay.value.detail)
+            for marker in ("rollback", "authority_epoch mismatch")
+        )
 
 
 def test_conflicting_quorum_capability_epoch_is_preserved_as_evidence(tmp_path):

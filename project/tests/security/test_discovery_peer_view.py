@@ -135,7 +135,7 @@ def test_two_independent_sources_produce_selector_ready_candidate():
     assert view.conflicts == ()
     assert view.rejected_count == 0
     assert len(view.candidates) == 1
-    assert view.candidates[0] == {
+    expected = {
         "node_id": subject,
         "endpoint": "wss://relay.example/ws",
         "capabilities": ["relay"],
@@ -146,6 +146,14 @@ def test_two_independent_sources_produce_selector_ready_candidate():
         "capability_epoch": 5,
         "level": 2,
     }
+    assert {key: view.candidates[0][key] for key in expected} == expected
+    assert view.candidates[0]["certified_quotas"] == {"max_connections": 100}
+    assert view.candidates[0]["advertisement_expires_at"] == "2026-08-19T13:00:00Z"
+    assert view.candidates[0]["observation_valid_until"] == "2026-08-19T12:05:00Z"
+    assert view.candidates[0]["capability_valid_until"] == "2026-08-20T12:00:00Z"
+    assert view.candidates[0]["operational_certificate"] == advertisement[
+        "operational_certificate"
+    ]
 
 
 def test_one_source_or_unknown_source_cannot_make_candidate():

@@ -119,7 +119,7 @@ services:
       MIX_MAX_DELAY_MS: ${MIX_MAX_DELAY_MS:-2000}
       ONION_PROVIDER_MODE: ${ONION_PROVIDER_MODE:-off}
       ONION_SIDECAR_SOCKET_PATH: /run/ouo-sphinx/provider.sock
-      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: ${NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH:-}
+      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: /data/node_operational_credential_chain.json
       NODE_CAPABILITY_CERTIFICATE_PATH: ${NODE_CAPABILITY_CERTIFICATE_PATH:-}
       NODE_CAPABILITY_AUTHORITY_STATE_PATH: ${NODE_CAPABILITY_AUTHORITY_STATE_PATH:-}
       FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
@@ -181,7 +181,7 @@ services:
       NODE_SIGNING_KEY_PATH: /data/node_signing_key
       NODE_ROOT_KEY_PATH: /data/node_root_key
       NODE_OPERATIONAL_CERTIFICATE_PATH: /data/node_operational_certificate.json
-      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: ${NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH:-}
+      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: /data/node_operational_credential_chain.json
       NODE_CAPABILITY_CERTIFICATE_PATH: ${NODE_CAPABILITY_CERTIFICATE_PATH:-}
       FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
       FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
@@ -211,7 +211,7 @@ services:
       NODE_SIGNING_KEY_PATH: /data/node_signing_key
       NODE_ROOT_KEY_PATH: /data/node_root_key
       NODE_OPERATIONAL_CERTIFICATE_PATH: /data/node_operational_certificate.json
-      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: ${NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH:-}
+      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: /data/node_operational_credential_chain.json
       NODE_CAPABILITY_CERTIFICATE_PATH: ${NODE_CAPABILITY_CERTIFICATE_PATH:-}
       FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
       MEDIA_ACCESS_SECRET: ${MEDIA_ACCESS_SECRET:-}
@@ -266,7 +266,7 @@ services:
       NODE_SIGNING_KEY_PATH: /data/node_signing_key
       NODE_ROOT_KEY_PATH: /data/node_root_key
       NODE_OPERATIONAL_CERTIFICATE_PATH: /data/node_operational_certificate.json
-      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: ${NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH:-}
+      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: /data/node_operational_credential_chain.json
       NODE_CAPABILITY_CERTIFICATE_PATH: ${NODE_CAPABILITY_CERTIFICATE_PATH:-}
       FEDERATION_NONCE_DB_PATH: /data/federation_nonces.db
       FEDERATION_AUDIT_DB_PATH: /data/federation_audit.db
@@ -315,10 +315,10 @@ services:
       NODE_SIGNING_KEY_PATH: /data/node_signing_key
       NODE_ROOT_KEY_PATH: /data/node_root_key
       NODE_OPERATIONAL_CERTIFICATE_PATH: /data/node_operational_certificate.json
-      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: ${NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH:-}
+      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: /data/node_operational_credential_chain.json
       NODE_CAPABILITY_CERTIFICATE_PATH: ${NODE_CAPABILITY_CERTIFICATE_PATH:-}
       TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:-dev-only-insecure-secret-change-me}
-      TURN_SERVER_HOST: ${TURN_SERVER_HOST:-localhost}
+      TURN_SERVER_HOST: ${TURN_SERVER_HOST:-coturn}
       TURN_SERVER_PORT: ${TURN_SERVER_PORT:-3478}
       TURN_SERVER_TLS_PORT: ${TURN_SERVER_TLS_PORT:-5349}
       TURN_REALM: ${TURN_REALM:-messenger.local}
@@ -336,7 +336,10 @@ services:
   coturn:
     image: coturn/coturn:latest
     restart: unless-stopped
-    network_mode: host   # обязательно для корректной работы ICE/STUN (видит реальный внешний IP)
+    ports:
+      - "${COTURN_BIND:-0.0.0.0}:3478:3478/tcp"
+      - "${COTURN_BIND:-0.0.0.0}:3478:3478/udp"
+      - "${COTURN_BIND:-0.0.0.0}:49152-49200:49152-49200/udp"
     volumes:
       - ./config/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
       - ./data/coturn:/var/lib/coturn
@@ -350,6 +353,8 @@ services:
       --use-auth-secret
       --static-auth-secret=${TURN_SHARED_SECRET:-dev-only-insecure-secret-change-me}
       --realm=${TURN_REALM:-messenger.local}
+      --min-port=49152
+      --max-port=49200
       ${TURN_EXTERNAL_IP:+--external-ip=${TURN_EXTERNAL_IP}}
 
   # nginx-tls — TLS reverse proxy перед нодами (Деплой TLS, опциональный профиль).
@@ -405,7 +410,7 @@ services:
       NODE_SIGNING_KEY_PATH: /data/node_signing_key
       NODE_ROOT_KEY_PATH: /data/node_root_key
       NODE_OPERATIONAL_CERTIFICATE_PATH: /data/node_operational_certificate.json
-      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: ${NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH:-}
+      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: /data/node_operational_credential_chain.json
       NODE_CAPABILITY_CERTIFICATE_PATH: ${NODE_CAPABILITY_CERTIFICATE_PATH:-}
       GATEWAY_TLS_ENABLED: ${GATEWAY_TLS_ENABLED:-false}
       GATEWAY_TLS_PORT: ${GATEWAY_TLS_PORT:-8447}

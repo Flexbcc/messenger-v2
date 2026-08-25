@@ -16,6 +16,7 @@ NODE_IDS = [
 
 
 def _candidate(index):
+    valid_until = (NOW + timedelta(hours=1)).isoformat()
     return {
         "node_id": NODE_IDS[index],
         "endpoint": f"wss://relay-{index}.example/relay/ws",
@@ -23,6 +24,11 @@ def _candidate(index):
         "observed_by": ["d1", "d2"],
         "diversity_group": f"operator-{index}",
         "validated": True,
+        "advertisement_epoch": 5,
+        "advertisement_expires_at": valid_until,
+        "observation_valid_until": valid_until,
+        "operational_valid_until": valid_until,
+        "capability_valid_until": valid_until,
     }
 
 
@@ -42,7 +48,26 @@ async def test_refresh_persists_locally_seeded_guards_and_relay_urls(tmp_path, m
     )
 
     async def observations(_client):
-        return [{"opaque": True}]
+        items = []
+        for index in range(10):
+            certificate = {
+                "node_id": NODE_IDS[index],
+                "serial": f"tc-{index}",
+                "valid_until": (NOW + timedelta(hours=1)).isoformat(),
+            }
+            for source in ("d1", "d2"):
+                items.append(
+                    {
+                        "advertisement": {
+                            "node_id": NODE_IDS[index],
+                            "epoch": 5,
+                        },
+                        "capability_certificate": {"capability": "relay"},
+                        "transport_certificate": certificate,
+                        "observation": {"source_node_id": source},
+                    }
+                )
+        return items
 
     monkeypatch.setattr(peer_runtime, "_fetch_observations", observations)
     monkeypatch.setattr(
@@ -53,6 +78,11 @@ async def test_refresh_persists_locally_seeded_guards_and_relay_urls(tmp_path, m
             conflicts=(),
             rejected_count=0,
         ),
+    )
+    monkeypatch.setattr(
+        peer_runtime,
+        "validate_transport_certificate",
+        lambda *_args, **_kwargs: SimpleNamespace(valid=True),
     )
     monkeypatch.setattr(
         peer_runtime,

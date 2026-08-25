@@ -51,6 +51,7 @@ from shared.security.authority_checkpoint import (
 from shared.security.keys import load_or_create_signing_key
 from shared.security.keys import public_key_b64
 from shared.security.node_identity_credentials import (
+    load_or_update_operational_credential_state,
     node_identity_registration_fields,
     rotate_operational_credentials,
 )
@@ -89,6 +90,7 @@ from shared.security.trust_evidence import issue_reliability_observation
 from shared.security.synthetic_challenge import run_synthetic_challenge
 from shared.transport.binary_batch import decode_batch, encode_batch
 from shared.transport.fixed_cell import open_fixed_cell, seal_fixed_cell
+from shared.transport.link_cell import build_link_cell
 from shared.transport.ws_relay_client import RelayWebSocketClient
 from shared.security.payload_builder import (
     build_buffer_payload,
@@ -120,7 +122,8 @@ class Service:
 
     @property
     def url(self) -> str:
-        return f"http://127.0.0.1:{self.port}"
+        scheme = "https" if self.env.get("TEST_TLS_CERT_PATH") else "http"
+        return f"{scheme}://127.0.0.1:{self.port}"
 
     def start(self) -> None:
         service_root = PROJECT_ROOT / "services" / self.role
@@ -128,8 +131,7 @@ class Service:
         process_env.update(self.env)
         process_env["PYTHONPATH"] = f"{service_root}:{PROJECT_ROOT}"
         self.log_handle = self.log_path.open("ab")
-        self.process = subprocess.Popen(
-            [
+        command = [
                 sys.executable,
                 "-m",
                 "uvicorn",
@@ -140,7 +142,18 @@ class Service:
                 str(self.port),
                 "--log-level",
                 "info",
-            ],
+            ]
+        if self.env.get("TEST_TLS_CERT_PATH"):
+            command.extend(
+                [
+                    "--ssl-certfile",
+                    self.env["TEST_TLS_CERT_PATH"],
+                    "--ssl-keyfile",
+                    self.env["TEST_TLS_KEY_PATH"],
+                ]
+            )
+        self.process = subprocess.Popen(
+            command,
             cwd=PROJECT_ROOT,
             env=process_env,
             stdout=self.log_handle,
@@ -172,6 +185,42 @@ class ClusterRun:
         self.capability_authority_state_path = self.run_dir / "data" / "authority-state.json"
         self.applied_trust_record: dict[str, Any] | None = None
         self.mesh_notify_secret = uuid.uuid4().hex + uuid.uuid4().hex
+        self.tls_dir = self.run_dir / "tls"
+        self._prepare_tls()
+
+    def _prepare_tls(self) -> None:
+        """Create an isolated localhost CA and leaf certificate for this run."""
+        self.tls_dir.mkdir(parents=True)
+        ca_key = self.tls_dir / "ca.key"
+        ca_cert = self.tls_dir / "ca.crt"
+        leaf_key = self.tls_dir / "localhost.key"
+        leaf_csr = self.tls_dir / "localhost.csr"
+        leaf_cert = self.tls_dir / "localhost.crt"
+        extensions = self.tls_dir / "localhost.ext"
+        extensions.write_text(
+            "basicConstraints=critical,CA:false\n"
+            "keyUsage=critical,digitalSignature,keyEncipherment\n"
+            "extendedKeyUsage=serverAuth\n"
+            "subjectAltName=DNS:localhost,IP:127.0.0.1\n",
+            encoding="utf-8",
+        )
+        commands = (
+            ("openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-pkeyopt", "ec_param_enc:named_curve", "-out", str(ca_key)),
+            ("openssl", "req", "-new", "-x509", "-sha256", "-days", "30", "-key", str(ca_key), "-subj", "/O=OUO Local Test/CN=OUO Local Test CA", "-addext", "basicConstraints=critical,CA:true", "-addext", "keyUsage=critical,keyCertSign,cRLSign", "-out", str(ca_cert)),
+            ("openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-pkeyopt", "ec_param_enc:named_curve", "-out", str(leaf_key)),
+            ("openssl", "req", "-new", "-sha256", "-key", str(leaf_key), "-subj", "/O=OUO Local Test/CN=localhost", "-out", str(leaf_csr)),
+            ("openssl", "x509", "-req", "-sha256", "-days", "30", "-in", str(leaf_csr), "-CA", str(ca_cert), "-CAkey", str(ca_key), "-CAcreateserial", "-extfile", str(extensions), "-out", str(leaf_cert)),
+        )
+        for command in commands:
+            subprocess.run(command, check=True, capture_output=True)
+        subprocess.run(
+            ("openssl", "verify", "-CAfile", str(ca_cert), str(leaf_cert)),
+            check=True,
+            capture_output=True,
+        )
+        os.chmod(ca_key, 0o600)
+        os.chmod(leaf_key, 0o600)
+        os.environ["SSL_CERT_FILE"] = str(ca_cert)
 
     def record(self, name: str, passed: bool, detail: str) -> None:
         self.results.append({"name": name, "passed": passed, "detail": detail})
@@ -180,6 +229,13 @@ class ClusterRun:
             raise AssertionError(f"{name}: {detail}")
 
     def add_service(self, name: str, role: str, env: dict[str, str]) -> Service:
+        env = {
+            **env,
+            "SSL_CERT_FILE": str(self.tls_dir / "ca.crt"),
+            "OUO_TLS_CA_FILE": str(self.tls_dir / "ca.crt"),
+            "TEST_TLS_CERT_PATH": str(self.tls_dir / "localhost.crt"),
+            "TEST_TLS_KEY_PATH": str(self.tls_dir / "localhost.key"),
+        }
         service = Service(name, role, _free_port(), env, self.run_dir / f"{name}.log")
         self.services[name] = service
         return service
@@ -197,6 +253,14 @@ class ClusterRun:
             "NODE_SIGNING_KEY_PATH": str(data / "operational.key"),
             "NODE_ROOT_KEY_PATH": str(data / "root.key"),
             "NODE_OPERATIONAL_CERTIFICATE_PATH": str(data / "operational-certificate.json"),
+            "NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH": str(
+                data / "operational-credential-chain.json"
+            ),
+            "NODE_TRANSPORT_KEY_PATH": str(data / "transport.key"),
+            "NODE_TRANSPORT_CERTIFICATE_PATH": str(data / "transport-certificate.json"),
+            "NODE_CAPABILITY_AUTHORITY_STATE_PATH": str(
+                self.capability_authority_state_path
+            ),
             "NODE_TOKEN_PATH": str(data / "node-token"),
             "ENROLLMENT_SECRET_PATH": str(data / "enrollment-secret"),
             "FEDERATION_NONCE_DB_PATH": str(data / "nonces.db"),
@@ -284,13 +348,25 @@ class ClusterRun:
             operational_key_path=env["NODE_SIGNING_KEY_PATH"],
             certificate_path=env["NODE_OPERATIONAL_CERTIFICATE_PATH"],
         )
+        load_or_update_operational_credential_state(
+            root_key_path=env["NODE_ROOT_KEY_PATH"],
+            operational_key_path=env["NODE_SIGNING_KEY_PATH"],
+            certificate_path=env["NODE_OPERATIONAL_CERTIFICATE_PATH"],
+            credential_chain_path=env.setdefault(
+                "NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH",
+                str(self.run_dir / "data" / name / "operational-credential-chain.json"),
+            ),
+            allow_existing_certificate_genesis=True,
+        )
         now = datetime.now(timezone.utc)
         certificate = build_capability_certificate(
             subject_node_id=identity["operational_certificate"]["node_id"],
             level=level,
             capabilities=[capability],
             quotas={"max_connections": 100},
-            epoch=1,
+            epoch=json.loads(
+                self.capability_authority_state_path.read_text(encoding="utf-8")
+            )["epoch"],
             issued_at=now - timedelta(minutes=1),
             valid_until=now + timedelta(days=1),
             committee=sorted(self.validator_keys),
@@ -386,7 +462,17 @@ class ClusterRun:
                 "NODE_OPERATIONAL_CERTIFICATE_PATH": str(
                     discovery_data / "operational-certificate.json"
                 ),
+                "NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH": str(
+                    discovery_data / "operational-credential-chain.json"
+                ),
+                "NODE_TRANSPORT_KEY_PATH": str(discovery_data / "transport.key"),
+                "NODE_TRANSPORT_CERTIFICATE_PATH": str(
+                    discovery_data / "transport-certificate.json"
+                ),
             }
+        )
+        self.provision_capability(
+            "discovery", discovery.env, capability="discovery", level=4
         )
         self.discovery_url = discovery.url
         discovery.start()
@@ -408,7 +494,10 @@ class ClusterRun:
                     ),
                     "OPERATIONAL_CREDENTIAL_REVOCATION_MODE": "enforce",
                     "NODE_ADVERTISEMENT_MODE": "enforce",
-                    "CAPABILITY_CERTIFICATE_MODE": "off",
+                    "CAPABILITY_CERTIFICATE_MODE": "enforce",
+                    "CAPABILITY_AUTHORITY_STATE_PATH": str(
+                        self.capability_authority_state_path
+                    ),
                     "TRUST_LEDGER_MODE": "enforce",
                     "TRUST_AUTHORITY_STATE_PATH": str(
                         self.capability_authority_state_path
@@ -429,6 +518,13 @@ class ClusterRun:
                     "NODE_OPERATIONAL_CERTIFICATE_PATH": str(
                         replica_data / "operational-certificate.json"
                     ),
+                    "NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH": str(
+                        replica_data / "operational-credential-chain.json"
+                    ),
+                    "NODE_TRANSPORT_KEY_PATH": str(replica_data / "transport.key"),
+                    "NODE_TRANSPORT_CERTIFICATE_PATH": str(
+                        replica_data / "transport-certificate.json"
+                    ),
                 }
             )
             self.provision_capability(
@@ -445,6 +541,9 @@ class ClusterRun:
                 replica.env["NODE_OPERATIONAL_CERTIFICATE_PATH"],
                 replica.url,
                 replica.env["NODE_CAPABILITY_CERTIFICATE_PATH"],
+                capability_authority_state_path=str(
+                    self.capability_authority_state_path
+                ),
             )
             response = httpx.post(
                 f"{self.discovery_url}/registry/nodes",
@@ -477,6 +576,12 @@ class ClusterRun:
                     ),
                     "TRUST_RECORD_GOSSIP_INTERVAL_SECONDS": "5",
                     "TRUST_RECORD_GOSSIP_TIMEOUT_SECONDS": "2",
+                    "NODE_ADVERTISEMENT_GOSSIP_ENABLED": "true",
+                    "NODE_ADVERTISEMENT_GOSSIP_PEERS": (
+                        f"{self.discovery_url},{self.services[other].url}"
+                    ),
+                    "NODE_ADVERTISEMENT_GOSSIP_INTERVAL_SECONDS": "2",
+                    "NODE_ADVERTISEMENT_GOSSIP_TIMEOUT_SECONDS": "2",
                     "CHALLENGE_ASSIGNMENT_GOSSIP_ENABLED": "true",
                     "CHALLENGE_ASSIGNMENT_GOSSIP_PEERS": (
                         f"{self.discovery_url},{self.services[other].url}"
@@ -500,6 +605,13 @@ class ClusterRun:
                 ),
                 "TRUST_RECORD_GOSSIP_INTERVAL_SECONDS": "5",
                 "TRUST_RECORD_GOSSIP_TIMEOUT_SECONDS": "2",
+                "NODE_ADVERTISEMENT_GOSSIP_ENABLED": "true",
+                "NODE_ADVERTISEMENT_GOSSIP_PEERS": (
+                    f"{self.services['discovery-d2'].url},"
+                    f"{self.services['discovery-d3'].url}"
+                ),
+                "NODE_ADVERTISEMENT_GOSSIP_INTERVAL_SECONDS": "2",
+                "NODE_ADVERTISEMENT_GOSSIP_TIMEOUT_SECONDS": "2",
                 "CHALLENGE_ASSIGNMENT_GOSSIP_ENABLED": "true",
                 "CHALLENGE_ASSIGNMENT_GOSSIP_PEERS": (
                     f"{self.services['discovery-d2'].url},"
@@ -529,6 +641,12 @@ class ClusterRun:
                 "RELAY_NODE_ID": "relay",
                 "RELAY_NODE_PUBLIC_URL": relay.url,
                 "RELAY_TARGET_VALIDATION_MODE": "enforce",
+                "MIX_DISCOVERY_URLS": (
+                    f"{self.discovery_url},"
+                    f"{self.services['discovery-d2'].url},"
+                    f"{self.services['discovery-d3'].url}"
+                ),
+                "MIX_MINIMUM_DISCOVERY_SOURCES": "2",
                 "RELAY_LINK_SEQUENCE_DB_PATH": str(
                     self.run_dir / "data" / "relay" / "link-sequences.db"
                 ),
@@ -549,6 +667,7 @@ class ClusterRun:
                     "NODE_RESOURCE_POLICY": "federated",
                 }
             )
+            self.provision_capability(name, home.env, capability="home", level=0)
 
         for name in ("storage", "relay", "home-a", "home-b", "home-c"):
             self.services[name].start()
@@ -578,6 +697,93 @@ class ClusterRun:
             ),
         )
         node_map = {node["node_id"]: node for node in nodes}
+        federated_subjects = {
+            "discovery": "discovery",
+            "discovery-d2": "discovery",
+            "discovery-d3": "discovery",
+            "storage": "storage",
+            "relay": "relay",
+            "home-a": "home",
+            "home-b": "home",
+            "home-c": "home",
+        }
+        # Generate one immutable signed advertisement per subject. Recreating
+        # it for each registry would change its timestamp/epoch and prevent
+        # independent observations from reaching a hash quorum.
+        subject_registrations = {}
+        for subject_name, capability in federated_subjects.items():
+            subject = self.services[subject_name]
+            subject_env = subject.env
+            subject_registrations[subject_name] = (
+                capability,
+                subject.url,
+                federation_registration_fields(
+                    subject_env["NODE_SIGNING_KEY_PATH"],
+                    subject_env["NODE_ROOT_KEY_PATH"],
+                    subject_env["NODE_OPERATIONAL_CERTIFICATE_PATH"],
+                    subject.url,
+                    subject_env["NODE_CAPABILITY_CERTIFICATE_PATH"],
+                    capability_authority_state_path=str(
+                        self.capability_authority_state_path
+                    ),
+                    operational_credential_chain_path=subject_env.get(
+                        "NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH"
+                    ),
+                    transport_key_path=subject_env.get("NODE_TRANSPORT_KEY_PATH"),
+                    transport_certificate_path=subject_env.get(
+                        "NODE_TRANSPORT_CERTIFICATE_PATH"
+                    ),
+                ),
+            )
+
+        # Every Discovery must know every observation source before accepting
+        # signed advertisement gossip from it. Mirror the complete source set,
+        # including D1 itself, into all three registries.
+        for target_name in ("discovery", "discovery-d2", "discovery-d3"):
+            target = self.services[target_name]
+            for subject_name, (capability, subject_url, fields) in (
+                subject_registrations.items()
+            ):
+                response = httpx.post(
+                    f"{target.url}/registry/nodes",
+                    json={
+                        "node_id": subject_name,
+                        "node_url": subject_url,
+                        "capabilities": [capability],
+                        "software_version": "cluster-test",
+                        "cluster_id": "local-test",
+                        **fields,
+                    },
+                    timeout=5,
+                )
+                response.raise_for_status()
+
+        quorum_ready = False
+        deadline = time.monotonic() + 12
+        while time.monotonic() < deadline:
+            views = [
+                httpx.get(
+                    f"{self.services[name].url}/registry/node-advertisements/peer-view",
+                    params={"minimum_sources": 2},
+                    timeout=5,
+                ).json()
+                for name in ("discovery-d2", "discovery-d3")
+            ]
+            quorum_ready = all(
+                any(
+                    "home" in candidate.get("capabilities", [])
+                    for candidate in view.get("candidates", [])
+                )
+                for view in views
+            )
+            if quorum_ready:
+                break
+            time.sleep(0.25)
+        self.record(
+            "three-discovery-advertisement-quorum",
+            quorum_ready,
+            f"ready={quorum_ready}",
+        )
         home_a_env = self.services["home-a"].env
         refreshed_fields = federation_registration_fields(
             home_a_env["NODE_SIGNING_KEY_PATH"],
@@ -605,42 +811,15 @@ class ClusterRun:
             f"HTTP {refresh_response.status_code} epoch={original_epoch}->{refreshed_epoch}",
         )
         relay_env = self.services["relay"].env
-        relay_capability_path = Path(relay_env["NODE_CAPABILITY_CERTIFICATE_PATH"])
-        relay_capability_head = json.loads(relay_capability_path.read_text(encoding="utf-8"))
-        relay_identity = node_identity_registration_fields(
-            root_key_path=relay_env["NODE_ROOT_KEY_PATH"],
-            operational_key_path=relay_env["NODE_SIGNING_KEY_PATH"],
-            certificate_path=relay_env["NODE_OPERATIONAL_CERTIFICATE_PATH"],
-        )
-        now = datetime.now(timezone.utc)
-        relay_capability_next = build_capability_certificate(
-            subject_node_id=relay_identity["operational_certificate"]["node_id"],
-            level=2,
-            capabilities=["relay"],
-            quotas={"max_connections": 100},
-            epoch=2,
-            issued_at=now - timedelta(minutes=1),
-            valid_until=now + timedelta(days=1),
-            committee=sorted(self.validator_keys),
-            threshold=5,
-            previous_hash=capability_certificate_hash(relay_capability_head),
-        )
-        for validator_id in sorted(self.validator_keys)[:5]:
-            relay_capability_next = add_validator_signature(
-                relay_capability_next,
-                validator_id=validator_id,
-                validator_signing_key=self.validator_keys[validator_id],
-            )
-        relay_capability_path.write_text(
-            json.dumps(relay_capability_next, sort_keys=True, separators=(",", ":")) + "\n",
-            encoding="utf-8",
-        )
         relay_refresh_fields = federation_registration_fields(
             relay_env["NODE_SIGNING_KEY_PATH"],
             relay_env["NODE_ROOT_KEY_PATH"],
             relay_env["NODE_OPERATIONAL_CERTIFICATE_PATH"],
             self.services["relay"].url,
             relay_env["NODE_CAPABILITY_CERTIFICATE_PATH"],
+            capability_authority_state_path=str(
+                self.capability_authority_state_path
+            ),
         )
         relay_refresh = httpx.post(
             f"{self.discovery_url}/registry/nodes/relay/heartbeat",
@@ -653,9 +832,9 @@ class ClusterRun:
             else None
         )
         self.record(
-            "capability-certificate-heartbeat-rotation",
-            relay_refresh.status_code == 200 and relay_refresh_epoch == 2,
-            f"HTTP {relay_refresh.status_code} epoch=1->{relay_refresh_epoch}",
+            "capability-certificate-heartbeat-stability",
+            relay_refresh.status_code == 200 and relay_refresh_epoch == 1,
+            f"HTTP {relay_refresh.status_code} epoch={relay_refresh_epoch}",
         )
         health_node_ids = {
             name: httpx.get(f"{self.services[name].url}/health", timeout=5).json().get("node_id")
@@ -678,7 +857,7 @@ class ClusterRun:
                 for name in ("discovery-d2", "discovery-d3")
             )
             and all(
-                node_map.get(name, {}).get("certified_capabilities") == []
+                node_map.get(name, {}).get("certified_capabilities") == ["home"]
                 for name in ("home-a", "home-b", "home-c")
             ),
             ",".join(
@@ -723,7 +902,9 @@ class ClusterRun:
             previous_level=0,
             new_level=1,
             action="promotion",
-            epoch=1,
+            epoch=json.loads(
+                self.capability_authority_state_path.read_text(encoding="utf-8")
+            )["epoch"],
             metrics_commitment=hashlib.sha256(b"cluster-test-external-evidence").hexdigest(),
             committee=sorted(self.validator_keys),
             threshold=5,
@@ -899,7 +1080,7 @@ class ClusterRun:
                 .json()
                 .get("load", {})
                 .get("operational_credential_states")
-                == 1
+                >= 8
                 for name in ("discovery-d2", "discovery-d3")
             ]
             if credential_replicated == [True, True]:
@@ -1260,7 +1441,7 @@ class ClusterRun:
         websocket_results = []
         websocket_replay_code = None
         with websocket_connect(
-            f"ws://127.0.0.1:{relay.port}/relay/ws",
+            f"wss://127.0.0.1:{relay.port}/relay/ws",
             additional_headers=websocket_headers,
             open_timeout=5,
             close_timeout=2,
@@ -1277,7 +1458,10 @@ class ClusterRun:
                     target_home_node_url=home_b.url,
                 )
                 websocket.send(
-                    encode_batch(sequence=sequence, cells=[_json_bytes(ws_payload)])
+                    encode_batch(
+                        sequence=sequence,
+                        cells=[_json_bytes(build_link_cell(ws_payload))],
+                    )
                 )
                 reply = decode_batch(websocket.recv(timeout=10))
                 result = json.loads(reply.cells[0])
@@ -1287,7 +1471,10 @@ class ClusterRun:
                     and result.get("result", {}).get("status") == "forwarded"
                 )
             websocket.send(
-                encode_batch(sequence=2, cells=[_json_bytes(ws_payload)])
+                encode_batch(
+                    sequence=2,
+                    cells=[_json_bytes(build_link_cell(ws_payload))],
+                )
             )
             try:
                 websocket.recv(timeout=5)
@@ -1307,13 +1494,16 @@ class ClusterRun:
         )
         websocket_quota_code = None
         with websocket_connect(
-            f"ws://127.0.0.1:{relay.port}/relay/ws",
+            f"wss://127.0.0.1:{relay.port}/relay/ws",
             additional_headers=quota_headers,
             open_timeout=5,
             close_timeout=2,
         ) as websocket:
             websocket.send(
-                encode_batch(sequence=1, cells=[_json_bytes(ws_payload)] * 33)
+                encode_batch(
+                    sequence=1,
+                    cells=[_json_bytes(build_link_cell(ws_payload))] * 33,
+                )
             )
             try:
                 websocket.recv(timeout=5)
@@ -1702,7 +1892,7 @@ class ClusterRun:
                 snapshot.get("effective_observations") == 1
                 and snapshot.get("observer_count") == 1
                 and snapshot.get("success_rate_bps") == 10_000
-                and snapshot.get("promotion_decision") == "not_evaluated"
+                and snapshot.get("promotion_decision") == "not_eligible"
                 for snapshot in reliability_snapshots
             ),
             f"effective={[snapshot.get('effective_observations') for snapshot in reliability_snapshots]}",
@@ -1755,7 +1945,7 @@ class ClusterRun:
             after_discovery_outage.status_code == 200,
             f"HTTP {after_discovery_outage.status_code}",
         )
-        unverified_relay_direct = self.deliver_payload("home-a", home_b.url, str(uuid.uuid4()))
+        quorum_relay_direct = self.deliver_payload("home-a", home_b.url, str(uuid.uuid4()))
         relay_during_discovery_outage = self.signed_request(
             method="POST",
             url=f"{relay.url}/relay/forward",
@@ -1765,14 +1955,14 @@ class ClusterRun:
             payload=build_relay_forward_payload(
                 signing_key=signing_key,
                 origin_node_id="home-a",
-                envelope=unverified_relay_direct["envelope"],
-                conversation_meta=unverified_relay_direct["conversation_meta"],
+                envelope=quorum_relay_direct["envelope"],
+                conversation_meta=quorum_relay_direct["conversation_meta"],
                 target_home_node_url=home_b.url,
             ),
         )
         self.record(
-            "relay-freezes-unverified-target-with-discovery-down",
-            relay_during_discovery_outage.status_code == 403,
+            "relay-continues-with-two-of-three-discovery",
+            relay_during_discovery_outage.status_code == 200,
             f"HTTP {relay_during_discovery_outage.status_code}",
         )
 

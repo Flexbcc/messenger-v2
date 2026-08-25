@@ -223,7 +223,7 @@ def test_reliability_snapshot_caps_observer_weight_and_excludes_suspended(tmp_pa
         assert snapshot.effective_observations == 2
         assert snapshot.observer_count == 2
         assert snapshot.success_rate_bps == 10_000
-        assert snapshot.promotion_decision == "not_evaluated"
+        assert snapshot.promotion_decision == "not_eligible"
 
         with db.get_conn() as conn:
             conn.execute(

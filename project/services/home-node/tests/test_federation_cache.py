@@ -136,7 +136,7 @@ async def test_home_prefers_persistent_websocket_relay(monkeypatch):
 
     monkeypatch.setattr(federation, "_get_target_curve_public_key", lambda *_args: _none())
     monkeypatch.setattr(federation, "_reachable_relays", lambda: _value(["http://relay-a"]))
-    monkeypatch.setattr(federation, "_get_relay_ws_client", lambda: WsClient())
+    monkeypatch.setattr(federation, "_get_relay_transport", lambda: WsClient())
     monkeypatch.setattr(federation, "federation_post", direct_fails)
     monkeypatch.setattr(federation.httpx, "AsyncClient", lambda **_kwargs: _DummyAsyncClient())
     monkeypatch.setattr(federation.settings, "relay_transport_mode", "websocket-preferred")
@@ -154,8 +154,17 @@ async def test_home_websocket_preferred_falls_back_to_http(monkeypatch):
     http_paths = []
 
     class WsClient:
-        async def forward(self, _relay_url, _payload):
-            raise RelayTransportError("link unavailable")
+        async def forward(self, relay_url, payload):
+            # RelayTransportAdapter owns WebSocket -> HTTP fallback now.
+            async with _DummyAsyncClient() as client:
+                response = await federation_post(
+                    client,
+                    relay_url,
+                    path="/relay/forward",
+                    json=payload,
+                )
+                response.raise_for_status()
+                return {"status": "forwarded"}
 
     async def federation_post(_client, _url, *, path, **_kwargs):
         http_paths.append(path)
@@ -165,7 +174,7 @@ async def test_home_websocket_preferred_falls_back_to_http(monkeypatch):
 
     monkeypatch.setattr(federation, "_get_target_curve_public_key", lambda *_args: _none())
     monkeypatch.setattr(federation, "_reachable_relays", lambda: _value(["http://relay-a"]))
-    monkeypatch.setattr(federation, "_get_relay_ws_client", lambda: WsClient())
+    monkeypatch.setattr(federation, "_get_relay_transport", lambda: WsClient())
     monkeypatch.setattr(federation, "federation_post", federation_post)
     monkeypatch.setattr(federation.httpx, "AsyncClient", lambda **_kwargs: _DummyAsyncClient())
     monkeypatch.setattr(federation.settings, "relay_transport_mode", "websocket-preferred")

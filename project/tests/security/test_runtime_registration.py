@@ -6,21 +6,19 @@ from shared.security.runtime import FederationSecurity, federation_registration_
 from shared.security.node_identity import NODE_ID_PREFIX
 
 
-def test_registration_loads_provisioned_capability_certificate(tmp_path):
+def test_registration_rejects_unverifiable_capability_certificate(tmp_path):
     capability = {"protocol_version": "ouo-capability/1", "opaque": "test-only"}
     capability_path = tmp_path / "capability.json"
     capability_path.write_text(json.dumps(capability), encoding="utf-8")
 
-    fields = federation_registration_fields(
-        str(tmp_path / "operational.key"),
-        str(tmp_path / "root.key"),
-        str(tmp_path / "operational-certificate.json"),
-        "https://node.example",
-        str(capability_path),
-    )
-
-    assert fields["capability_certificate"] == capability
-    assert fields["node_advertisement"]["endpoints"] == ["https://node.example"]
+    with pytest.raises(ValueError, match="requires a local authority state"):
+        federation_registration_fields(
+            str(tmp_path / "operational.key"),
+            str(tmp_path / "root.key"),
+            str(tmp_path / "operational-certificate.json"),
+            "https://node.example",
+            str(capability_path),
+        )
 
 
 def test_registration_can_publish_atomic_operational_credential_state(tmp_path):

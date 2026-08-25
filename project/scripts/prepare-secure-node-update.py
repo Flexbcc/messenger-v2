@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import sys
@@ -11,11 +12,23 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
-sys.path.insert(0, os.fspath(Path(__file__).resolve().parents[1]))
-
 from tuf.ngclient import Updater
 
-from shared.security.update_policy import evaluate_update, load_state
+
+def _load_update_policy():
+    path = Path(__file__).resolve().parents[1] / "shared/security/update_policy.py"
+    spec = importlib.util.spec_from_file_location("ouo_update_policy", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("cannot load update policy")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_update_policy = _load_update_policy()
+evaluate_update = _update_policy.evaluate_update
+load_state = _update_policy.load_state
 
 
 def main() -> int:

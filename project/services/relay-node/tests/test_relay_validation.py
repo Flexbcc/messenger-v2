@@ -78,6 +78,7 @@ async def test_report_mode_keeps_legacy_delivery_path(monkeypatch):
     security.signing_key = MagicMock()
     security.node_id = "relay-a"
     security.trust_cache = MagicMock()
+    security.trust_cache.capability_quotas = AsyncMock(return_value={})
     security.nonce_store = MagicMock()
     security.audit_log = MagicMock()
     response = MagicMock()

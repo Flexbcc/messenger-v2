@@ -532,6 +532,21 @@ def test_capability_enforce_refreshes_on_heartbeat_and_expires_from_catalog(tmp_
         assert idempotent.capability_epoch == 1
 
         second = capability(2, previous_hash=capability_certificate_hash(first))
+        authority = parse_capability_authority_state(
+            {
+                "epoch": 2,
+                "committee": sorted(validators),
+                "threshold": 5,
+                "validators": {
+                    validator_id: {
+                        "public_key": public_key_b64(key),
+                        "valid_until": (now + timedelta(days=3)).isoformat(),
+                        "revoked": False,
+                    }
+                    for validator_id, key in validators.items()
+                },
+            }
+        )
         refreshed = registry.heartbeat(
             "renewing-relay",
             schemas.HeartbeatRequest(

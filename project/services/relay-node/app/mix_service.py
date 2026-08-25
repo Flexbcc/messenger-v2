@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from shared.security.outbound_tls import outbound_tls_verify
 
 from app.config import settings
 from app.fed_security import get_federation_security
@@ -93,7 +94,7 @@ async def _resolve_next_node_uncached(
     if len(origins) < settings.mix_minimum_discovery_sources:
         raise RuntimeError("insufficient Discovery sources for next Mix hop")
     async with httpx.AsyncClient(
-        timeout=5.0, follow_redirects=False, trust_env=False
+        timeout=5.0, follow_redirects=False, trust_env=False, verify=outbound_tls_verify()
     ) as client:
         results = await asyncio.gather(
             *(_fetch_peer_view(client, origin) for origin in origins),
@@ -206,7 +207,7 @@ async def trusted_home_endpoint(target_url: str) -> bool:
         if len(origins) < settings.mix_minimum_discovery_sources:
             return False
         async with httpx.AsyncClient(
-            timeout=5.0, follow_redirects=False, trust_env=False
+            timeout=5.0, follow_redirects=False, trust_env=False, verify=outbound_tls_verify()
         ) as client:
             results = await asyncio.gather(
                 *(_fetch_peer_view(client, origin) for origin in origins),
@@ -268,7 +269,7 @@ async def trusted_relay_endpoints(*, minimum_level: int = 0) -> list[str]:
         if len(origins) < settings.mix_minimum_discovery_sources:
             return []
         async with httpx.AsyncClient(
-            timeout=5.0, follow_redirects=False, trust_env=False
+            timeout=5.0, follow_redirects=False, trust_env=False, verify=outbound_tls_verify()
         ) as client:
             results = await asyncio.gather(
                 *(_fetch_peer_view(client, origin) for origin in origins),
@@ -337,7 +338,7 @@ async def _send_next(
     payload = build_opaque_ingress_packet(
         packet, expires_at=expires_at
     )
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=False, trust_env=False) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=False, trust_env=False, verify=outbound_tls_verify()) as client:
         response = await federation_post(
             client,
             f"{target}/mix/ingress",

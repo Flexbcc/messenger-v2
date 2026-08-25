@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import httpx
+from shared.security.outbound_tls import outbound_tls_verify
 
 from app.config import settings
 from app.fed_security import get_federation_security
@@ -40,7 +41,7 @@ async def plan_transport_route() -> tuple[TransportPeer, ...]:
     origins = tuple(settings.route_discovery_urls)
     if len(origins) < settings.route_minimum_discovery_sources:
         raise ValueError("insufficient Discovery sources for transport route")
-    async with httpx.AsyncClient(timeout=5.0, follow_redirects=False, trust_env=False) as client:
+    async with httpx.AsyncClient(timeout=5.0, follow_redirects=False, trust_env=False, verify=outbound_tls_verify()) as client:
         results = await asyncio.gather(
             *(_fetch_view(client, origin) for origin in origins),
             return_exceptions=True,

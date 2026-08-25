@@ -2,7 +2,7 @@
 
 OUO не доверяет GitHub, CI, CDN или одному release key как достаточному
 источнику обновления. Metadata и artifacts проверяются reference client
-`python-tuf 7.0.0` по TUF 1.0.
+`python-tuf 6.0.0` по TUF 1.0.
 
 ## Roles
 
@@ -52,11 +52,23 @@ authority. CI может собрать artifact, но не владеет root 
 используется как двусмысленное «пауза/ошибка» — для паузы timestamp/targets не
 публикуются либо rollout остаётся на предыдущем валидном release.
 
+## Operational implementation
+
+`tools/update-security/ouo_tuf.py` реализует ceremony, signed release builder и
+publisher. Ceremony создаёт encrypted Ed25519 PKCS#8 keys и trusted Root
+3-of-5 / Targets 2-of-3. Publisher private keys не читает: он принимает только
+готовый bundle, повторно проверяет thresholds, expiry, linkage и artifact, а
+затем атомарно переключает repository `current` на immutable release directory.
+
+`install-verified-node-update.py` принимает только receipt от TUF verifier,
+повторно проверяет artifact, безопасно распаковывает его в новую version
+directory, атомарно переключает `current`, выполняет operator-provided restart
+без shell и health gate. При ошибке symlink возвращается на предыдущую версию;
+release high-watermark фиксируется только после health success.
+
 ## Ещё не закрыто этим срезом
 
-- ceremony/физическое распределение реальных offline keys;
-- repository publisher и release transparency log;
-- platform installers с atomic rollback и staged health gate;
+- физическое распределение offline keys между независимыми custodians;
 - reproducible build attestations.
 
 Без этих operational частей механизм готовит и проверяет artifact, но не даёт

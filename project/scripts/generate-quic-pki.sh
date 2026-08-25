@@ -65,14 +65,16 @@ openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-384 \
 openssl req -new -sha384 -key "$STAGE/issuer/quic-issuing-ca.key" \
   -subj "/O=OUO Test Network/CN=OUO QUIC Issuing CA" \
   -out "$STAGE/issuer/quic-issuing-ca.csr"
+openssl rand -hex 16 >"$STAGE/root/root-ca.srl"
 openssl x509 -req -sha384 -days 1825 \
   -in "$STAGE/issuer/quic-issuing-ca.csr" \
   -CA "$STAGE/root/root-ca.crt" -CAkey "$STAGE/root/root-ca.key" \
-  -CAcreateserial -extfile "$STAGE/issuer/extensions.cnf" \
+  -CAserial "$STAGE/root/root-ca.srl" -extfile "$STAGE/issuer/extensions.cnf" \
   -extensions issuing_ca -out "$STAGE/issuer/quic-issuing-ca.crt"
 
 cat "$STAGE/issuer/quic-issuing-ca.crt" "$STAGE/root/root-ca.crt" \
   >"$STAGE/trust/ca-chain.crt"
+openssl rand -hex 16 >"$STAGE/issuer/quic-issuing-ca.srl"
 
 COUNT=0
 while IFS=, read -r NAME DNS_NAMES IP_ADDRESSES; do
@@ -117,7 +119,8 @@ while IFS=, read -r NAME DNS_NAMES IP_ADDRESSES; do
 
   openssl x509 -req -sha256 -days 397 -in "$NODE_DIR/tls.csr" \
     -CA "$STAGE/issuer/quic-issuing-ca.crt" \
-    -CAkey "$STAGE/issuer/quic-issuing-ca.key" -CAcreateserial \
+    -CAkey "$STAGE/issuer/quic-issuing-ca.key" \
+    -CAserial "$STAGE/issuer/quic-issuing-ca.srl" \
     -extfile "$NODE_DIR/extensions.cnf" -extensions leaf \
     -out "$NODE_DIR/tls.crt"
   openssl verify -CAfile "$STAGE/root/root-ca.crt" \

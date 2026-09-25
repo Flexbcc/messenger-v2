@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_card.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_tile.dart';
 import '../models/settings_catalog.dart';
 import '../state/settings_catalog_controller.dart';
@@ -25,86 +26,79 @@ class AppearanceScreen extends ConsumerWidget {
     final themeSettings = ref.watch(themeSettingsProvider);
     final catalogAsync = ref.watch(settingsCatalogProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Оформление')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        children: [
-          const SizedBox(height: AppSpacing.md),
-          AppSettingsGroup(
-            title: 'Тема',
-            children: [
-              for (var i = 0; i < _options.length; i++)
-                AppTile(
-                  leading: Icon(_options[i].$3, color: colors.textSecondary),
-                  title: _options[i].$2,
-                  trailing: themeSettings.mode == _options[i].$1
-                      ? Icon(
-                          Icons.check_circle,
-                          color: colors.primary,
-                          size: 20,
-                        )
-                      : null,
-                  showDivider: i < _options.length - 1,
-                  onTap: () =>
-                      ref.read(themeSettingsProvider).setMode(_options[i].$1),
+    return AppListPage(
+      title: 'Оформление',
+      children: [
+        const SizedBox(height: AppSpacing.md),
+        AppSettingsGroup(
+          title: 'Тема',
+          children: [
+            for (var i = 0; i < _options.length; i++)
+              AppTile(
+                leading: Icon(_options[i].$3, color: colors.textSecondary),
+                title: _options[i].$2,
+                trailing: themeSettings.mode == _options[i].$1
+                    ? Icon(Icons.check_circle, color: colors.primary, size: 20)
+                    : null,
+                showDivider: i < _options.length - 1,
+                onTap: () =>
+                    ref.read(themeSettingsProvider).setMode(_options[i].$1),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        catalogAsync.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (catalog) {
+            final values = ref.watch(settingsCatalogValuesProvider);
+            if (!values.loaded) {
+              ref.read(settingsCatalogValuesProvider).load(catalog);
+            }
+            return AppSettingsGroup(
+              title: 'Интерфейс',
+              children: [
+                _catalogSelect(
+                  context,
+                  ref,
+                  catalog,
+                  'appearance.text_size',
+                  'Размер текста',
                 ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          catalogAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (catalog) {
-              final values = ref.watch(settingsCatalogValuesProvider);
-              if (!values.loaded) {
-                ref.read(settingsCatalogValuesProvider).load(catalog);
-              }
-              return AppSettingsGroup(
-                title: 'Интерфейс',
-                children: [
-                  _catalogSelect(
-                    context,
-                    ref,
-                    catalog,
-                    'appearance.text_size',
-                    'Размер текста',
-                  ),
-                  _catalogBool(
-                    context,
-                    ref,
-                    catalog,
-                    'appearance.compact',
-                    'Компактный режим',
-                  ),
-                  _catalogBool(
-                    context,
-                    ref,
-                    catalog,
-                    'appearance.animations',
-                    'Анимации',
-                  ),
-                  _catalogBool(
-                    context,
-                    ref,
-                    catalog,
-                    'appearance.reduce_motion',
-                    'Уменьшить движение',
-                  ),
-                  _catalogSelect(
-                    context,
-                    ref,
-                    catalog,
-                    'appearance.chat_bubbles',
-                    'Пузыри чата',
-                    last: true,
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
+                _catalogBool(
+                  context,
+                  ref,
+                  catalog,
+                  'appearance.compact',
+                  'Компактный режим',
+                ),
+                _catalogBool(
+                  context,
+                  ref,
+                  catalog,
+                  'appearance.animations',
+                  'Анимации',
+                ),
+                _catalogBool(
+                  context,
+                  ref,
+                  catalog,
+                  'appearance.reduce_motion',
+                  'Уменьшить движение',
+                ),
+                _catalogSelect(
+                  context,
+                  ref,
+                  catalog,
+                  'appearance.chat_bubbles',
+                  'Пузыри чата',
+                  last: true,
+                ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 

@@ -142,3 +142,11 @@ docker-compose.override.yml
 # --- Логи ---
 *.log
 logs/
+
+# --- Локальные результаты проверок ---
+# Исходники автоматических тестов хранятся в Git, их сгенерированные результаты — нет.
+coverage/
+**/coverage/
+frontend/app/docs/ui-screenshots/
+**/test-results/
+**/playwright-report/

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_card.dart';
+import '../core/ui/app_page.dart';
 
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
@@ -15,10 +16,11 @@ class HelpScreen extends StatelessWidget {
     final text = context.textStyles;
     final colors = context.colors;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Помощь и поддержка')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.screenPadding),
+    return AppPage(
+      title: 'Помощь и поддержка',
+      padding: const EdgeInsets.all(AppSpacing.screenPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('Частые вопросы', style: text.title),
           const SizedBox(height: AppSpacing.md),

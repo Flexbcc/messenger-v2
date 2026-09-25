@@ -5,6 +5,7 @@ import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_radius.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_card.dart';
+import '../core/ui/app_page.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -14,10 +15,10 @@ class AboutScreen extends StatelessWidget {
     final colors = context.colors;
     final text = context.textStyles;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('О приложении')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.screenPadding),
+    return AppPage(
+      title: 'О приложении',
+      padding: const EdgeInsets.all(AppSpacing.screenPadding),
+      child: Column(
         children: [
           const SizedBox(height: AppSpacing.xl),
           Center(

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_card.dart';
+import '../../core/ui/app_empty_state.dart';
+import '../../core/ui/app_page.dart';
 import '../../core/ui/app_tile.dart';
 import '../../services/duress_policy_session.dart';
 import '../../state/app_controller.dart';
@@ -111,87 +113,87 @@ class _TrustedContactsScreenState extends ConsumerState<TrustedContactsScreen> {
     final colors = context.colors;
 
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    if (!DuressPolicySession.instance.isUnlocked) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Доверенные контакты')),
-        body: const Center(child: Text('Разблокируйте защищённый раздел')),
+      return const AppPage(
+        scroll: false,
+        child: Center(child: CircularProgressIndicator()),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Доверенные контакты')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.screenPadding),
-            child: AppCard(
-              child: Text(
-                'Эти люди получат сигнал в общем чате при срабатывании политики безопасности '
-                '(неверный PIN, дополнительный PIN и т.д.).',
-                style: text.caption,
-              ),
+    if (!DuressPolicySession.instance.isUnlocked) {
+      return const AppPage(
+        title: 'Доверенные контакты',
+        scroll: false,
+        child: AppEmptyState(
+          icon: Icons.lock_outline,
+          title: 'Защищённый раздел заблокирован',
+          subtitle: 'Разблокируйте его, чтобы изменить список',
+        ),
+      );
+    }
+
+    return AppListPage(
+      title: 'Доверенные контакты',
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.screenPadding),
+          child: AppCard(
+            child: Text(
+              'Эти люди получат сигнал в общем чате при срабатывании политики безопасности '
+              '(неверный PIN, дополнительный PIN и т.д.).',
+              style: text.caption,
             ),
           ),
-          AppSettingsGroup(
-            title: 'Добавить',
-            children: [
-              AppTile(
-                leading: Icon(
-                  Icons.person_add_outlined,
-                  color: colors.textSecondary,
-                ),
-                title: 'Из списка чатов',
-                trailing: AppTile.chevron(context),
-                onTap: _pickFromChats,
-                showDivider: true,
+        ),
+        AppSettingsGroup(
+          title: 'Добавить',
+          children: [
+            AppTile(
+              leading: Icon(
+                Icons.person_add_outlined,
+                color: colors.textSecondary,
               ),
-              AppTile(
-                leading: Icon(
-                  Icons.badge_outlined,
-                  color: colors.textSecondary,
-                ),
-                title: 'По User ID',
-                trailing: AppTile.chevron(context),
-                onTap: _addById,
-              ),
-            ],
-          ),
-          if (_ids.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.lg),
-            AppSettingsGroup(
-              title: 'Список',
-              children: [
-                for (var i = 0; i < _ids.length; i++)
-                  AppTile(
-                    leading: Icon(
-                      Icons.verified_user_outlined,
-                      color: colors.textSecondary,
-                    ),
-                    title: controller.labelFor(_ids[i]),
-                    subtitle: _ids[i],
-                    trailing: IconButton(
-                      icon: Icon(
-                        Icons.remove_circle_outline,
-                        color: colors.danger,
-                      ),
-                      onPressed: () async {
-                        await DuressPolicySession.instance.removeTrusted(
-                          _ids[i],
-                        );
-                        await _load();
-                      },
-                    ),
-                    showDivider: i < _ids.length - 1,
-                  ),
-              ],
+              title: 'Из списка чатов',
+              trailing: AppTile.chevron(context),
+              onTap: _pickFromChats,
+              showDivider: true,
+            ),
+            AppTile(
+              leading: Icon(Icons.badge_outlined, color: colors.textSecondary),
+              title: 'По User ID',
+              trailing: AppTile.chevron(context),
+              onTap: _addById,
             ),
           ],
+        ),
+        if (_ids.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
+          AppSettingsGroup(
+            title: 'Список',
+            children: [
+              for (var i = 0; i < _ids.length; i++)
+                AppTile(
+                  leading: Icon(
+                    Icons.verified_user_outlined,
+                    color: colors.textSecondary,
+                  ),
+                  title: controller.labelFor(_ids[i]),
+                  subtitle: _ids[i],
+                  trailing: IconButton(
+                    icon: Icon(
+                      Icons.remove_circle_outline,
+                      color: colors.danger,
+                    ),
+                    onPressed: () async {
+                      await DuressPolicySession.instance.removeTrusted(_ids[i]);
+                      await _load();
+                    },
+                  ),
+                  showDivider: i < _ids.length - 1,
+                ),
+            ],
+          ),
         ],
-      ),
+      ],
     );
   }
 }

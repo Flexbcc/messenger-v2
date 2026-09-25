@@ -7,6 +7,8 @@ import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_bottom_sheet.dart';
 import '../../core/ui/app_card.dart';
+import '../../core/ui/app_empty_state.dart';
+import '../../core/ui/app_page.dart';
 import '../../core/ui/app_tile.dart';
 import '../../models/duress_policy.dart';
 import '../../services/duress_policy_session.dart';
@@ -149,122 +151,122 @@ class _DuressPolicyScreenState extends ConsumerState<DuressPolicyScreen> {
     final colors = context.colors;
 
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppPage(
+        scroll: false,
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (!DuressPolicySession.instance.isUnlocked) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Политика безопасности')),
-        body: const Center(
-          child: Text('Сначала разблокируйте защищённый раздел'),
+      return const AppPage(
+        title: 'Политика безопасности',
+        scroll: false,
+        child: AppEmptyState(
+          icon: Icons.lock_outline,
+          title: 'Защищённый раздел заблокирован',
+          subtitle: 'Сначала разблокируйте его основным PIN',
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Политика безопасности')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.screenPadding),
-            child: AppCard(
-              child: Text(
-                'Правила срабатывают при вводе PIN и дополнительного PIN. '
-                'Настройки хранятся на устройстве в зашифрованном виде.',
-                style: text.caption,
-              ),
+    return AppListPage(
+      title: 'Политика безопасности',
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.screenPadding),
+          child: AppCard(
+            child: Text(
+              'Правила срабатывают при вводе PIN и дополнительного PIN. '
+              'Настройки хранятся на устройстве в зашифрованном виде.',
+              style: text.caption,
             ),
           ),
-          AppSettingsGroup(
-            title: 'Пресет',
-            children: [
-              AppTile(
-                leading: Icon(
-                  Icons.policy_outlined,
-                  color: colors.textSecondary,
-                ),
-                title: DuressPresets.label(_presetId),
-                subtitle: DuressPresets.description(_presetId),
-                trailing: AppTile.chevron(context),
-                onTap: _pickPreset,
+        ),
+        AppSettingsGroup(
+          title: 'Пресет',
+          children: [
+            AppTile(
+              leading: Icon(Icons.policy_outlined, color: colors.textSecondary),
+              title: DuressPresets.label(_presetId),
+              subtitle: DuressPresets.description(_presetId),
+              trailing: AppTile.chevron(context),
+              onTap: _pickPreset,
+            ),
+            AppTile(
+              leading: Icon(Icons.tune_outlined, color: colors.textSecondary),
+              title: 'Свои правила',
+              subtitle: _presetId == DuressPresets.customId
+                  ? '${DuressPolicySession.instance.data?.rules.length ?? 0} правил'
+                  : 'Настроить пороги и действия вручную',
+              trailing: AppTile.chevron(context),
+              onTap: _openRulesEditor,
+              showDivider: false,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          title: 'Доставка сигналов',
+          children: [
+            AppTile(
+              leading: Icon(Icons.hub_outlined, color: colors.textSecondary),
+              title: DuressTrustedChannels.label(_channels),
+              subtitle: DuressTrustedChannels.description(_channels),
+              trailing: AppTile.chevron(context),
+              onTap: _pickChannels,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          title: 'Доверенные лица',
+          children: [
+            AppTile(
+              leading: Icon(
+                Icons.verified_user_outlined,
+                color: colors.textSecondary,
               ),
-              AppTile(
-                leading: Icon(Icons.tune_outlined, color: colors.textSecondary),
-                title: 'Свои правила',
-                subtitle: _presetId == DuressPresets.customId
-                    ? '${DuressPolicySession.instance.data?.rules.length ?? 0} правил'
-                    : 'Настроить пороги и действия вручную',
-                trailing: AppTile.chevron(context),
-                onTap: _openRulesEditor,
-                showDivider: false,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Доставка сигналов',
-            children: [
-              AppTile(
-                leading: Icon(Icons.hub_outlined, color: colors.textSecondary),
-                title: DuressTrustedChannels.label(_channels),
-                subtitle: DuressTrustedChannels.description(_channels),
-                trailing: AppTile.chevron(context),
-                onTap: _pickChannels,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Доверенные лица',
-            children: [
-              AppTile(
-                leading: Icon(
-                  Icons.verified_user_outlined,
-                  color: colors.textSecondary,
-                ),
-                title: 'Список контактов',
-                subtitle:
-                    '${DuressPolicySession.instance.data?.trustedUserIds.length ?? 0} выбрано',
-                trailing: AppTile.chevron(context),
-                onTap: () async {
-                  final enabled = await SettingsRuntime.instance
-                      .contactsTrustedEnabled();
-                  if (!context.mounted) return;
-                  if (!enabled) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Список доверенных отключён в настройках контактов',
-                        ),
+              title: 'Список контактов',
+              subtitle:
+                  '${DuressPolicySession.instance.data?.trustedUserIds.length ?? 0} выбрано',
+              trailing: AppTile.chevron(context),
+              onTap: () async {
+                final enabled = await SettingsRuntime.instance
+                    .contactsTrustedEnabled();
+                if (!context.mounted) return;
+                if (!enabled) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Список доверенных отключён в настройках контактов',
                       ),
-                    );
-                    return;
-                  }
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const TrustedContactsScreen(),
                     ),
                   );
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Проверка',
-            children: [
-              AppTile(
-                leading: Icon(Icons.send_outlined, color: colors.textSecondary),
-                title: 'Тестовый сигнал',
-                subtitle: 'Код 90 — по выбранным каналам',
-                trailing: AppTile.chevron(context),
-                onTap: _testSignal,
-              ),
-            ],
-          ),
-        ],
-      ),
+                  return;
+                }
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const TrustedContactsScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          title: 'Проверка',
+          children: [
+            AppTile(
+              leading: Icon(Icons.send_outlined, color: colors.textSecondary),
+              title: 'Тестовый сигнал',
+              subtitle: 'Код 90 — по выбранным каналам',
+              trailing: AppTile.chevron(context),
+              onTap: _testSignal,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

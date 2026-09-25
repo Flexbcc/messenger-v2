@@ -6,6 +6,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_button.dart';
 import '../../core/ui/app_card.dart';
 import '../../core/ui/app_tile.dart';
+import '../../core/ui/app_page.dart';
 import '../../models/security_snapshot.dart';
 import '../../services/hidden_vault_session.dart';
 import '../../services/security_snapshot_service.dart';
@@ -66,17 +67,16 @@ class _SecurityDashboardScreenState
     final text = context.textStyles;
     final snap = _snapshot;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Безопасность'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loading ? null : _load,
-          ),
-        ],
-      ),
-      body: _loading && snap == null
+    return AppPage(
+      title: 'Безопасность',
+      scroll: false,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _loading ? null : _load,
+        ),
+      ],
+      child: _loading && snap == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.only(bottom: AppSpacing.xl),

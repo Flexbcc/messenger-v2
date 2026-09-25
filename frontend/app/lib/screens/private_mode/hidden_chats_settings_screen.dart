@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_card.dart';
+import '../../core/ui/app_page.dart';
 import '../../core/ui/app_switch_tile.dart';
 import '../../core/ui/app_tile.dart';
 import '../../services/hidden_chats_store.dart';
@@ -89,112 +90,109 @@ class _HiddenChatsSettingsScreenState
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Настройки скрытых чатов')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.screenPadding),
-            child: Text(
-              'Скрытые диалоги не отображаются в основном списке. Доступ — через PIN, жест или команду в поиске.',
-              style: text.caption,
+    return AppListPage(
+      title: 'Настройки скрытых чатов',
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.screenPadding),
+          child: Text(
+            'Скрытые диалоги не отображаются в основном списке. Доступ — через PIN, жест или команду в поиске.',
+            style: text.caption,
+          ),
+        ),
+        AppSettingsGroup(
+          title: 'Приватность',
+          children: [
+            AppSwitchTile(
+              title: 'Исключить из общего поиска',
+              value: _excludeSearch,
+              onChanged: (v) async {
+                await HiddenChatsStore.instance.setExcludeFromGlobalSearch(v);
+                await ref
+                    .read(appControllerProvider)
+                    .refreshHiddenChatsPolicies();
+                setState(() => _excludeSearch = v);
+              },
             ),
-          ),
-          AppSettingsGroup(
-            title: 'Приватность',
-            children: [
-              AppSwitchTile(
-                title: 'Исключить из общего поиска',
-                value: _excludeSearch,
-                onChanged: (v) async {
-                  await HiddenChatsStore.instance.setExcludeFromGlobalSearch(v);
-                  await ref
-                      .read(appControllerProvider)
-                      .refreshHiddenChatsPolicies();
-                  setState(() => _excludeSearch = v);
-                },
-              ),
-              AppSwitchTile(
-                title: 'Скрыть уведомления',
-                subtitle: 'Без баннеров и звуков для скрытых чатов',
-                value: _silenceNotif,
-                onChanged: (v) async {
-                  await HiddenChatsStore.instance.setSilenceNotifications(v);
-                  await ref
-                      .read(appControllerProvider)
-                      .refreshHiddenChatsPolicies();
-                  setState(() => _silenceNotif = v);
-                },
-                showDivider: false,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Доступ',
-            children: [
-              AppSwitchTile(
-                title: 'Вход долгим нажатием',
-                subtitle: 'Удерживайте заголовок «Чаты» на главном экране',
-                value: _gestureEntry,
-                onChanged: (v) async {
-                  await HiddenChatsStore.instance.setGestureEntryEnabled(v);
-                  if (v) {
-                    await HiddenChatsStore.instance.setOpenMethod('gesture');
-                    await LocalSettingsStore().setString(
-                      'catalog.hidden.open_method',
-                      'gesture',
-                    );
-                  } else {
-                    await HiddenChatsStore.instance.setOpenMethod('pin');
-                    await LocalSettingsStore().setString(
-                      'catalog.hidden.open_method',
-                      'pin',
-                    );
-                  }
-                  await ref
-                      .read(appControllerProvider)
-                      .refreshHiddenChatsPolicies();
-                  setState(() => _gestureEntry = v);
-                },
-              ),
-              AppTile(
-                leading: Icon(Icons.terminal, color: colors.textSecondary),
-                title: 'Команда в поиске',
-                subtitle: 'Также: .hidden, #скрытые',
-                trailingText: _searchCmd,
-                showDivider: false,
-                onTap: _editSearchCommand,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Сортировка',
-            children: [
-              AppTile(
-                leading: Icon(Icons.sort, color: colors.textSecondary),
-                title: 'Порядок списка',
-                trailingText: _sort == HiddenChatSort.recent
-                    ? 'Недавние'
-                    : 'По имени',
-                onTap: () async {
-                  final next = _sort == HiddenChatSort.recent
-                      ? HiddenChatSort.name
-                      : HiddenChatSort.recent;
-                  await HiddenChatsStore.instance.setSortOrder(next);
-                  await ref
-                      .read(appControllerProvider)
-                      .refreshHiddenChatsPolicies();
-                  setState(() => _sort = next);
-                },
-                showDivider: false,
-              ),
-            ],
-          ),
-        ],
-      ),
+            AppSwitchTile(
+              title: 'Скрыть уведомления',
+              subtitle: 'Без баннеров и звуков для скрытых чатов',
+              value: _silenceNotif,
+              onChanged: (v) async {
+                await HiddenChatsStore.instance.setSilenceNotifications(v);
+                await ref
+                    .read(appControllerProvider)
+                    .refreshHiddenChatsPolicies();
+                setState(() => _silenceNotif = v);
+              },
+              showDivider: false,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          title: 'Доступ',
+          children: [
+            AppSwitchTile(
+              title: 'Вход долгим нажатием',
+              subtitle: 'Удерживайте заголовок «Чаты» на главном экране',
+              value: _gestureEntry,
+              onChanged: (v) async {
+                await HiddenChatsStore.instance.setGestureEntryEnabled(v);
+                if (v) {
+                  await HiddenChatsStore.instance.setOpenMethod('gesture');
+                  await LocalSettingsStore().setString(
+                    'catalog.hidden.open_method',
+                    'gesture',
+                  );
+                } else {
+                  await HiddenChatsStore.instance.setOpenMethod('pin');
+                  await LocalSettingsStore().setString(
+                    'catalog.hidden.open_method',
+                    'pin',
+                  );
+                }
+                await ref
+                    .read(appControllerProvider)
+                    .refreshHiddenChatsPolicies();
+                setState(() => _gestureEntry = v);
+              },
+            ),
+            AppTile(
+              leading: Icon(Icons.terminal, color: colors.textSecondary),
+              title: 'Команда в поиске',
+              subtitle: 'Также: .hidden, #скрытые',
+              trailingText: _searchCmd,
+              showDivider: false,
+              onTap: _editSearchCommand,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          title: 'Сортировка',
+          children: [
+            AppTile(
+              leading: Icon(Icons.sort, color: colors.textSecondary),
+              title: 'Порядок списка',
+              trailingText: _sort == HiddenChatSort.recent
+                  ? 'Недавние'
+                  : 'По имени',
+              onTap: () async {
+                final next = _sort == HiddenChatSort.recent
+                    ? HiddenChatSort.name
+                    : HiddenChatSort.recent;
+                await HiddenChatsStore.instance.setSortOrder(next);
+                await ref
+                    .read(appControllerProvider)
+                    .refreshHiddenChatsPolicies();
+                setState(() => _sort = next);
+              },
+              showDivider: false,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -6,6 +6,7 @@ import '../../core/platform/platform_capabilities.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_bottom_sheet.dart';
 import '../../core/ui/app_card.dart';
+import '../../core/ui/app_page.dart';
 import '../../core/ui/app_switch_tile.dart';
 import '../../core/ui/app_tile.dart';
 import '../../security/pin_security.dart';
@@ -152,258 +153,244 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Настройки приватности')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        children: [
-          if (PlatformCapabilities.isWeb)
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.screenPadding),
-              child: AppCard(
-                child: Text(
-                  'Веб-версия: биометрия недоступна, хранилище — в localStorage браузера. '
-                  'Все экраны доступны для просмотра.',
-                  style: text.caption.copyWith(color: colors.warning),
-                ),
+    return AppListPage(
+      title: 'Настройки приватности',
+      children: [
+        if (PlatformCapabilities.isWeb)
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.screenPadding),
+            child: AppCard(
+              child: Text(
+                'Веб-версия: биометрия недоступна, хранилище — в localStorage браузера. '
+                'Все экраны доступны для просмотра.',
+                style: text.caption.copyWith(color: colors.warning),
               ),
             ),
-          AppSettingsGroup(
-            title: 'Доступ',
-            children: [
+          ),
+        AppSettingsGroup(
+          title: 'Доступ',
+          children: [
+            AppTile(
+              leading: Icon(Icons.pin_outlined, color: colors.textSecondary),
+              title: 'PIN',
+              subtitle: _hasRealPin
+                  ? 'Основной PIN настроен'
+                  : 'Шаг 1 · создайте основной PIN',
+              trailing: AppTile.chevron(context),
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PinSetupScreen()),
+                );
+                await _load();
+              },
+              showDivider: true,
+            ),
+            if (!_hasRealPin)
               AppTile(
-                leading: Icon(Icons.pin_outlined, color: colors.textSecondary),
-                title: 'PIN',
-                subtitle: _hasRealPin
-                    ? 'Основной PIN настроен'
-                    : 'Шаг 1 · создайте основной PIN',
+                leading: Icon(Icons.info_outline, color: colors.textSecondary),
+                title: 'Дальнейшие шаги',
+                subtitle: 'Сначала задайте основной PIN',
+                showDivider: false,
+              )
+            else ...[
+              AppTile(
+                leading: Icon(
+                  Icons.dialpad_outlined,
+                  color: colors.textSecondary,
+                ),
+                title: _hasDecoyPin
+                    ? 'Изменить дополнительный PIN'
+                    : 'Дополнительный PIN',
+                subtitle: _hasDecoyPin
+                    ? 'Шаг 2 · настроен'
+                    : 'Шаг 2 · фейковый PIN (можно пропустить)',
                 trailing: AppTile.chevron(context),
                 onTap: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const PinSetupScreen()),
+                  final ok = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => const DecoyPinSetupScreen(),
+                    ),
                   );
-                  await _load();
+                  if (ok == true) await _load();
                 },
                 showDivider: true,
               ),
-              if (!_hasRealPin)
+              if (_hasDecoyPin) ...[
                 AppTile(
                   leading: Icon(
-                    Icons.info_outline,
+                    Icons.lock_person_outlined,
                     color: colors.textSecondary,
                   ),
-                  title: 'Дальнейшие шаги',
-                  subtitle: 'Сначала задайте основной PIN',
-                  showDivider: false,
-                )
-              else ...[
-                AppTile(
-                  leading: Icon(
-                    Icons.dialpad_outlined,
-                    color: colors.textSecondary,
-                  ),
-                  title: _hasDecoyPin
-                      ? 'Изменить дополнительный PIN'
-                      : 'Дополнительный PIN',
-                  subtitle: _hasDecoyPin
-                      ? 'Шаг 2 · настроен'
-                      : 'Шаг 2 · фейковый PIN (можно пропустить)',
+                  title: 'Секретная комната',
+                  subtitle: _secretRoomConfigured
+                      ? 'Шаг 3 · пароль задан'
+                      : 'Шаг 3 · пароль секретного режима в чате',
                   trailing: AppTile.chevron(context),
                   onTap: () async {
-                    final ok = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => const DecoyPinSetupScreen(),
+                    await Navigator.of(context).push(
+                      privateSecretRoute(
+                        (_) => const SecretChatSettingsScreen(),
                       ),
                     );
-                    if (ok == true) await _load();
+                    await _load();
                   },
-                  showDivider: true,
+                  showDivider: _secretRoomConfigured,
                 ),
-                if (_hasDecoyPin) ...[
+                if (_secretRoomConfigured) ...[
                   AppTile(
                     leading: Icon(
-                      Icons.lock_person_outlined,
+                      Icons.verified_user_outlined,
                       color: colors.textSecondary,
                     ),
-                    title: 'Секретная комната',
-                    subtitle: _secretRoomConfigured
-                        ? 'Шаг 3 · пароль задан'
-                        : 'Шаг 3 · пароль секретного режима в чате',
+                    title: 'Доверенные контакты',
+                    subtitle: 'Шаг 4 · политика безопасности и duress',
                     trailing: AppTile.chevron(context),
-                    onTap: () async {
-                      await Navigator.of(context).push(
-                        privateSecretRoute(
-                          (_) => const SecretChatSettingsScreen(),
-                        ),
-                      );
-                      await _load();
-                    },
-                    showDivider: _secretRoomConfigured,
+                    onTap: () => Navigator.of(context).push(
+                      privateSecretRoute((_) => const DuressPolicyScreen()),
+                    ),
+                    showDivider: true,
                   ),
-                  if (_secretRoomConfigured) ...[
-                    AppTile(
-                      leading: Icon(
-                        Icons.verified_user_outlined,
-                        color: colors.textSecondary,
-                      ),
-                      title: 'Доверенные контакты',
-                      subtitle: 'Шаг 4 · политика безопасности и duress',
-                      trailing: AppTile.chevron(context),
-                      onTap: () => Navigator.of(context).push(
-                        privateSecretRoute((_) => const DuressPolicyScreen()),
-                      ),
-                      showDivider: true,
+                  AppSwitchTile(
+                    leading: Icon(
+                      Icons.lock_open_outlined,
+                      color: colors.textSecondary,
                     ),
-                    AppSwitchTile(
-                      leading: Icon(
-                        Icons.lock_open_outlined,
-                        color: colors.textSecondary,
-                      ),
-                      title: 'Защищённый раздел',
-                      subtitle: 'Доступ по основному PIN',
-                      value: _secretRoomEnabled,
-                      onChanged: (v) async {
-                        await _store.setSecretRoomEnabled(v);
-                        setState(() => _secretRoomEnabled = v);
-                      },
+                    title: 'Защищённый раздел',
+                    subtitle: 'Доступ по основному PIN',
+                    value: _secretRoomEnabled,
+                    onChanged: (v) async {
+                      await _store.setSecretRoomEnabled(v);
+                      setState(() => _secretRoomEnabled = v);
+                    },
+                  ),
+                  AppSwitchTile(
+                    leading: Icon(
+                      Icons.visibility_off_outlined,
+                      color: colors.textSecondary,
                     ),
-                    AppSwitchTile(
-                      leading: Icon(
-                        Icons.visibility_off_outlined,
-                        color: colors.textSecondary,
-                      ),
-                      title: 'Скрытые чаты',
-                      value: _hiddenChatsEnabled,
-                      onChanged: (v) async {
-                        await _store.setHiddenChatsEnabled(v);
-                        setState(() => _hiddenChatsEnabled = v);
-                      },
-                    ),
-                  ],
+                    title: 'Скрытые чаты',
+                    value: _hiddenChatsEnabled,
+                    onChanged: (v) async {
+                      await _store.setHiddenChatsEnabled(v);
+                      setState(() => _hiddenChatsEnabled = v);
+                    },
+                  ),
                 ],
               ],
             ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Уведомления',
-            children: [
-              AppSwitchTile(
-                leading: Icon(
-                  Icons.notifications_off_outlined,
-                  color: colors.textSecondary,
-                ),
-                title: 'Маскировка уведомлений',
-                subtitle: 'Скрывает текст в баннерах',
-                value: _maskNotifications,
-                onChanged: (v) async {
-                  await _store.setMaskNotifications(v);
-                  setState(() => _maskNotifications = v);
-                },
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          title: 'Уведомления',
+          children: [
+            AppSwitchTile(
+              leading: Icon(
+                Icons.notifications_off_outlined,
+                color: colors.textSecondary,
               ),
-              AppSwitchTile(
-                leading: Icon(
-                  Icons.preview_outlined,
-                  color: colors.textSecondary,
-                ),
-                title: 'Скрытие превью',
-                value: _hidePreviews,
-                onChanged: (v) async {
-                  await _store.setHidePreviews(v);
-                  setState(() => _hidePreviews = v);
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Блокировка',
-            children: [
-              AppSwitchTile(
-                leading: Icon(
-                  Icons.lock_clock_outlined,
-                  color: colors.textSecondary,
-                ),
-                title: 'Блокировка приложения',
-                value: _appLock,
-                onChanged: (v) async {
-                  await _store.setAppLockEnabled(v);
-                  await AppLockService.instance.refreshEnabled();
-                  setState(() => _appLock = v);
-                },
-              ),
-              AppTile(
-                leading: Icon(
-                  Icons.timer_outlined,
-                  color: colors.textSecondary,
-                ),
-                title: 'Авто-блокировка',
-                trailingText: _autoLock,
-                trailing: AppTile.chevron(context),
-                onTap: _pickAutoLock,
-              ),
-            ],
-          ),
-          if (_hasRealPin && _hasDecoyPin && _secretRoomConfigured) ...[
-            const SizedBox(height: AppSpacing.lg),
-            AppSettingsGroup(
-              title: 'Устройства',
-              children: [
-                AppTile(
-                  leading: Icon(
-                    Icons.devices_outlined,
-                    color: colors.textSecondary,
-                  ),
-                  title: 'Приватность устройств',
-                  trailing: AppTile.chevron(context),
-                  onTap: () => Navigator.of(context).push(
-                    privateSecretRoute((_) => const DevicePrivacyScreen()),
-                  ),
-                ),
-                AppTile(
-                  leading: Icon(
-                    Icons.tune_outlined,
-                    color: colors.textSecondary,
-                  ),
-                  title: 'Настройки скрытых чатов',
-                  trailing: AppTile.chevron(context),
-                  showDivider: false,
-                  onTap: () => Navigator.of(context).push(
-                    privateSecretRoute(
-                      (_) => const HiddenChatsSettingsScreen(),
-                    ),
-                  ),
-                ),
-              ],
+              title: 'Маскировка уведомлений',
+              subtitle: 'Скрывает текст в баннерах',
+              value: _maskNotifications,
+              onChanged: (v) async {
+                await _store.setMaskNotifications(v);
+                setState(() => _maskNotifications = v);
+              },
             ),
-            const SizedBox(height: AppSpacing.lg),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
+            AppSwitchTile(
+              leading: Icon(
+                Icons.preview_outlined,
+                color: colors.textSecondary,
               ),
-              child: AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Опасная зона',
-                      style: text.sectionTitle.copyWith(color: colors.danger),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    AppSwitchTile(
-                      title: 'Очистка при ошибочных попытках',
-                      subtitle: 'После 5 неверных PIN — сброс Private Mode',
-                      value: _wipeOnWrongAttempts,
-                      onChanged: _confirmWipeToggle,
-                      showDivider: false,
-                    ),
-                  ],
-                ),
-              ),
+              title: 'Скрытие превью',
+              value: _hidePreviews,
+              onChanged: (v) async {
+                await _store.setHidePreviews(v);
+                setState(() => _hidePreviews = v);
+              },
             ),
           ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          title: 'Блокировка',
+          children: [
+            AppSwitchTile(
+              leading: Icon(
+                Icons.lock_clock_outlined,
+                color: colors.textSecondary,
+              ),
+              title: 'Блокировка приложения',
+              value: _appLock,
+              onChanged: (v) async {
+                await _store.setAppLockEnabled(v);
+                await AppLockService.instance.refreshEnabled();
+                setState(() => _appLock = v);
+              },
+            ),
+            AppTile(
+              leading: Icon(Icons.timer_outlined, color: colors.textSecondary),
+              title: 'Авто-блокировка',
+              trailingText: _autoLock,
+              trailing: AppTile.chevron(context),
+              onTap: _pickAutoLock,
+            ),
+          ],
+        ),
+        if (_hasRealPin && _hasDecoyPin && _secretRoomConfigured) ...[
+          const SizedBox(height: AppSpacing.lg),
+          AppSettingsGroup(
+            title: 'Устройства',
+            children: [
+              AppTile(
+                leading: Icon(
+                  Icons.devices_outlined,
+                  color: colors.textSecondary,
+                ),
+                title: 'Приватность устройств',
+                trailing: AppTile.chevron(context),
+                onTap: () => Navigator.of(
+                  context,
+                ).push(privateSecretRoute((_) => const DevicePrivacyScreen())),
+              ),
+              AppTile(
+                leading: Icon(Icons.tune_outlined, color: colors.textSecondary),
+                title: 'Настройки скрытых чатов',
+                trailing: AppTile.chevron(context),
+                showDivider: false,
+                onTap: () => Navigator.of(context).push(
+                  privateSecretRoute((_) => const HiddenChatsSettingsScreen()),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
+            ),
+            child: AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Опасная зона',
+                    style: text.sectionTitle.copyWith(color: colors.danger),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppSwitchTile(
+                    title: 'Очистка при ошибочных попытках',
+                    subtitle: 'После 5 неверных PIN — сброс Private Mode',
+                    value: _wipeOnWrongAttempts,
+                    onChanged: _confirmWipeToggle,
+                    showDivider: false,
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 }

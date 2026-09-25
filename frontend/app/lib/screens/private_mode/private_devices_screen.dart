@@ -8,6 +8,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_badge.dart';
 import '../../core/ui/app_button.dart';
 import '../../core/ui/app_card.dart';
+import '../../core/ui/app_page.dart';
 import '../../core/ui/app_switch_tile.dart';
 import '../../core/ui/app_tile.dart';
 import '../../models/device_info.dart';
@@ -83,10 +84,11 @@ class _PrivateDevicesScreenState extends ConsumerState<PrivateDevicesScreen> {
     final controller = ref.watch(appControllerProvider);
     final devices = controller.devices;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Приватные устройства')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.screenPadding),
+    return AppPage(
+      title: 'Приватные устройства',
+      padding: const EdgeInsets.all(AppSpacing.screenPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (PlatformCapabilities.isWeb)
             AppCard(

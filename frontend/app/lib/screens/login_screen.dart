@@ -9,6 +9,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/ui/app_button.dart';
 import '../core/ui/app_form_body.dart';
 import '../core/ui/app_notice.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_search_field.dart';
 import '../crypto/auth_keypair.dart';
 import '../config.dart';
@@ -171,9 +172,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // once, then cleared so it doesn't linger across unrelated login errors.
     final homeMovedMessage = ref.watch(appControllerProvider).homeMovedMessage;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Вход')),
-      body: AppFormBody(
+    return AppPage(
+      title: 'Вход',
+      scroll: false,
+      child: AppFormBody(
         maxWidth: 380,
         child: Column(
           mainAxisSize: MainAxisSize.min,

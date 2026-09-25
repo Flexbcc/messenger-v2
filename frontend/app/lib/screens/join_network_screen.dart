@@ -5,6 +5,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/ui/app_button.dart';
 import '../core/ui/app_form_body.dart';
 import '../core/ui/app_notice.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_search_field.dart';
 import '../services/bootstrap_service.dart';
 
@@ -67,16 +68,15 @@ class _JoinNetworkScreenState extends State<JoinNetworkScreen> {
     final colors = context.colors;
     final text = context.textStyles;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Подключиться к сети'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          tooltip: 'Закрыть',
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+    return AppPage(
+      title: 'Подключиться к сети',
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        tooltip: 'Закрыть',
+        onPressed: () => Navigator.of(context).pop(),
       ),
-      body: AppFormBody(
+      scroll: false,
+      child: AppFormBody(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

@@ -6,6 +6,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/ui/app_button.dart';
 import '../core/ui/app_form_body.dart';
 import '../core/ui/app_notice.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_search_field.dart';
 import '../config.dart';
 import '../state/app_controller.dart';
@@ -90,8 +91,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final colors = context.colors;
     final text = context.textStyles;
 
-    return Scaffold(
-      body: AppFormBody(
+    return AppPage(
+      scroll: false,
+      child: AppFormBody(
         maxWidth: 380,
         child: Column(
           mainAxisSize: MainAxisSize.min,

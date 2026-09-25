@@ -5,8 +5,9 @@ import 'package:flutter/material.dart';
 import '../core/extensions/context_extensions.dart';
 import '../services/in_app_notification_service.dart';
 import '../services/notification_navigation_service.dart';
-import '../theme/spacing.dart';
-import '../theme/typography.dart';
+import '../core/theme/app_spacing.dart';
+import '../core/theme/app_radius.dart';
+import '../core/theme/app_text_styles.dart';
 
 /// Listens for [InAppNotificationService] events and shows a top banner.
 class InAppNotificationHost extends StatefulWidget {

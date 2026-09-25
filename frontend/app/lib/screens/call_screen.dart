@@ -7,7 +7,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../calls/active_call.dart';
 import '../calls/call_signal.dart';
 import '../state/app_controller.dart';
-import '../theme/spacing.dart';
+import '../core/theme/app_spacing.dart';
 import '../widgets/call_stage.dart';
 
 /// Full-screen call UI, shown by MessengerApp whenever

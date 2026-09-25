@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/extensions/context_extensions.dart';
 import '../../widgets/avatar.dart';
-import '../../widgets/app_list_tile.dart';
+import '../../core/ui/app_tile.dart';
 import 'panic.dart';
 
 class _FakeChat {

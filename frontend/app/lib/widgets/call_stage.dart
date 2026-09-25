@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../calls/call_signal.dart';
 import '../core/extensions/context_extensions.dart';
-import '../theme/spacing.dart';
-import '../theme/typography.dart';
+import '../core/theme/app_spacing.dart';
+import '../core/theme/app_text_styles.dart';
 import '../utils/call_format.dart';
 
 /// Presentational full-screen call UI (no WebRTC). Used by [CallScreen] and

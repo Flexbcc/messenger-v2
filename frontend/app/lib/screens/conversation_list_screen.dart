@@ -10,7 +10,7 @@ import '../models/conversation.dart';
 import '../state/notification_settings.dart';
 import '../state/app_controller.dart';
 import '../utils/message_format.dart';
-import '../widgets/chat_list_tile.dart';
+import '../core/ui/chat_list_tile.dart';
 import '../utils/hidden_chats_access.dart';
 import '../utils/favorites_chat.dart';
 import '../services/chat_draft_store.dart';

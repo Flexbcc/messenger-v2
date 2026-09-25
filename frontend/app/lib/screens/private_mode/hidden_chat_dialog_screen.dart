@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import '../../core/extensions/context_extensions.dart';
 import '../../models/hidden_chat.dart';
 import '../../services/hidden_vault_session.dart';
-import '../../theme/spacing.dart';
-import '../../theme/typography.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_text_styles.dart';
 import '../../utils/format.dart';
-import '../../widgets/app_text_field.dart';
+import '../../core/ui/app_search_field.dart';
 import '../../widgets/avatar.dart';
 import 'panic.dart';
 

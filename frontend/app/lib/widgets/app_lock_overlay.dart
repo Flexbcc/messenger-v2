@@ -9,8 +9,8 @@ import '../screens/private_mode/pin_keypad.dart';
 import '../services/app_lock_service.dart';
 import '../services/duress_policy_engine.dart';
 import '../state/app_controller.dart';
-import '../theme/spacing.dart';
-import '../theme/typography.dart';
+import '../core/theme/app_spacing.dart';
+import '../core/theme/app_text_styles.dart';
 
 /// Full-screen PIN gate when App Lock is enabled and app resumes.
 class AppLockOverlay extends ConsumerStatefulWidget {

@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/extensions/context_extensions.dart';
-import '../../theme/spacing.dart';
-import '../../theme/typography.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_text_styles.dart';
 
 /// Shared numeric keypad + dot indicator for the Private Mode module
 /// (pin_setup_screen.dart, unlock_screen.dart). Kept local to this module

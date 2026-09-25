@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/extensions/context_extensions.dart';
-import '../../theme/spacing.dart';
-import '../../theme/typography.dart';
-import '../../widgets/app_button.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_text_styles.dart';
+import '../../core/ui/app_button.dart';
 import '../../services/duress_policy_session.dart';
 import '../../services/privacy_preferences_store.dart';
 import '../../services/settings_runtime.dart';

@@ -9,8 +9,8 @@ import '../models/conversation.dart';
 import '../models/message.dart';
 import '../services/autodownload_policy.dart';
 import '../state/app_controller.dart';
-import '../theme/spacing.dart';
-import '../theme/typography.dart';
+import '../core/theme/app_spacing.dart';
+import '../core/theme/app_text_styles.dart';
 
 /// Grid of images from messages already in this chat's local history.
 class ChatMediaScreen extends ConsumerWidget {

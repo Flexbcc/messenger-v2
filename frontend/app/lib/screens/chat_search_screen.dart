@@ -5,7 +5,7 @@ import '../core/extensions/context_extensions.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
 import '../state/app_controller.dart';
-import '../theme/typography.dart';
+import '../core/theme/app_text_styles.dart';
 import '../utils/message_format.dart';
 
 /// In-chat search — filters already-loaded decrypted messages locally.

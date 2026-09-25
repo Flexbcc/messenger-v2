@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/extensions/context_extensions.dart';
 import '../../models/duress_policy.dart';
-import '../../theme/spacing.dart';
-import '../../theme/typography.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_text_styles.dart';
 
 /// Centered in-chat banner for `system: duress` messages.
 class DuressSignalBanner extends StatelessWidget {

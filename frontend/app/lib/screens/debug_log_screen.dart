@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/extensions/context_extensions.dart';
 import '../services/debug_log.dart';
 import '../state/app_controller.dart';
-import '../theme/spacing.dart';
-import '../theme/typography.dart';
+import '../core/theme/app_spacing.dart';
+import '../core/theme/app_text_styles.dart';
 
 /// Local debug log for API/crypto troubleshooting (dev builds).
 class DebugLogScreen extends ConsumerStatefulWidget {

@@ -5,6 +5,7 @@ import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_button.dart';
 import '../../core/ui/app_card.dart';
+import '../../core/ui/app_page.dart';
 import '../../models/contact_trust.dart';
 import '../../services/contact_key_verification_service.dart';
 import '../../state/app_controller.dart';
@@ -91,19 +92,18 @@ class _VerifyContactScreenState extends ConsumerState<VerifyContactScreen> {
     final trust = ref.watch(appControllerProvider).trustLevelFor(widget.userId);
     final devices = _devices;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.displayName),
-        actions: [
-          IconButton(
-            tooltip: 'Обновить ключи',
-            onPressed: devices == null ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.screenPadding),
+    return AppPage(
+      title: widget.displayName,
+      actions: [
+        IconButton(
+          tooltip: 'Обновить ключи',
+          onPressed: devices == null ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+      padding: const EdgeInsets.all(AppSpacing.screenPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AppCard(
             child: Column(

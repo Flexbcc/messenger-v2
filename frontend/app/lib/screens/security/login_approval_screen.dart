@@ -8,6 +8,7 @@ import '../../core/ui/app_badge.dart';
 import '../../core/ui/app_button.dart';
 import '../../core/ui/app_card.dart';
 import '../../core/ui/app_empty_state.dart';
+import '../../core/ui/app_page.dart';
 import '../../core/ui/app_switch_tile.dart';
 import '../../models/login_approval_request.dart';
 import '../../services/login_approval_service.dart';
@@ -104,72 +105,69 @@ class _LoginApprovalScreenState extends ConsumerState<LoginApprovalScreen> {
     final text = context.textStyles;
     final pending = ref.watch(appControllerProvider).pendingLoginApprovals;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Подтверждение входа')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.screenPadding),
-            child: AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Login Approval', style: text.title),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Новые входы требуют подтверждения с доверенного устройства.',
-                    style: text.caption,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (!_loadingSetting)
-            AppSettingsGroup(
-              margin: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
-              ),
+    return AppListPage(
+      title: 'Подтверждение входа',
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.screenPadding),
+          child: AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppSwitchTile(
-                  title: 'Требовать подтверждение',
-                  value: _enabled,
-                  onChanged: _toggleEnabled,
-                  showDivider: false,
+                Text('Login Approval', style: text.title),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Новые входы требуют подтверждения с доверенного устройства.',
+                  style: text.caption,
                 ),
               ],
             ),
-          const SizedBox(height: AppSpacing.lg),
-          Padding(
-            padding: const EdgeInsets.symmetric(
+          ),
+        ),
+        if (!_loadingSetting)
+          AppSettingsGroup(
+            margin: const EdgeInsets.symmetric(
               horizontal: AppSpacing.screenPadding,
             ),
-            child: Text('Ожидают подтверждения', style: text.sectionTitle),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          if (pending.isEmpty)
-            AppEmptyState(
-              icon: Icons.verified_user_outlined,
-              title: 'Нет запросов',
-              subtitle: 'Новые входы появятся здесь',
-            )
-          else
-            AppSettingsGroup(
-              margin: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
+            children: [
+              AppSwitchTile(
+                title: 'Требовать подтверждение',
+                value: _enabled,
+                onChanged: _toggleEnabled,
+                showDivider: false,
               ),
-              children: [
-                for (var i = 0; i < pending.length; i++)
-                  _RequestCard(
-                    request: pending[i],
-                    showDivider: i < pending.length - 1,
-                    onApprove: () => _approve(pending[i]),
-                    onDeny: () => _deny(pending[i]),
-                  ),
-              ],
+            ],
+          ),
+        const SizedBox(height: AppSpacing.lg),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.screenPadding,
+          ),
+          child: Text('Ожидают подтверждения', style: text.sectionTitle),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (pending.isEmpty)
+          AppEmptyState(
+            icon: Icons.verified_user_outlined,
+            title: 'Нет запросов',
+            subtitle: 'Новые входы появятся здесь',
+          )
+        else
+          AppSettingsGroup(
+            margin: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
             ),
-        ],
-      ),
+            children: [
+              for (var i = 0; i < pending.length; i++)
+                _RequestCard(
+                  request: pending[i],
+                  showDivider: i < pending.length - 1,
+                  onApprove: () => _approve(pending[i]),
+                  onDeny: () => _deny(pending[i]),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }

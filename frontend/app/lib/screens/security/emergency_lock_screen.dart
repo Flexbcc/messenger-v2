@@ -5,6 +5,7 @@ import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_button.dart';
 import '../../core/ui/app_card.dart';
+import '../../core/ui/app_page.dart';
 import '../../models/emergency_lock_level.dart';
 import '../../state/app_controller.dart';
 
@@ -67,10 +68,10 @@ class EmergencyLockScreen extends ConsumerWidget {
     final colors = context.colors;
     final text = context.textStyles;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Экстренная блокировка')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.screenPadding),
+    return AppPage(
+      title: 'Экстренная блокировка',
+      padding: const EdgeInsets.all(AppSpacing.screenPadding),
+      child: Column(
         children: [
           AppCard(
             child: Row(

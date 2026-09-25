@@ -5,6 +5,7 @@ import '../calls/call_signal.dart';
 import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_empty_state.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_segmented_control.dart';
 import '../core/ui/app_avatar.dart';
 import '../models/call_history_entry.dart';
@@ -29,18 +30,17 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
         ? controller.callHistory.where((c) => c.missed).toList()
         : controller.callHistory;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Звонки'),
-        actions: [
-          if (controller.callHistory.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _confirmClearHistory(context),
-            ),
-        ],
-      ),
-      body: Column(
+    return AppPage(
+      title: 'Звонки',
+      scroll: false,
+      actions: [
+        if (controller.callHistory.isNotEmpty)
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => _confirmClearHistory(context),
+          ),
+      ],
+      child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(

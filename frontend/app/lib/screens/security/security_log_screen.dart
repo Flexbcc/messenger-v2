@@ -4,6 +4,7 @@ import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_card.dart';
 import '../../core/ui/app_empty_state.dart';
+import '../../core/ui/app_page.dart';
 import '../../services/security_log_service.dart';
 import '../../utils/format.dart';
 
@@ -50,21 +51,20 @@ class _SecurityLogScreenState extends State<SecurityLogScreen> {
     final colors = context.colors;
     final text = context.textStyles;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Журнал безопасности'),
-        actions: [
-          if (_events.isNotEmpty)
-            TextButton(
-              onPressed: () async {
-                await SecurityLogService.instance.clear();
-                await _load();
-              },
-              child: Text('Очистить', style: TextStyle(color: colors.danger)),
-            ),
-        ],
-      ),
-      body: _loading
+    return AppPage(
+      title: 'Журнал безопасности',
+      scroll: false,
+      actions: [
+        if (_events.isNotEmpty)
+          TextButton(
+            onPressed: () async {
+              await SecurityLogService.instance.clear();
+              await _load();
+            },
+            child: Text('Очистить', style: TextStyle(color: colors.danger)),
+          ),
+      ],
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _events.isEmpty
           ? const AppEmptyState(

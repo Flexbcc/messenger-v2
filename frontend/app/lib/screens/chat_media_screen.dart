@@ -10,7 +10,8 @@ import '../models/message.dart';
 import '../services/autodownload_policy.dart';
 import '../state/app_controller.dart';
 import '../core/theme/app_spacing.dart';
-import '../core/theme/app_text_styles.dart';
+import '../core/ui/app_empty_state.dart';
+import '../core/ui/app_page.dart';
 
 /// Grid of images from messages already in this chat's local history.
 class ChatMediaScreen extends ConsumerWidget {
@@ -23,14 +24,17 @@ class ChatMediaScreen extends ConsumerWidget {
     final controller = ref.watch(appControllerProvider);
     final images = controller.imageMessagesFor(conversation.id);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Медиа')),
-      body: images.isEmpty
-          ? Center(
-              child: Text('Нет фото в этом чате', style: AppTypography.caption),
+    return AppPage(
+      title: 'Медиа',
+      scroll: false,
+      child: images.isEmpty
+          ? const AppEmptyState(
+              icon: Icons.photo_library_outlined,
+              title: 'Медиафайлов пока нет',
+              subtitle: 'Здесь появятся фото из локальной истории чата',
             )
           : GridView.builder(
-              padding: const EdgeInsets.all(AppSpacing.smallGap),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
                 crossAxisSpacing: 2,

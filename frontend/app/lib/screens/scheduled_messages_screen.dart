@@ -4,6 +4,8 @@ import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_card.dart';
 import '../../core/ui/app_tile.dart';
+import '../../core/ui/app_empty_state.dart';
+import '../../core/ui/app_page.dart';
 import '../../models/scheduled_message.dart';
 import '../../services/scheduled_message_store.dart';
 import '../../state/app_controller.dart';
@@ -51,16 +53,16 @@ class _ScheduledMessagesScreenState
     final colors = context.colors;
     final text = context.textStyles;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Отложенные')),
-      body: _loading
+    return AppPage(
+      title: 'Отложенные',
+      scroll: false,
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _items.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.screenPadding),
-                child: Text('Нет отложенных сообщений', style: text.caption),
-              ),
+          ? const AppEmptyState(
+              icon: Icons.schedule_send_outlined,
+              title: 'Нет отложенных сообщений',
+              subtitle: 'Запланированные отправки появятся здесь',
             )
           : RefreshIndicator(
               onRefresh: _load,

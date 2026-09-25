@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_card.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_tile.dart';
 import '../models/favorite_item.dart';
 import '../services/favorites_store.dart';
@@ -42,9 +43,10 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
     final text = context.textStyles;
     final colors = context.colors;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Избранное')),
-      body: _loading
+    return AppPage(
+      title: 'Избранное',
+      scroll: false,
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _items.isEmpty
           ? Center(child: Text('Пока пусто', style: text.caption))

@@ -10,6 +10,7 @@ import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_bottom_sheet.dart';
 import '../core/ui/app_card.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_tile.dart';
 import '../utils/format.dart';
 import 'personal_pc_pairing_screen.dart';
@@ -170,158 +171,149 @@ class _DataStorageScreenState extends ConsumerState<DataStorageScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Данные и хранилище')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        children: [
-          const SizedBox(height: AppSpacing.md),
-          AppSettingsGroup(
-            children: [
-              AppTile(
-                leading: Icon(
-                  Icons.data_usage_outlined,
-                  color: colors.textSecondary,
+    return AppListPage(
+      title: 'Данные и хранилище',
+      children: [
+        const SizedBox(height: AppSpacing.md),
+        AppSettingsGroup(
+          children: [
+            AppTile(
+              leading: Icon(
+                Icons.data_usage_outlined,
+                color: colors.textSecondary,
+              ),
+              title: 'Использование сети',
+              subtitle: 'За последние 30 дней',
+              trailing: AppTile.chevron(context),
+              onTap: _showNetworkUsage,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          title: 'Автозагрузка',
+          children: [
+            AppTile(
+              title: 'Фото',
+              trailingText: _photos.label,
+              trailing: AppTile.chevron(context),
+              onTap: () => _pickAutoDownload('Фото', _photos, (v) async {
+                setState(() => _photos = v);
+                await _store.setString('dl_photos', v.name);
+                await CatalogSync.syncMedia();
+              }),
+            ),
+            AppTile(
+              title: 'Видео',
+              trailingText: _videos.label,
+              trailing: AppTile.chevron(context),
+              onTap: () => _pickAutoDownload('Видео', _videos, (v) async {
+                setState(() => _videos = v);
+                await _store.setString('dl_videos', v.name);
+                await CatalogSync.syncMedia();
+              }),
+            ),
+            AppTile(
+              title: 'Файлы',
+              trailingText: _files.label,
+              trailing: AppTile.chevron(context),
+              onTap: () => _pickAutoDownload('Файлы', _files, (v) async {
+                setState(() => _files = v);
+                await _store.setString('dl_files', v.name);
+                await CatalogSync.syncMedia();
+              }),
+            ),
+            AppTile(
+              title: 'Аудио',
+              trailingText: _audio.label,
+              trailing: AppTile.chevron(context),
+              showDivider: false,
+              onTap: () => _pickAutoDownload('Аудио', _audio, (v) async {
+                setState(() => _audio = v);
+                await _store.setString('dl_audio', v.name);
+                await CatalogSync.syncMedia();
+              }),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        FutureBuilder<Map<String, String>>(
+          future: SettingsRuntime.instance.storageSummaryDetails(),
+          builder: (context, snap) {
+            final d = snap.data;
+            if (d == null) return const SizedBox.shrink();
+            return AppSettingsGroup(
+              title: 'Сводка хранилища (каталог)',
+              children: [
+                AppTile(title: 'Сообщения', trailingText: d['messages'] ?? '—'),
+                AppTile(title: 'Медиа', trailingText: d['media'] ?? '—'),
+                AppTile(
+                  title: 'Ноды / RF',
+                  trailingText:
+                      '${d['nodes'] ?? '—'} · ${d['replication'] ?? '1'}',
                 ),
-                title: 'Использование сети',
-                subtitle: 'За последние 30 дней',
-                trailing: AppTile.chevron(context),
-                onTap: _showNetworkUsage,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Автозагрузка',
-            children: [
-              AppTile(
-                title: 'Фото',
-                trailingText: _photos.label,
-                trailing: AppTile.chevron(context),
-                onTap: () => _pickAutoDownload('Фото', _photos, (v) async {
-                  setState(() => _photos = v);
-                  await _store.setString('dl_photos', v.name);
-                  await CatalogSync.syncMedia();
-                }),
-              ),
-              AppTile(
-                title: 'Видео',
-                trailingText: _videos.label,
-                trailing: AppTile.chevron(context),
-                onTap: () => _pickAutoDownload('Видео', _videos, (v) async {
-                  setState(() => _videos = v);
-                  await _store.setString('dl_videos', v.name);
-                  await CatalogSync.syncMedia();
-                }),
-              ),
-              AppTile(
-                title: 'Файлы',
-                trailingText: _files.label,
-                trailing: AppTile.chevron(context),
-                onTap: () => _pickAutoDownload('Файлы', _files, (v) async {
-                  setState(() => _files = v);
-                  await _store.setString('dl_files', v.name);
-                  await CatalogSync.syncMedia();
-                }),
-              ),
-              AppTile(
-                title: 'Аудио',
-                trailingText: _audio.label,
-                trailing: AppTile.chevron(context),
-                showDivider: false,
-                onTap: () => _pickAutoDownload('Аудио', _audio, (v) async {
-                  setState(() => _audio = v);
-                  await _store.setString('dl_audio', v.name);
-                  await CatalogSync.syncMedia();
-                }),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          FutureBuilder<Map<String, String>>(
-            future: SettingsRuntime.instance.storageSummaryDetails(),
-            builder: (context, snap) {
-              final d = snap.data;
-              if (d == null) return const SizedBox.shrink();
-              return AppSettingsGroup(
-                title: 'Сводка хранилища (каталог)',
-                children: [
-                  AppTile(
-                    title: 'Сообщения',
-                    trailingText: d['messages'] ?? '—',
-                  ),
-                  AppTile(title: 'Медиа', trailingText: d['media'] ?? '—'),
-                  AppTile(
-                    title: 'Ноды / RF',
-                    trailingText:
-                        '${d['nodes'] ?? '—'} · ${d['replication'] ?? '1'}',
-                  ),
-                  AppTile(
-                    title: 'S3',
-                    trailingText: (d['s3_endpoint'] ?? '').isEmpty
-                        ? 'не задан'
-                        : '${d['s3_bucket']}',
-                  ),
-                  AppTile(
-                    title: 'Ключи / бэкап',
-                    trailingText:
-                        '${d['key_location']} / ${d['backup_location']}',
-                  ),
-                  AppTile(
-                    title: 'TTL медиа',
-                    trailingText: d['media_ttl'] ?? '—',
-                  ),
-                  AppTile(
-                    title: 'Последний sync',
-                    trailingText: d['last_sync'] ?? '—',
-                  ),
-                  AppTile(
-                    title: 'Последний backup',
-                    trailingText: d['last_backup'] ?? '—',
-                    showDivider: false,
-                  ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Хранилище',
-            children: [
-              AppTile(
-                leading: Icon(
-                  Icons.storage_outlined,
-                  color: colors.textSecondary,
+                AppTile(
+                  title: 'S3',
+                  trailingText: (d['s3_endpoint'] ?? '').isEmpty
+                      ? 'не задан'
+                      : '${d['s3_bucket']}',
                 ),
-                title: 'Личное хранилище (ПК)',
-                trailing: AppTile.chevron(context),
-                showDivider: false,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const PersonalPcPairingScreen(),
-                  ),
+                AppTile(
+                  title: 'Ключи / бэкап',
+                  trailingText:
+                      '${d['key_location']} / ${d['backup_location']}',
+                ),
+                AppTile(
+                  title: 'TTL медиа',
+                  trailingText: d['media_ttl'] ?? '—',
+                ),
+                AppTile(
+                  title: 'Последний sync',
+                  trailingText: d['last_sync'] ?? '—',
+                ),
+                AppTile(
+                  title: 'Последний backup',
+                  trailingText: d['last_backup'] ?? '—',
+                  showDivider: false,
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          title: 'Хранилище',
+          children: [
+            AppTile(
+              leading: Icon(
+                Icons.storage_outlined,
+                color: colors.textSecondary,
+              ),
+              title: 'Личное хранилище (ПК)',
+              trailing: AppTile.chevron(context),
+              showDivider: false,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PersonalPcPairingScreen(),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            children: [
-              AppTile(
-                leading: Icon(
-                  Icons.delete_sweep_outlined,
-                  color: colors.danger,
-                ),
-                title: 'Очистить кэш',
-                trailingText: _cacheLabel,
-                danger: true,
-                showDivider: false,
-                onTap: _confirmClearCache,
-              ),
-            ],
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          children: [
+            AppTile(
+              leading: Icon(Icons.delete_sweep_outlined, color: colors.danger),
+              title: 'Очистить кэш',
+              trailingText: _cacheLabel,
+              danger: true,
+              showDivider: false,
+              onTap: _confirmClearCache,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

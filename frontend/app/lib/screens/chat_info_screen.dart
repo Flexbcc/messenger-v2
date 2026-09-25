@@ -7,6 +7,7 @@ import '../core/ui/app_avatar.dart';
 import '../core/ui/app_badge.dart';
 import '../core/ui/app_bottom_sheet.dart';
 import '../core/ui/app_card.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_switch_tile.dart';
 import '../core/ui/app_tile.dart';
 import '../models/conversation.dart';
@@ -176,137 +177,131 @@ class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
         .imageMessagesFor(widget.conversation.id)
         .length;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Информация о чате')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        children: [
-          const SizedBox(height: AppSpacing.xl),
-          Center(
-            child: Column(
-              children: [
-                AppAvatar(
-                  label: title,
-                  isGroup: isGroup,
-                  size: AppAvatarSize.large,
+    return AppListPage(
+      title: 'Информация о чате',
+      children: [
+        const SizedBox(height: AppSpacing.xl),
+        Center(
+          child: Column(
+            children: [
+              AppAvatar(
+                label: title,
+                isGroup: isGroup,
+                size: AppAvatarSize.large,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(title, style: text.title),
+              if (isGroup) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '${widget.conversation.participantUserIds.length} участников',
+                  style: text.caption,
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Text(title, style: text.title),
-                if (isGroup) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    '${widget.conversation.participantUserIds.length} участников',
-                    style: text.caption,
-                  ),
-                ],
               ],
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        AppSettingsGroup(
+          children: [
+            AppTile(
+              leading: Icon(Icons.search, color: colors.textSecondary),
+              title: 'Поиск в чате',
+              trailing: AppTile.chevron(context),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ChatSearchScreen(conversation: widget.conversation),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          AppSettingsGroup(
-            children: [
-              AppTile(
-                leading: Icon(Icons.search, color: colors.textSecondary),
-                title: 'Поиск в чате',
-                trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        ChatSearchScreen(conversation: widget.conversation),
+            AppSwitchTile(
+              leading: Icon(
+                Icons.notifications_outlined,
+                color: colors.textSecondary,
+              ),
+              title: 'Уведомления',
+              subtitle: 'Для этого чата на этом устройстве',
+              value: !isMuted,
+              onChanged: (v) =>
+                  controller.setChatMuted(widget.conversation.id, !v),
+            ),
+            AppTile(
+              leading: Icon(
+                Icons.perm_media_outlined,
+                color: colors.textSecondary,
+              ),
+              title: 'Медиа, файлы и ссылки',
+              trailingText: imageCount > 0 ? '$imageCount фото' : null,
+              trailing: AppTile.chevron(context),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ChatMediaScreen(conversation: widget.conversation),
+                ),
+              ),
+            ),
+            AppTile(
+              leading: Icon(Icons.lock_outline, color: colors.primary),
+              title: 'Шифрование',
+              trailing: AppSecurityBadge(
+                icon: Icons.verified,
+                label: 'E2E',
+                color: colors.success,
+              ),
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Шифрование'),
+                  content: Text(
+                    isGroup
+                        ? 'Сквозное шифрование включено. Группа защищена sender-key схемой Signal.'
+                        : 'Сквозное шифрование Signal — сообщения доступны только участникам чата.',
                   ),
-                ),
-              ),
-              AppSwitchTile(
-                leading: Icon(
-                  Icons.notifications_outlined,
-                  color: colors.textSecondary,
-                ),
-                title: 'Уведомления',
-                subtitle: 'Для этого чата на этом устройстве',
-                value: !isMuted,
-                onChanged: (v) =>
-                    controller.setChatMuted(widget.conversation.id, !v),
-              ),
-              AppTile(
-                leading: Icon(
-                  Icons.perm_media_outlined,
-                  color: colors.textSecondary,
-                ),
-                title: 'Медиа, файлы и ссылки',
-                trailingText: imageCount > 0 ? '$imageCount фото' : null,
-                trailing: AppTile.chevron(context),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        ChatMediaScreen(conversation: widget.conversation),
-                  ),
-                ),
-              ),
-              AppTile(
-                leading: Icon(Icons.lock_outline, color: colors.primary),
-                title: 'Шифрование',
-                trailing: AppSecurityBadge(
-                  icon: Icons.verified,
-                  label: 'E2E',
-                  color: colors.success,
-                ),
-                onTap: () => showDialog<void>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Шифрование'),
-                    content: Text(
-                      isGroup
-                          ? 'Сквозное шифрование включено. Группа защищена sender-key схемой Signal.'
-                          : 'Сквозное шифрование Signal — сообщения доступны только участникам чата.',
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Понятно'),
                     ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Понятно'),
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
+            ),
+            AppTile(
+              leading: Icon(Icons.timer_outlined, color: colors.textSecondary),
+              title: 'Исчезающие сообщения',
+              trailingText: controller.disappearingLabel(
+                widget.conversation.id,
+              ),
+              trailing: AppTile.chevron(context),
+              showDivider: false,
+              onTap: _pickDisappearing,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          children: [
+            if (!isSecret)
               AppTile(
                 leading: Icon(
-                  Icons.timer_outlined,
-                  color: colors.textSecondary,
+                  Icons.visibility_off_outlined,
+                  color: colors.warning,
                 ),
-                title: 'Исчезающие сообщения',
-                trailingText: controller.disappearingLabel(
-                  widget.conversation.id,
-                ),
-                trailing: AppTile.chevron(context),
-                showDivider: false,
-                onTap: _pickDisappearing,
+                title: 'Скрыть чат',
+                onTap: _confirmHideAsSecret,
+                showDivider: true,
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            children: [
-              if (!isSecret)
-                AppTile(
-                  leading: Icon(
-                    Icons.visibility_off_outlined,
-                    color: colors.warning,
-                  ),
-                  title: 'Скрыть чат',
-                  onTap: _confirmHideAsSecret,
-                  showDivider: true,
-                ),
-              AppTile(
-                leading: Icon(Icons.delete_outline, color: colors.danger),
-                title: 'Очистить историю чата',
-                danger: true,
-                showDivider: false,
-                onTap: _confirmClearHistory,
-              ),
-            ],
-          ),
-        ],
-      ),
+            AppTile(
+              leading: Icon(Icons.delete_outline, color: colors.danger),
+              title: 'Очистить историю чата',
+              danger: true,
+              showDivider: false,
+              onTap: _confirmClearHistory,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

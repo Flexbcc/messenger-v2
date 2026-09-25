@@ -7,6 +7,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/ui/app_card.dart';
 import '../core/ui/app_form_body.dart';
 import '../core/ui/app_notice.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_button.dart';
 import '../core/ui/app_search_field.dart';
 import '../services/api_client.dart';
@@ -155,9 +156,10 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
 
     final colors = context.colors;
     final text = context.textStyles;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Новый чат')),
-      body: AppFormBody(
+    return AppPage(
+      title: 'Новый чат',
+      scroll: false,
+      child: AppFormBody(
         maxWidth: 520,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

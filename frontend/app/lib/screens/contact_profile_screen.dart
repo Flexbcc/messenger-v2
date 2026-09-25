@@ -13,6 +13,7 @@ import '../core/ui/app_badge.dart';
 import '../core/ui/app_button.dart';
 import '../core/ui/app_card.dart';
 import '../core/ui/app_icon_button.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_search_field.dart';
 import '../models/contact_trust.dart';
 import '../services/settings_runtime.dart';
@@ -247,10 +248,11 @@ class _ContactProfileScreenState extends ConsumerState<ContactProfileScreen> {
     final status = controller.contactStatusLabel(widget.userId);
     final trust = controller.trustLevelFor(widget.userId);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Контакт')),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.screenPadding),
+    return AppPage(
+      title: 'Контакт',
+      padding: const EdgeInsets.all(AppSpacing.screenPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Center(
             child: _showAvatar

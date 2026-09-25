@@ -7,6 +7,7 @@ import '../core/ui/app_button.dart';
 import '../core/ui/app_card.dart';
 import '../core/ui/app_form_body.dart';
 import '../core/ui/app_notice.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_search_field.dart';
 import '../state/app_controller.dart';
 import 'chat_screen.dart';
@@ -100,9 +101,10 @@ class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final text = context.textStyles;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Новая группа')),
-      body: AppFormBody(
+    return AppPage(
+      title: 'Новая группа',
+      scroll: false,
+      child: AppFormBody(
         maxWidth: 560,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

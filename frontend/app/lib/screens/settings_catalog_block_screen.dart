@@ -5,6 +5,7 @@ import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_card.dart';
 import '../core/ui/app_empty_state.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_tile.dart';
 import '../models/settings_blocks.dart';
 import '../state/settings_catalog_controller.dart';
@@ -22,18 +23,20 @@ class SettingsCatalogBlockScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final block = settingsBlockById(blockId);
     if (block == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Раздел')),
-        body: const Center(child: Text('Блок не найден')),
+      return const AppPage(
+        title: 'Раздел',
+        scroll: false,
+        child: Center(child: Text('Блок не найден')),
       );
     }
 
     final catalogAsync = ref.watch(settingsCatalogProvider);
     final text = context.textStyles;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(block.title)),
-      body: catalogAsync.when(
+    return AppPage(
+      title: block.title,
+      scroll: false,
+      child: catalogAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => AppEmptyState(
           icon: Icons.settings_backup_restore_outlined,

@@ -8,6 +8,7 @@ import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_button.dart';
 import '../core/ui/app_card.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_section.dart';
 import '../core/ui/app_tile.dart';
 import '../services/catalog_seed_service.dart';
@@ -60,124 +61,115 @@ class DiagnosticsScreen extends ConsumerWidget {
       ('Last error', lastErr ?? '—'),
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Диагностика'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.copy),
-            tooltip: 'Копировать',
-            onPressed: () {
-              final buf = StringBuffer('Messenger diagnostics\n');
-              for (final row in rows) {
-                buf.writeln('${row.$1}: ${row.$2}');
+    return AppListPage(
+      title: 'Диагностика',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.copy),
+          tooltip: 'Копировать',
+          onPressed: () {
+            final buf = StringBuffer('Messenger diagnostics\n');
+            for (final row in rows) {
+              buf.writeln('${row.$1}: ${row.$2}');
+            }
+            Clipboard.setData(ClipboardData(text: buf.toString()));
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Скопировано')));
+          },
+        ),
+      ],
+      children: [
+        if (kDebugMode)
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.screenPadding),
+            child: AppCard(
+              child: Text(
+                'Только локальные данные клиента. TLS/mTLS и server-side E2EE здесь не проверяются.',
+                style: text.caption,
+              ),
+            ),
+          ),
+        AppSection(
+          title: 'Runtime',
+          child: AppSettingsGroup(
+            children: [
+              for (var i = 0; i < rows.length; i++)
+                AppTile(
+                  title: rows[i].$1,
+                  trailingText: rows[i].$2,
+                  showDivider: i < rows.length - 1,
+                ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.screenPadding),
+          child: AppButton(
+            label: 'Переподключить WebSocket',
+            variant: AppButtonVariant.secondary,
+            icon: Icons.refresh,
+            onPressed: () async {
+              await controller.reconnectConnection();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Переподключение выполнено')),
+                );
               }
-              Clipboard.setData(ClipboardData(text: buf.toString()));
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Скопировано')));
             },
           ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        children: [
-          if (kDebugMode)
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.screenPadding),
-              child: AppCard(
-                child: Text(
-                  'Только локальные данные клиента. TLS/mTLS и server-side E2EE здесь не проверяются.',
-                  style: text.caption,
+        ),
+        if (kDebugMode)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
+            ),
+            child: AppButton(
+              label: 'JSON настроек / тестовый seed',
+              variant: AppButtonVariant.secondary,
+              icon: Icons.data_object,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SettingsCatalogJsonScreen(),
                 ),
               ),
             ),
-          AppSection(
-            title: 'Runtime',
-            child: AppSettingsGroup(
-              children: [
-                for (var i = 0; i < rows.length; i++)
-                  AppTile(
-                    title: rows[i].$1,
-                    trailingText: rows[i].$2,
-                    showDivider: i < rows.length - 1,
-                  ),
-              ],
-            ),
           ),
+        if (kDebugMode) const SizedBox(height: AppSpacing.sm),
+        if (kDebugMode)
           Padding(
-            padding: const EdgeInsets.all(AppSpacing.screenPadding),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
+            ),
             child: AppButton(
-              label: 'Переподключить WebSocket',
+              label: 'Заполнить настройки тестовыми данными',
               variant: AppButtonVariant.secondary,
-              icon: Icons.refresh,
+              icon: Icons.science_outlined,
               onPressed: () async {
-                await controller.reconnectConnection();
+                final catalog = await ref.read(settingsCatalogProvider.future);
+                final n = await CatalogSeedService().applyDevSeedAsset(catalog);
+                await ref
+                    .read(settingsCatalogValuesProvider)
+                    .reloadFromLegacy(catalog);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Переподключение выполнено')),
+                    SnackBar(content: Text('Применено $n значений')),
                   );
                 }
               },
             ),
           ),
-          if (kDebugMode)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
-              ),
-              child: AppButton(
-                label: 'JSON настроек / тестовый seed',
-                variant: AppButtonVariant.secondary,
-                icon: Icons.data_object,
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const SettingsCatalogJsonScreen(),
-                  ),
-                ),
-              ),
-            ),
-          if (kDebugMode) const SizedBox(height: AppSpacing.sm),
-          if (kDebugMode)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
-              ),
-              child: AppButton(
-                label: 'Заполнить настройки тестовыми данными',
-                variant: AppButtonVariant.secondary,
-                icon: Icons.science_outlined,
-                onPressed: () async {
-                  final catalog = await ref.read(
-                    settingsCatalogProvider.future,
-                  );
-                  final n = await CatalogSeedService().applyDevSeedAsset(
-                    catalog,
-                  );
-                  await ref
-                      .read(settingsCatalogValuesProvider)
-                      .reloadFromLegacy(catalog);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Применено $n значений')),
-                    );
-                  }
-                },
-              ),
-            ),
-          const SizedBox(height: AppSpacing.md),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.screenPadding,
-            ),
-            child: Text(
-              'Подробный лог API/crypto: Настройки → Журнал отладки',
-              style: text.micro.copyWith(color: colors.textMuted),
-            ),
+        const SizedBox(height: AppSpacing.md),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.screenPadding,
           ),
-        ],
-      ),
+          child: Text(
+            'Подробный лог API/crypto: Настройки → Журнал отладки',
+            style: text.micro.copyWith(color: colors.textMuted),
+          ),
+        ),
+      ],
     );
   }
 }

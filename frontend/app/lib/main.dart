@@ -21,7 +21,7 @@ import 'state/app_controller.dart';
 import 'state/notification_settings.dart';
 import 'state/settings_catalog_controller.dart';
 import 'state/theme_settings.dart';
-import '../core/theme/app_theme.dart';
+import 'core/theme/app_theme.dart';
 import 'widgets/app_lock_overlay.dart';
 import 'widgets/call_minimized_bar.dart';
 import 'widgets/call_stage.dart';

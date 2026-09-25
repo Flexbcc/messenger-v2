@@ -132,6 +132,13 @@ class SettingsCatalogValues extends ChangeNotifier {
   Future<Object?> _loadValue(SettingDef def) async {
     final key = _key(def.id);
     try {
+      // Missing optional/profile values are not corrupted values. Their
+      // catalog fallback may intentionally be empty until onboarding or the
+      // server profile supplies the first value, so do not validate/remove a
+      // key that has never existed.
+      if (!await _store.containsKey(key)) {
+        return _defaultValue(def);
+      }
       late final Object? value;
       switch (def.type) {
         case 'boolean':
@@ -254,7 +261,13 @@ Future<void> bootstrapSettingsCatalog(
   T Function<T>(ProviderListenable<T> provider) read,
 ) async {
   await CatalogSync.syncAllFromLegacy();
-  await AppConfig.refreshFromCatalog();
+  // A fresh install has no network yet. Do not turn the intentional HTTPS
+  // fail-closed rule into a noisy boot error while onboarding is on screen.
+  // Once an invite is redeemed (or a safe compile-time Home is supplied),
+  // normal resolution and validation run unchanged.
+  if (AppConfig.hasUsableInitialHome) {
+    await AppConfig.refreshFromCatalog();
+  }
   final catalog = await read(settingsCatalogProvider.future);
   await CatalogSeedService().maybeAutoSeed(catalog);
   await read(settingsCatalogValuesProvider).load(catalog);

@@ -24,6 +24,9 @@ class LocalSettingsStore {
     return '${_prefix}u_${uid}_$key';
   }
 
+  Future<bool> containsKey(String key) async =>
+      (await _prefs).containsKey(_physical(key));
+
   Future<void> setBool(String key, bool value) async {
     if (!await (await _prefs).setBool(_physical(key), value)) {
       throw StateError('Unable to persist local boolean setting');

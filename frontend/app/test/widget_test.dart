@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,11 +14,15 @@ void main() {
 
   testWidgets('MessengerApp builds initial frame', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
     await tester.pumpWidget(const ProviderScope(child: MessengerApp()));
     await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
     expect(find.byType(MessengerApp), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
-    // Drain both bounded bootstrap waits (settings: 12s, controller: 20s).
-    await tester.pump(const Duration(seconds: 35));
+    await tester.pumpAndSettle();
   });
 }

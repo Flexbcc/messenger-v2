@@ -49,6 +49,19 @@ class AppConfig {
 
   static String _resolvedHome = '';
 
+  /// Whether startup can safely resolve a Home before onboarding has stored
+  /// a bootstrap record. Development defaults intentionally remain HTTP, but
+  /// fail closed unless the build explicitly enables insecure local origins.
+  static bool get hasUsableInitialHome {
+    if (BootstrapStore.current != null) return true;
+    try {
+      validatedNetworkOrigin(_defaultHome, 'default Home address');
+      return true;
+    } on FormatException {
+      return false;
+    }
+  }
+
   static String get homeNodeUrl => validatedNetworkOrigin(
     _resolvedHome.isNotEmpty
         ? _resolvedHome

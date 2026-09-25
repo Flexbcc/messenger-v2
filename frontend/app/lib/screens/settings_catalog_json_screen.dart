@@ -9,6 +9,8 @@ import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_button.dart';
 import '../core/ui/app_card.dart';
+import '../core/ui/app_empty_state.dart';
+import '../core/ui/app_page.dart';
 import '../services/catalog_seed_service.dart';
 import '../state/settings_catalog_controller.dart';
 
@@ -84,94 +86,94 @@ class _SettingsCatalogJsonScreenState
   @override
   Widget build(BuildContext context) {
     if (!kDebugMode) {
-      return const Scaffold(
-        body: Center(child: Text('Недоступно в этой сборке')),
+      return const AppPage(
+        scroll: false,
+        child: AppEmptyState(
+          icon: Icons.code_off_outlined,
+          title: 'Недоступно в этой сборке',
+          subtitle: 'Просмотр JSON предназначен только для отладки',
+        ),
       );
     }
     final text = context.textStyles;
     final colors = context.colors;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('JSON настроек'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.copy),
-            tooltip: 'Копировать',
-            onPressed: _json.isEmpty
-                ? null
-                : () {
-                    Clipboard.setData(ClipboardData(text: _json));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('JSON скопирован')),
-                    );
-                  },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Обновить',
-            onPressed: _refresh,
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.screenPadding),
-            child: AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+    return AppListPage(
+      title: 'JSON настроек',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.copy),
+          tooltip: 'Копировать',
+          onPressed: _json.isEmpty
+              ? null
+              : () {
+                  Clipboard.setData(ClipboardData(text: _json));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('JSON скопирован')),
+                  );
+                },
+        ),
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Обновить',
+          onPressed: _refresh,
+        ),
+      ],
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.screenPadding),
+          child: AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Хранение: SharedPreferences (не SQL). Ключи вида '
+                  'app_settings_catalog.profile.display_name. '
+                  'Здесь — один JSON-снимок со snake_case ключами '
+                  '(profile_display_name = "kekwekke").',
+                  style: text.caption,
+                ),
+                if (_status != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'Хранение: SharedPreferences (не SQL). Ключи вида '
-                    'app_settings_catalog.profile.display_name. '
-                    'Здесь — один JSON-снимок со snake_case ключами '
-                    '(profile_display_name = "kekwekke").',
-                    style: text.caption,
-                  ),
-                  if (_status != null) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      _status!,
-                      style: text.caption.copyWith(color: colors.primary),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.md),
-                  AppButton(
-                    label: 'Заполнить тестовыми данными',
-                    icon: Icons.science_outlined,
-                    onPressed: _applyDevSeed,
+                    _status!,
+                    style: text.caption.copyWith(color: colors.primary),
                   ),
                 ],
+                const SizedBox(height: AppSpacing.md),
+                AppButton(
+                  label: 'Заполнить тестовыми данными',
+                  icon: Icons.science_outlined,
+                  onPressed: _applyDevSeed,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.all(AppSpacing.xl),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_json.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.screenPadding),
+            child: Text('Нет данных', style: text.body),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
+            ),
+            child: SelectableText(
+              _json,
+              style: text.caption.copyWith(
+                fontFamily: 'monospace',
+                fontSize: 12,
               ),
             ),
           ),
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.all(AppSpacing.xl),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_json.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.screenPadding),
-              child: Text('Нет данных', style: text.body),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
-              ),
-              child: SelectableText(
-                _json,
-                style: text.caption.copyWith(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                ),
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }

@@ -8,6 +8,7 @@ import '../core/ui/app_badge.dart';
 import '../core/ui/app_button.dart';
 import '../core/ui/app_card.dart';
 import '../core/ui/app_empty_state.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_tile.dart';
 import '../models/device_info.dart';
 import '../services/settings_runtime.dart';
@@ -160,9 +161,10 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
     final trustedCount = controller.trustedDeviceCount;
     final onlineCount = devices.where(isDeviceOnline).length;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Сеансы устройств')),
-      body: _loading
+    return AppPage(
+      title: 'Сеансы устройств',
+      scroll: false,
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? AppEmptyState(

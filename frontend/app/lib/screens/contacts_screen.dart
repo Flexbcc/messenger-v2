@@ -8,6 +8,7 @@ import '../core/ui/app_badge.dart';
 import '../core/ui/app_empty_state.dart';
 import '../core/ui/app_icon_button.dart';
 import '../core/ui/app_search_field.dart';
+import '../core/ui/app_page.dart';
 import '../models/contact_trust.dart';
 import '../state/app_controller.dart';
 import 'contact_profile_screen.dart';
@@ -63,9 +64,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             .toList()
           ..sort((a, b) => a.value.compareTo(b.value));
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Контакты')),
-      body: Column(
+    return AppPage(
+      title: 'Контакты',
+      scroll: false,
+      child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(

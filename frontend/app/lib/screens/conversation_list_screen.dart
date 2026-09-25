@@ -6,6 +6,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/ui/app_button.dart';
 import '../core/ui/app_empty_state.dart';
 import '../core/ui/app_search_field.dart';
+import '../core/ui/app_page.dart';
 import '../models/conversation.dart';
 import '../state/notification_settings.dart';
 import '../state/app_controller.dart';
@@ -101,31 +102,30 @@ class _ConversationListScreenState
         ? conversations
         : controller.conversationsMatchingSearch(_query);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: GestureDetector(
-          onLongPress: _gestureEntry ? _openHiddenChats : null,
-          child: const Text('Чаты'),
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.add_circle_outline),
-            color: colors.surfaceElevated,
-            onSelected: (value) {
-              if (value == 'direct') {
-                _openNewChat();
-              } else {
-                _openNewGroup();
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'direct', child: Text('Новый чат')),
-              PopupMenuItem(value: 'group', child: Text('Новая группа')),
-            ],
-          ),
-        ],
+    return AppPage(
+      titleWidget: GestureDetector(
+        onLongPress: _gestureEntry ? _openHiddenChats : null,
+        child: const Text('Чаты'),
       ),
-      body: RefreshIndicator(
+      actions: [
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.add_circle_outline),
+          color: colors.surfaceElevated,
+          onSelected: (value) {
+            if (value == 'direct') {
+              _openNewChat();
+            } else {
+              _openNewGroup();
+            }
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'direct', child: Text('Новый чат')),
+            PopupMenuItem(value: 'group', child: Text('Новая группа')),
+          ],
+        ),
+      ],
+      scroll: false,
+      child: RefreshIndicator(
         color: colors.primary,
         onRefresh: controller.refreshConversations,
         child: Column(

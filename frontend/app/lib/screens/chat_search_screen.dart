@@ -6,6 +6,8 @@ import '../models/conversation.dart';
 import '../models/message.dart';
 import '../state/app_controller.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/ui/app_empty_state.dart';
+import '../core/ui/app_page.dart';
 import '../utils/message_format.dart';
 
 /// In-chat search — filters already-loaded decrypted messages locally.
@@ -42,29 +44,29 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
     final results = controller.searchMessages(widget.conversation.id, _query);
     final colors = context.colors;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          controller: _queryController,
-          autofocus: true,
-          style: AppTypography.body,
-          decoration: InputDecoration(
-            hintText: 'Поиск в чате',
-            hintStyle: AppTypography.body.copyWith(color: colors.textSecondary),
-            border: InputBorder.none,
-          ),
+    return AppPage(
+      titleWidget: TextField(
+        controller: _queryController,
+        autofocus: true,
+        style: AppTypography.body,
+        decoration: InputDecoration(
+          hintText: 'Поиск в чате',
+          hintStyle: AppTypography.body.copyWith(color: colors.textSecondary),
+          border: InputBorder.none,
         ),
       ),
-      body: _query.trim().isEmpty
-          ? Center(
-              child: Text(
-                'Введите текст для поиска',
-                style: AppTypography.caption,
-              ),
+      scroll: false,
+      child: _query.trim().isEmpty
+          ? const AppEmptyState(
+              icon: Icons.search_outlined,
+              title: 'Поиск по чату',
+              subtitle: 'Введите текст в строке выше',
             )
           : results.isEmpty
-          ? Center(
-              child: Text('Ничего не найдено', style: AppTypography.caption),
+          ? const AppEmptyState(
+              icon: Icons.search_off_outlined,
+              title: 'Ничего не найдено',
+              subtitle: 'Измените запрос или проверьте написание',
             )
           : ListView.builder(
               itemCount: results.length,

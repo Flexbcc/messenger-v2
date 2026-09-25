@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
-import '../../core/ui/app_button.dart';
 import '../../core/ui/app_card.dart';
 import '../../core/ui/app_tile.dart';
+import '../../core/ui/app_empty_state.dart';
+import '../../core/ui/app_page.dart';
 import '../../models/user_note.dart';
 import '../../services/notes_store.dart';
 import '../../utils/format.dart';
@@ -52,41 +53,21 @@ class _NotesScreenState extends State<NotesScreen> {
     final colors = context.colors;
     final text = context.textStyles;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Заметки'),
-        actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: () => _openNote()),
-        ],
-      ),
-      body: _loading
+    return AppPage(
+      title: 'Заметки',
+      scroll: false,
+      actions: [
+        IconButton(icon: const Icon(Icons.add), onPressed: () => _openNote()),
+      ],
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _notes.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.screenPadding),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.note_alt_outlined,
-                      size: 48,
-                      color: colors.textMuted,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      'Личное пространство для заметок и ссылок',
-                      style: text.caption,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    AppButton(
-                      label: 'Создать заметку',
-                      onPressed: () => _openNote(),
-                    ),
-                  ],
-                ),
-              ),
+          ? AppEmptyState(
+              icon: Icons.note_alt_outlined,
+              title: 'Заметок пока нет',
+              subtitle: 'Они хранятся только на этом устройстве',
+              actionLabel: 'Создать заметку',
+              onAction: () => _openNote(),
             )
           : RefreshIndicator(
               onRefresh: _load,
@@ -174,22 +155,21 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isNew ? 'Новая заметка' : 'Заметка'),
-        actions: [
-          if (!widget.isNew)
-            IconButton(
-              icon: Icon(Icons.delete_outline, color: colors.danger),
-              onPressed: _delete,
-            ),
-          TextButton(
-            onPressed: _saving ? null : _save,
-            child: const Text('Сохранить'),
+    return AppPage(
+      title: widget.isNew ? 'Новая заметка' : 'Заметка',
+      scroll: false,
+      actions: [
+        if (!widget.isNew)
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: colors.danger),
+            onPressed: _delete,
           ),
-        ],
-      ),
-      body: Padding(
+        TextButton(
+          onPressed: _saving ? null : _save,
+          child: const Text('Сохранить'),
+        ),
+      ],
+      child: Padding(
         padding: const EdgeInsets.all(AppSpacing.screenPadding),
         child: TextField(
           controller: _body,

@@ -39,8 +39,9 @@ def _discovery_modules():
         schemas = importlib.import_module("app.schemas")
         registry = importlib.import_module("app.routers.registry")
         challenge_store = importlib.import_module("app.challenge_assignment_store")
+        observer_access = importlib.import_module("app.challenge_observer_access")
         observation_store = importlib.import_module("app.trust_observation_store")
-        yield db, schemas, registry, challenge_store, observation_store
+        yield db, schemas, registry, challenge_store, observation_store, observer_access
     finally:
         sys.path.remove(str(DISCOVERY_ROOT))
         for name in [name for name in sys.modules if name == "app" or name.startswith("app.")]:
@@ -113,7 +114,7 @@ def _assignment(keys, subject_id, observer_ids, now):
     return assignment
 
 
-def _configure(registry, challenge_store, observation_store, authority_path):
+def _configure(registry, challenge_store, observation_store, observer_access, authority_path):
     registry.NODE_IDENTITY_MODE = "report"
     registry.NODE_ADVERTISEMENT_MODE = "report"
     registry.CAPABILITY_CERTIFICATE_MODE = "report"
@@ -122,14 +123,15 @@ def _configure(registry, challenge_store, observation_store, authority_path):
     registry.require_governance_available = lambda: None
     challenge_store.enrollment_required = lambda: True
     observation_store.enrollment_required = lambda: True
+    observer_access.enrollment_required = lambda: True
 
 
 def test_assignment_pull_signed_ack_and_verified_observation_completion(tmp_path):
-    with _discovery_modules() as (db, schemas, registry, challenge_store, observation_store):
+    with _discovery_modules() as (db, schemas, registry, challenge_store, observation_store, observer_access):
         now = datetime.now(timezone.utc)
         db.DB_PATH = str(tmp_path / "discovery.db")
         keys, authority_path = _authority(tmp_path, now)
-        _configure(registry, challenge_store, observation_store, authority_path)
+        _configure(registry, challenge_store, observation_store, observer_access, authority_path)
         db.init_db()
 
         observer_key, observer_cert = _identity(now)
@@ -232,11 +234,11 @@ def test_assignment_pull_signed_ack_and_verified_observation_completion(tmp_path
 
 
 def test_assignment_cannot_complete_before_ack_or_with_mismatched_observation(tmp_path):
-    with _discovery_modules() as (db, schemas, registry, challenge_store, observation_store):
+    with _discovery_modules() as (db, schemas, registry, challenge_store, observation_store, observer_access):
         now = datetime.now(timezone.utc)
         db.DB_PATH = str(tmp_path / "discovery.db")
         keys, authority_path = _authority(tmp_path, now)
-        _configure(registry, challenge_store, observation_store, authority_path)
+        _configure(registry, challenge_store, observation_store, observer_access, authority_path)
         db.init_db()
         observer_key, observer_cert = _identity(now)
         _, subject_cert = _identity(now)
@@ -294,11 +296,11 @@ def test_assignment_cannot_complete_before_ack_or_with_mismatched_observation(tm
 
 
 def test_conflicting_quorum_assignment_freezes_control_plane(tmp_path):
-    with _discovery_modules() as (db, schemas, registry, challenge_store, observation_store):
+    with _discovery_modules() as (db, schemas, registry, challenge_store, observation_store, observer_access):
         now = datetime.now(timezone.utc)
         db.DB_PATH = str(tmp_path / "discovery.db")
         keys, authority_path = _authority(tmp_path, now)
-        _configure(registry, challenge_store, observation_store, authority_path)
+        _configure(registry, challenge_store, observation_store, observer_access, authority_path)
         db.init_db()
         _, observer_cert = _identity(now)
         _, subject_cert = _identity(now)

@@ -12,6 +12,16 @@ def _scope(path, headers=()):
     }
 
 
+def _federation_headers(*extra):
+    return (
+        (b"x-federation-node-id", b"node-a"),
+        (b"x-federation-timestamp", b"1700000000"),
+        (b"x-federation-nonce", b"00000000-0000-4000-8000-000000000000"),
+        (b"x-federation-signature", b"A" * 88),
+        *extra,
+    )
+
+
 async def _consume_app(scope, receive, send):
     while True:
         message = await receive()
@@ -38,9 +48,11 @@ async def test_declared_oversize_is_rejected_before_receive(monkeypatch):
     async def send(message):
         sent.append(message)
 
-    middleware = FederationBodyLimitMiddleware(_consume_app, path_prefixes=("/internal/",))
+    middleware = FederationBodyLimitMiddleware(
+        _consume_app, path_prefixes=("/internal/",), max_body_bytes=8
+    )
     await middleware(
-        _scope("/internal/deliver", ((b"content-length", b"9"),)),
+        _scope("/internal/deliver", _federation_headers((b"content-length", b"9"))),
         receive,
         send,
     )
@@ -68,8 +80,10 @@ async def test_chunked_oversize_is_rejected_before_application_parse(monkeypatch
     async def send(message):
         sent.append(message)
 
-    middleware = FederationBodyLimitMiddleware(_consume_app, path_prefixes=("/relay/",))
-    await middleware(_scope("/relay/forward"), receive, send)
+    middleware = FederationBodyLimitMiddleware(
+        _consume_app, path_prefixes=("/relay/",), max_body_bytes=8
+    )
+    await middleware(_scope("/relay/forward", _federation_headers()), receive, send)
     assert sent[0]["status"] == 413
 
 

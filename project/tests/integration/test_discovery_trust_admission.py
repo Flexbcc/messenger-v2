@@ -232,6 +232,8 @@ def test_historical_portable_event_before_denial_is_allowed_but_live_is_denied(t
         )
         admission.TRUST_LEDGER_MODE = "enforce"
         assignment_store.TRUST_LEDGER_DB_PATH = ledger_path
+        import app.challenge_observer_access as observer_access
+        observer_access.TRUST_LEDGER_DB_PATH = ledger_path
         db.DB_PATH = str(tmp_path / "discovery.db")
         db.init_db()
         with db.get_conn() as conn:
@@ -365,18 +367,19 @@ def test_admin_cannot_override_quorum_deny_or_manual_level_in_enforce(tmp_path):
         with pytest.raises(HTTPException, match="revocation"):
             admin.reinstate_node("revoked", request, actor="test")
         with pytest.raises(HTTPException, match="revocation"):
-            admin.re_enroll_node("revoked", actor="test")
+            admin.re_enroll_node("revoked", request, actor="test")
         with pytest.raises(HTTPException, match="quorum TrustRecord"):
-            admin.promote_node("clean", actor="test")
+            admin.promote_node("clean", request, actor="test")
         with pytest.raises(HTTPException, match="quorum TrustRecord"):
-            admin.demote_node("clean", actor="test")
+            admin.demote_node("clean", request, actor="test")
 
         with db.get_conn() as conn:
             conn.execute(
                 "UPDATE node_capabilities SET trust_status = 'pending' WHERE node_id = 'revoked'"
             )
             conn.commit()
-        result = admin.grandfather_all()
+        with pytest.raises(HTTPException, match="legacy bulk enrollment is disabled"):
+            admin.grandfather_all(request)
         with db.get_conn() as conn:
             statuses = {
                 row["node_id"]: row["trust_status"]
@@ -384,5 +387,4 @@ def test_admin_cannot_override_quorum_deny_or_manual_level_in_enforce(tmp_path):
                     "SELECT node_id, trust_status FROM node_capabilities"
                 ).fetchall()
             }
-        assert statuses == {"revoked": "pending", "clean": "trusted"}
-        assert "trusted count=1" in result.message
+        assert statuses == {"revoked": "pending", "clean": "pending"}

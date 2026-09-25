@@ -4,12 +4,15 @@ from fastapi import APIRouter, HTTPException, Header
 import json
 
 from app.config import (
+    CAPABILITY_AUTHORITY_STATE_PATH,
     CAPABILITY_CERTIFICATE_MODE,
     ENROLLMENT_MODE,
     NODE_ADVERTISEMENT_MODE,
     NODE_IDENTITY_MODE,
+    OPERATIONAL_CREDENTIAL_STATE_MODE,
     TRANSPORT_CERTIFICATE_MODE,
 )
+from app.network_guard import require_governance_available
 from app.db import get_conn
 from app.schemas import (
     RegisterNodeCapability,
@@ -31,6 +34,9 @@ from app.registry_credentials import (
     require_valid_identity,
     validate_credential_state,
 )
+from app import registry_credentials as _registry_credentials
+from app import registry_capabilities as _registry_capabilities
+from app import registry_eligibility as _registry_eligibility
 from shared.security.node_identity_enrollment import evaluate_node_identity_report
 from shared.security.node_advertisement_enrollment import evaluate_node_advertisement_report
 from shared.security.jwt_auth import extract_bearer_token
@@ -60,6 +66,62 @@ from app.routers.node_advertisement_registry import (
 )
 from app.routers.challenge_registry import router as challenge_registry_router
 
+# Keep the original Python integration surface while the HTTP routes live in
+# focused modules.  External callers use the routers; direct integration tests
+# and maintenance scripts historically imported these callables here.
+from app.routers.routing_registry import (
+    publish_bootstrap_record,
+    publish_route_descriptor_record,
+    resolve_bootstrap_record,
+    resolve_route_descriptors,
+)
+from app.routers import authority_registry as _authority_registry
+from app.routers import challenge_registry as _challenge_registry
+from app.routers.trust_registry import (
+    get_reliability_snapshot,
+    get_trust_observations,
+    publish_trust_observation,
+    publish_trust_record,
+)
+
+
+def _sync_legacy_router_context(target) -> None:
+    """Propagate supported test/maintenance overrides to split route modules."""
+    for name in (
+        "TRUST_AUTHORITY_STATE_PATH",
+        "require_governance_available",
+        "get_network_view_guard",
+        "discovery_node_identity",
+        "schedule_mesh_peer_notify",
+    ):
+        if name in globals() and hasattr(target, name):
+            setattr(target, name, globals()[name])
+
+
+def publish_authority_checkpoint_record(payload):
+    _sync_legacy_router_context(_authority_registry)
+    return _authority_registry.publish_authority_checkpoint_record(payload)
+
+
+def get_latest_authority_checkpoint():
+    _sync_legacy_router_context(_authority_registry)
+    return _authority_registry.get_latest_authority_checkpoint()
+
+
+def publish_challenge_assignment(payload):
+    _sync_legacy_router_context(_challenge_registry)
+    return _challenge_registry.publish_challenge_assignment(payload)
+
+
+def get_challenge_assignments(*args, **kwargs):
+    _sync_legacy_router_context(_challenge_registry)
+    return _challenge_registry.get_challenge_assignments(*args, **kwargs)
+
+
+def publish_challenge_assignment_ack(*args, **kwargs):
+    _sync_legacy_router_context(_challenge_registry)
+    return _challenge_registry.publish_challenge_assignment_ack(*args, **kwargs)
+
 router = APIRouter()
 router.include_router(user_registry_router)
 router.include_router(routing_registry_router)
@@ -71,6 +133,29 @@ router.include_router(challenge_registry_router)
 
 MAX_HEARTBEAT_PEERS = 1000
 MAX_PUBLIC_NODES = 10000
+
+
+def _sync_registry_policy_modules() -> None:
+    _registry_credentials.NODE_IDENTITY_MODE = NODE_IDENTITY_MODE
+    _registry_credentials.OPERATIONAL_CREDENTIAL_STATE_MODE = (
+        OPERATIONAL_CREDENTIAL_STATE_MODE
+    )
+    _registry_capabilities.CAPABILITY_CERTIFICATE_MODE = CAPABILITY_CERTIFICATE_MODE
+    _registry_capabilities.CAPABILITY_AUTHORITY_STATE_PATH = (
+        globals().get(
+            "CAPABILITY_AUTHORITY_STATE_PATH",
+            _registry_capabilities.CAPABILITY_AUTHORITY_STATE_PATH,
+        )
+    )
+    _registry_capabilities.require_governance_available = (
+        require_governance_available
+    )
+    if "load_capability_authority_state" in globals():
+        _registry_capabilities.load_capability_authority_state = globals()[
+            "load_capability_authority_state"
+        ]
+    _registry_eligibility.CAPABILITY_CERTIFICATE_MODE = CAPABILITY_CERTIFICATE_MODE
+    _registry_eligibility.NODE_ADVERTISEMENT_MODE = NODE_ADVERTISEMENT_MODE
 
 def _build_peer_list(exclude_node_id: str) -> list[MeshPeerEntry]:
     """Возвращает компактный список trusted+online нод (кроме самой себя) для
@@ -133,6 +218,7 @@ def _apply_version_policy(
 
 @router.post("/registry/nodes", response_model=RegisterNodeResponse)
 def register_node_capability(payload: RegisterNodeCapability):
+    _sync_registry_policy_modules()
     now = now_iso()
     caps_json = json.dumps(payload.capabilities)
     enrollment_secret_plain: Optional[str] = None
@@ -367,6 +453,7 @@ def heartbeat(
     payload: HeartbeatRequest = HeartbeatRequest(),
     authorization: Optional[str] = Header(None),
 ):
+    _sync_registry_policy_modules()
     now = now_iso()
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM node_capabilities WHERE node_id = ?", (node_id,)).fetchone()

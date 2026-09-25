@@ -6,6 +6,7 @@ import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_card.dart';
 import '../core/ui/app_empty_state.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_switch_tile.dart';
 import '../core/ui/app_tile.dart';
 import '../models/settings_catalog.dart';
@@ -42,11 +43,13 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
     final catalogAsync = ref.watch(settingsCatalogProvider);
     final values = ref.watch(settingsCatalogValuesProvider);
     return catalogAsync.when(
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (_, _) => Scaffold(
-        appBar: AppBar(),
-        body: AppEmptyState(
+      loading: () => const AppPage(
+        scroll: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => AppPage(
+        scroll: false,
+        child: AppEmptyState(
           icon: Icons.settings_backup_restore_outlined,
           title: 'Раздел не загрузился',
           subtitle: 'Сохранённые настройки остались без изменений.',
@@ -57,9 +60,9 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
       data: (catalog) {
         final section = catalog.sectionById(sectionId);
         if (section == null) {
-          return Scaffold(
-            appBar: AppBar(),
-            body: const AppEmptyState(
+          return const AppPage(
+            scroll: false,
+            child: AppEmptyState(
               icon: Icons.search_off_outlined,
               title: 'Раздел недоступен',
               subtitle: 'Возможно, он был удалён в новой версии приложения.',
@@ -68,9 +71,10 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
         }
         if (!values.loaded) {
           ref.read(settingsCatalogValuesProvider).load(catalog);
-          return Scaffold(
-            appBar: AppBar(title: Text(titleOverride ?? section.title)),
-            body: const Center(child: CircularProgressIndicator()),
+          return AppPage(
+            title: titleOverride ?? section.title,
+            scroll: false,
+            child: const Center(child: CircularProgressIndicator()),
           );
         }
         final runtimeAsync = ref.watch(catalogRuntimeValuesProvider);
@@ -105,13 +109,14 @@ class SettingsCatalogSectionScreen extends ConsumerWidget {
           ref: ref,
           listStore: CatalogListStore(),
         );
-        return Scaffold(
-          appBar: AppBar(title: Text(titleOverride ?? section.title)),
-          body: ListView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.screenPadding,
-              vertical: AppSpacing.md,
-            ),
+        return AppPage(
+          title: titleOverride ?? section.title,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.screenPadding,
+            vertical: AppSpacing.md,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SettingsStubLegend(),
               const SizedBox(height: AppSpacing.md),

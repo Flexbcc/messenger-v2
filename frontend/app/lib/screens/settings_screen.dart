@@ -8,6 +8,7 @@ import '../core/ui/app_avatar.dart';
 import '../core/ui/app_card.dart';
 import '../core/ui/app_switch_tile.dart';
 import '../core/ui/app_tile.dart';
+import '../core/ui/app_page.dart';
 import '../models/settings_blocks.dart';
 import '../models/settings_catalog.dart';
 import '../state/app_controller.dart';
@@ -112,19 +113,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final text = context.textStyles;
     final pinConfigured = pmState.isConfigured;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _handleSettingsTitleTap,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text('Настройки'),
-          ),
+    return AppPage(
+      titleWidget: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _handleSettingsTitleTap,
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Text('Настройки'),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppSpacing.md),
           Padding(

@@ -6,6 +6,7 @@ import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_card.dart';
 import '../core/ui/app_empty_state.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_tile.dart';
 import '../models/settings_blocks.dart';
 import '../models/settings_impl_status.dart';
@@ -47,9 +48,10 @@ class _SettingsCatalogScreenState extends ConsumerState<SettingsCatalogScreen> {
     final colors = context.colors;
     final text = context.textStyles;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Расширенные настройки')),
-      body: catalogAsync.when(
+    return AppPage(
+      title: 'Расширенные настройки',
+      scroll: false,
+      child: catalogAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => AppEmptyState(
           icon: Icons.settings_backup_restore_outlined,
@@ -176,24 +178,22 @@ class _SettingsCatalogScreenState extends ConsumerState<SettingsCatalogScreen> {
   void _showFlatSections(BuildContext context, catalog) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('Все разделы')),
-          body: ListView(
-            children: [
-              for (final section in catalog.sections)
-                ListTile(
-                  title: Text(section.title),
-                  subtitle: Text('${section.settings.length} · ${section.id}'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          SettingsCatalogSectionScreen(sectionId: section.id),
-                    ),
+        builder: (_) => AppListPage(
+          title: 'Все разделы',
+          children: [
+            for (final section in catalog.sections)
+              ListTile(
+                title: Text(section.title),
+                subtitle: Text('${section.settings.length} · ${section.id}'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        SettingsCatalogSectionScreen(sectionId: section.id),
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );

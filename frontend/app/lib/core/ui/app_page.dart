@@ -8,6 +8,7 @@ class AppPage extends StatelessWidget {
   const AppPage({
     super.key,
     this.title,
+    this.titleWidget,
     this.actions,
     this.leading,
     this.floatingActionButton,
@@ -18,6 +19,7 @@ class AppPage extends StatelessWidget {
   });
 
   final String? title;
+  final Widget? titleWidget;
   final List<Widget>? actions;
   final Widget? leading;
   final Widget? floatingActionButton;
@@ -32,9 +34,13 @@ class AppPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: title == null
+      appBar: title == null && titleWidget == null
           ? null
-          : AppBar(title: Text(title!), leading: leading, actions: actions),
+          : AppBar(
+              title: titleWidget ?? Text(title!),
+              leading: leading,
+              actions: actions,
+            ),
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,
       body: scroll

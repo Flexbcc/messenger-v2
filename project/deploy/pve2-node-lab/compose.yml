@@ -143,16 +143,29 @@ services:
 
   home-a:
     <<: *home
+    ports: ["127.0.0.1:18101:8001"]
     environment: {<<: *home-env, HOME_NODE_ID: home-a, HOME_NODE_PUBLIC_URL: "http://home-a:8001"}
     volumes: [home-a:/data]
   home-b:
     <<: *home
+    ports: ["127.0.0.1:18102:8001"]
     environment: {<<: *home-env, HOME_NODE_ID: home-b, HOME_NODE_PUBLIC_URL: "http://home-b:8001"}
     volumes: [home-b:/data]
   home-c:
     <<: *home
+    ports: ["127.0.0.1:18103:8001"]
     environment: {<<: *home-env, HOME_NODE_ID: home-c, HOME_NODE_PUBLIC_URL: "http://home-c:8001"}
     volumes: [home-c:/data]
+  home-d:
+    <<: *home
+    ports: ["127.0.0.1:18104:8001"]
+    environment: {<<: *home-env, HOME_NODE_ID: home-d, HOME_NODE_PUBLIC_URL: "http://home-d:8001"}
+    volumes: [home-d:/data]
+  home-e:
+    <<: *home
+    ports: ["127.0.0.1:18105:8001"]
+    environment: {<<: *home-env, HOME_NODE_ID: home-e, HOME_NODE_PUBLIC_URL: "http://home-e:8001"}
+    volumes: [home-e:/data]
 
   storage-a:
     <<: *storage
@@ -235,6 +248,8 @@ volumes:
   home-a: {}
   home-b: {}
   home-c: {}
+  home-d: {}
+  home-e: {}
   storage-a: {}
   storage-b: {}
   relay-a: {}

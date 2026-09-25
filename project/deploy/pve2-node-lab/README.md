@@ -1,12 +1,12 @@
 # PVE2 OUO node lab
 
-This package describes one isolated Linux VM running 12 OUO logical nodes plus
+This package describes one isolated Linux VM running 14 OUO logical nodes plus
 the coturn data-plane process:
 
 | Role | Count | Per instance | Persistent state |
 |---|---:|---:|---|
 | Discovery | 3 | 1 vCPU / 512 MiB | registry, ledger, checkpoints |
-| Home | 3 | 1 vCPU / 1 GiB | user/home DB, identity and transport keys |
+| Home | 5 | 1 vCPU / 1 GiB | user/home DB, identity and transport keys |
 | Relay | 2 | 1 vCPU / 512 MiB | identity keys, replay/link state |
 | Storage | 2 | 1 vCPU / 512 MiB | opaque mailbox cells, identity keys |
 | Gateway | 1 | 1 vCPU / 384 MiB | identity and invite state |
@@ -15,7 +15,7 @@ the coturn data-plane process:
 
 CPU limits are ceilings, not reservations. The recommended VM baseline is
 4 physical/vCPU threads, 10 GiB RAM, 80 GiB disk and Debian 12 or Ubuntu 24.04.
-Six vCPU and 12–16 GiB RAM are preferable for chaos and concurrent traffic.
+Six vCPU and 14–18 GiB RAM are preferable for chaos and concurrent traffic.
 
 ## Exposure
 
@@ -25,6 +25,7 @@ bound on the VM host, and all are loopback-only:
 - D1 `127.0.0.1:18031`;
 - D2 `127.0.0.1:18032`;
 - D3 `127.0.0.1:18033`;
+- Home A–E `127.0.0.1:18101`–`127.0.0.1:18105`;
 - Gateway `127.0.0.1:18080`.
 
 They are intended for an SSH/Tailscale tunnel. The Proxmox panel is not part of

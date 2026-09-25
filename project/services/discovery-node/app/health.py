@@ -1,0 +1,154 @@
+"""Active health-check for registered nodes (Node Monitor).
+
+Passive heartbeat only tells us whether a node *reported in* recently. This
+module additionally pings each node's real ``/health`` endpoint so Discovery can
+distinguish:
+
+  online       — heartbeat fresh AND /health responded ok
+  unreachable  — heartbeat fresh BUT /health did not respond / errored
+  offline      — heartbeat stale (no need to probe)
+
+It complements, and does not replace, the heartbeat-based reachability in
+``trust.reachability_for``. Controlled by DISCOVERY_HEALTHCHECK_* env
+(see config.py). Disabled by default.
+"""
+import asyncio
+import logging
+
+import httpx
+
+from app.config import (
+    HEALTHCHECK_ENABLED,
+    HEALTHCHECK_INTERVAL_SECONDS,
+    HEALTHCHECK_TIMEOUT_SECONDS,
+    REACHABILITY_OFFLINE,
+    REACHABILITY_ONLINE,
+    REACHABILITY_UNREACHABLE,
+)
+from app.db import get_conn
+from app.trust import now_iso, reachability_for
+
+logger = logging.getLogger(__name__)
+MAX_HEALTHCHECK_NODES = 1000
+MAX_CONCURRENT_HEALTHCHECKS = 32
+_health_check_lock = asyncio.Lock()
+
+
+def health_check_running() -> bool:
+    return _health_check_lock.locked()
+
+
+def derive_health_status(heartbeat_reachability: str, ping_ok: bool) -> str:
+    """Pure decision: combine passive heartbeat reachability with an active ping.
+
+    - stale heartbeat  -> offline (don't bother trusting a ping)
+    - fresh heartbeat + ping ok    -> online
+    - fresh heartbeat + ping failed -> unreachable
+    """
+    if heartbeat_reachability == REACHABILITY_OFFLINE:
+        return REACHABILITY_OFFLINE
+    return REACHABILITY_ONLINE if ping_ok else REACHABILITY_UNREACHABLE
+
+
+async def _ping(client: httpx.AsyncClient, node_url: str) -> tuple[bool, int | None]:
+    """Probe node_url/health. Returns (ok, latency_ms) — latency is None on failure."""
+    import time
+    t0 = time.monotonic()
+    try:
+        resp = await client.get(node_url.rstrip("/") + "/health", timeout=HEALTHCHECK_TIMEOUT_SECONDS)
+        latency_ms = int((time.monotonic() - t0) * 1000)
+        ok = resp.status_code == 200
+        return ok, latency_ms if ok else None
+    except Exception:
+        return False, None
+
+
+async def run_health_check_once(client: httpx.AsyncClient | None = None) -> list[dict]:
+    """Probe a bounded set of trusted nodes and persist their health state."""
+    async with _health_check_lock:
+        return await _run_health_check_once(client)
+
+
+async def _run_health_check_once(
+    client: httpx.AsyncClient | None = None,
+) -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT node_id, node_url, last_heartbeat
+            FROM node_capabilities
+            WHERE trust_status = 'trusted'
+            ORDER BY node_id
+            LIMIT ?
+            """,
+            (MAX_HEALTHCHECK_NODES,),
+        ).fetchall()
+        nodes = [(r["node_id"], r["node_url"], r["last_heartbeat"]) for r in rows]
+
+    owns_client = client is None
+    if owns_client:
+        client = httpx.AsyncClient(follow_redirects=False, trust_env=False)
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_HEALTHCHECKS)
+
+    async def probe(node: tuple[str, str, str | None]) -> dict:
+        node_id, node_url, last_heartbeat = node
+        heartbeat_reach = reachability_for(last_heartbeat)
+        ping_ok = False
+        latency_ms: int | None = None
+        if heartbeat_reach != REACHABILITY_OFFLINE:
+            async with semaphore:
+                ping_ok, latency_ms = await _ping(client, node_url)
+        return {
+            "node_id": node_id,
+            "reachability": heartbeat_reach,
+            "health_status": derive_health_status(heartbeat_reach, ping_ok),
+            "last_health_check": now_iso(),
+            "latency_ms": latency_ms,
+        }
+
+    try:
+        results = list(await asyncio.gather(*(probe(node) for node in nodes)))
+        with get_conn() as conn:
+            conn.executemany(
+                """UPDATE node_capabilities
+                   SET health_status = ?, last_health_check = ?, latency_ms = ?
+                   WHERE node_id = ?""",
+                [
+                    (
+                        result["health_status"],
+                        result["last_health_check"],
+                        result["latency_ms"],
+                        result["node_id"],
+                    )
+                    for result in results
+                ],
+            )
+            conn.commit()
+    finally:
+        if owns_client:
+            await client.aclose()
+    return results
+
+
+async def _health_loop() -> None:
+    logger.info(
+        "Active health-check enabled: interval=%ss timeout=%ss",
+        HEALTHCHECK_INTERVAL_SECONDS,
+        HEALTHCHECK_TIMEOUT_SECONDS,
+    )
+    async with httpx.AsyncClient(
+        follow_redirects=False, trust_env=False
+    ) as client:
+        while True:
+            await asyncio.sleep(HEALTHCHECK_INTERVAL_SECONDS)
+            try:
+                await run_health_check_once(client)
+            except Exception as e:  # pragma: no cover - defensive
+                logger.warning("Health-check run failed: %s", e)
+
+
+def start_health_monitor() -> asyncio.Task | None:
+    """Start the background health-check loop if enabled (called on startup)."""
+    if not HEALTHCHECK_ENABLED:
+        return None
+    return asyncio.create_task(_health_loop())

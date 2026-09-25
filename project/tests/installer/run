@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PYTHON="${PYTHON:-python3}"
+MODE="${1:---all}"
+
+case "$MODE" in
+  --all|--dry-run|--matrix|--negative) ;;
+  *) echo "Usage: tests/installer/run [--all|--dry-run|--matrix|--negative]" >&2; exit 2 ;;
+esac
+
+new_case() {
+  local dir
+  dir="$(mktemp -d "${TMPDIR:-/tmp}/ouo-installer.XXXXXX")"
+  mkdir -p "$dir/project/scripts"
+  cp "$ROOT/scripts/bootstrap-node.py" "$dir/project/scripts/bootstrap-node.py"
+  printf '%s\n' "$dir/project"
+}
+
+assert_env() {
+  local file="$1" key="$2" expected="$3"
+  grep -q "^${key}=${expected}$" "$file" || {
+    echo "FAIL: expected ${key}=${expected} in ${file}" >&2
+    exit 1
+  }
+}
+
+run_dry() {
+  local project
+  project="$(new_case)"
+  "$PYTHON" "$project/scripts/bootstrap-node.py" --non-interactive --dry-run --network public --admin >/dev/null
+  test ! -e "$project/.env" || { echo "FAIL: dry-run created .env" >&2; exit 1; }
+  echo "PASS dry-run leaves filesystem unchanged"
+}
+
+run_matrix() {
+  local network admin_flag project env
+  for network in public private; do
+    for admin_flag in --admin --no-admin; do
+      project="$(new_case)"; env="$project/.env"
+      "$PYTHON" "$project/scripts/bootstrap-node.py" --non-interactive --network "$network" "$admin_flag" >/dev/null
+      assert_env "$env" OUO_NETWORK_MODE "$network"
+      grep -Eq '^HOME_NODE_ID=node-[0-9a-f]{24}$' "$env"
+      test "$(stat -f '%Lp' "$env" 2>/dev/null || stat -c '%a' "$env")" = "600"
+      if [[ "$admin_flag" == "--admin" ]]; then
+        grep -q '^ADMIN_PANEL_SECRET=.' "$env"
+        grep -q '^ADMIN_CONSOLE_PATH=/.' "$env"
+        test -s "$project/data/owner-access.txt"
+      else
+        ! grep -q '^ADMIN_PANEL_SECRET=' "$env"
+        test ! -e "$project/data/owner-access.txt"
+      fi
+      echo "PASS matrix network=$network admin=${admin_flag#--}"
+    done
+  done
+}
+
+run_negative() {
+  local project before after
+  project="$(new_case)"
+  if "$PYTHON" "$project/scripts/bootstrap-node.py" --non-interactive --network public --admin --exposure site >/dev/null 2>&1; then
+    echo "FAIL: site exposure without domain was accepted" >&2; exit 1
+  fi
+  test ! -e "$project/.env"
+  "$PYTHON" "$project/scripts/bootstrap-node.py" --non-interactive --network public --admin >/dev/null
+  before="$(grep '^ADMIN_PANEL_SECRET=' "$project/.env")"
+  "$PYTHON" "$project/scripts/bootstrap-node.py" --non-interactive --network public --admin >/dev/null
+  after="$(grep '^ADMIN_PANEL_SECRET=' "$project/.env")"
+  test "$before" = "$after" || { echo "FAIL: repeat install rotated owner key" >&2; exit 1; }
+  echo "PASS invalid domain configuration rejected"
+  echo "PASS repeated install preserves owner key"
+}
+
+[[ "$MODE" == "--all" || "$MODE" == "--dry-run" ]] && run_dry
+[[ "$MODE" == "--all" || "$MODE" == "--matrix" ]] && run_matrix
+[[ "$MODE" == "--all" || "$MODE" == "--negative" ]] && run_negative
+echo "Installer checks completed. No Docker containers were changed."

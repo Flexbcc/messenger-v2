@@ -1,0 +1,162 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+import 'settings_catalog.dart';
+import 'settings_impl_status.dart';
+
+Iterable<SettingDef> productionVisibleSettings(CatalogSection section) {
+  if (kDebugMode) return section.settings;
+  return section.settings.where(
+    (setting) => SettingsImplStatus.isLive(setting.id),
+  );
+}
+
+/// Catalog sections represented by a richer first-class screen on the main
+/// settings hub. These sections must not be listed there a second time.
+const kDedicatedSettingsSections = <String, String>{
+  'profile': 'profile',
+  'identity': 'profile',
+  'appearance': 'appearance',
+  'devices': 'devices',
+  'notifications': 'notifications',
+  'data': 'data_storage',
+  'backup': 'data_storage',
+  'security': 'security',
+  'hidden_chats': 'security',
+};
+
+/// Settings that remain visible when a catalog section is embedded in a
+/// richer first-class screen. Navigation actions owned by the parent are
+/// deliberately excluded to prevent parent -> catalog -> parent cycles.
+const kEmbeddedCatalogSettingIds = <String, Set<String>>{
+  'profile': {'profile.language', 'profile.time_format', 'profile.date_format'},
+};
+
+/// Internal controls hidden from the everyday settings surface. They are
+/// exposed only after explicitly unlocking the service mode from the title.
+const kServiceSettingsSectionIds = <String>{
+  'node',
+  'sync',
+  'storage_ownership',
+  'developer',
+};
+
+/// Thematic grouping of catalog sections for settings navigation.
+class SettingsBlock {
+  const SettingsBlock({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.sectionIds,
+  });
+
+  final String id;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<String> sectionIds;
+
+  int settingCount(SettingsCatalog catalog) {
+    var n = 0;
+    for (final sid in sectionIds) {
+      final section = catalog.sectionById(sid);
+      if (section != null) n += productionVisibleSettings(section).length;
+    }
+    return n;
+  }
+
+  List<CatalogSection> sections(SettingsCatalog catalog) {
+    return [
+      for (final sid in sectionIds)
+        if (catalog.sectionById(sid) case final section?)
+          if (productionVisibleSettings(section).isNotEmpty) section,
+    ];
+  }
+}
+
+/// Full thematic map (for deep links / diagnostics). Prefer [kHubSettingsBlocks] on main hub.
+const kSettingsBlocks = <SettingsBlock>[
+  SettingsBlock(
+    id: 'account',
+    title: 'Профиль и вход',
+    subtitle: 'Имя, username, телефон, почта',
+    icon: Icons.person_outline,
+    sectionIds: ['profile', 'identity'],
+  ),
+  SettingsBlock(
+    id: 'privacy',
+    title: 'Приватность и защита',
+    subtitle: 'Видимость, PIN, скрытые чаты',
+    icon: Icons.shield_outlined,
+    sectionIds: ['privacy', 'security', 'hidden_chats'],
+  ),
+  SettingsBlock(
+    id: 'communication',
+    title: 'Общение',
+    subtitle: 'Контакты, уведомления, сообщения, звонки',
+    icon: Icons.chat_bubble_outline,
+    sectionIds: ['contacts', 'notifications', 'messages', 'calls'],
+  ),
+  SettingsBlock(
+    id: 'media_data',
+    title: 'Медиа и данные',
+    subtitle: 'Автозагрузка, кэш, экспорт, удаление',
+    icon: Icons.perm_media_outlined,
+    sectionIds: ['media', 'data', 'backup'],
+  ),
+  SettingsBlock(
+    id: 'network',
+    title: 'Сеть и синхронизация',
+    subtitle: 'Нода, sync, устройства, хранение',
+    icon: Icons.hub_outlined,
+    sectionIds: ['devices', 'node', 'sync', 'storage_ownership'],
+  ),
+  SettingsBlock(
+    id: 'interface',
+    title: 'Интерфейс',
+    subtitle: 'Тема, размер текста, анимации',
+    icon: Icons.palette_outlined,
+    sectionIds: ['appearance'],
+  ),
+  SettingsBlock(
+    id: 'developer',
+    title: 'Разработчик',
+    subtitle: 'Логи, отладка, протокол',
+    icon: Icons.code_outlined,
+    sectionIds: ['developer'],
+  ),
+];
+
+/// Sections shown on the main Settings hub — no duplicates of dedicated screens.
+/// Profile/identity → ProfileScreen; appearance → AppearanceScreen; etc.
+const kHubSettingsBlocks = <SettingsBlock>[
+  SettingsBlock(
+    id: 'visibility',
+    title: 'Кто меня видит',
+    subtitle: 'Поиск, онлайн, галочки, приглашения',
+    icon: Icons.visibility_outlined,
+    sectionIds: ['privacy'],
+  ),
+  SettingsBlock(
+    id: 'messages_hub',
+    title: 'Сообщения',
+    subtitle: 'Отправка, черновики, превью ссылок',
+    icon: Icons.chat_bubble_outline,
+    sectionIds: ['messages'],
+  ),
+  SettingsBlock(
+    id: 'media_hub',
+    title: 'Медиа (каталог)',
+    subtitle: 'Лимиты и качество; автозагрузка — в «Данные»',
+    icon: Icons.perm_media_outlined,
+    sectionIds: ['media'],
+  ),
+];
+
+SettingsBlock? settingsBlockById(String id) {
+  for (final b in [...kHubSettingsBlocks, ...kSettingsBlocks]) {
+    if (b.id == id) return b;
+  }
+  return null;
+}

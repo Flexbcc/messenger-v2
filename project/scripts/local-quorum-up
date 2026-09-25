@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+
+PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$PROJECT_DIR"
+
+docker compose build discovery-node
+docker run --rm \
+  -v "$PROJECT_DIR:/workspace" \
+  -w /workspace \
+  project-discovery-node \
+  python scripts/provision-local-secrets.py
+docker run --rm \
+  -v "$PROJECT_DIR:/workspace" \
+  -w /workspace \
+  -e PYTHONPATH=/workspace \
+  project-discovery-node \
+  python scripts/provision-local-capabilities.py
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.discovery-quorum.yml \
+  up -d --build "$@"

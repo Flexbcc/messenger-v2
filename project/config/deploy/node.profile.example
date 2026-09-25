@@ -1,0 +1,20 @@
+# Copy to config/deploy/node.profile and edit (file is local per machine).
+#
+# MAIN server example (production — no admin in NODE_SERVICES; admin optional via SSH tunnel):
+#   DEPLOY_ROLE=main
+#   NODE_SERVICES="discovery-node gateway-node"
+#   HEALTH_URLS="http://localhost:8003/health http://localhost:8007/health"
+#
+# Optional local debug UI (ssh -L 9201:127.0.0.1:9201 root@MAIN):
+#   docker compose up -d admin
+#
+# WORKER example (full test node):
+#   DEPLOY_ROLE=worker
+#   NODE_SERVICES="home-node storage-node media-node relay-node turn-node"
+#   HEALTH_URLS="http://localhost:8001/health http://localhost:8004/health"
+
+DEPLOY_ROLE=main
+NODE_SERVICES="discovery-node gateway-node"
+GIT_REMOTE=origin
+GIT_BRANCH=main
+HEALTH_URLS="http://localhost:8003/health http://localhost:8007/health"

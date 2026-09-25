@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Спецификация проекта</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <button id="menuToggle" aria-label="Меню">☰</button>
+  <div id="layout">
+    <nav id="sidebar">
+      <div id="sidebarHeader">
+        <strong>Спецификация</strong>
+        <input id="search" type="search" placeholder="Поиск по названию...">
+      </div>
+      <div id="nav"></div>
+    </nav>
+    <main id="content">
+      <article id="doc">Загрузка…</article>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

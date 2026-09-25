@@ -1,0 +1,41 @@
+{
+  "_profile": "primary-s3-minio",
+  "_description": "Все медиа в self-hosted MinIO",
+  "media": {
+    "primary_backend": "s3",
+    "local_path": "/data/media_blobs",
+    "s3": {
+      "enabled": true,
+      "endpoint_url": "__S3_ENDPOINT__",
+      "bucket": "__S3_BUCKET__",
+      "access_key": "__S3_ACCESS_KEY__",
+      "secret_key": "__S3_SECRET_KEY__",
+      "region": "us-east-1",
+      "prefix": "media/"
+    },
+    "network_cache_ttl_hours": 48
+  },
+  "personal_cloud": {
+    "enabled": true,
+    "default_for_node_users": "operator",
+    "allow_user_personal_s3": true,
+    "users": {}
+  },
+  "backup": {
+    "enabled": false,
+    "backend": "local",
+    "local_path": "/data/backups",
+    "schedule_hours": 24,
+    "include_media": true,
+    "include_home_db": true,
+    "s3": {
+      "enabled": false,
+      "endpoint_url": "",
+      "bucket": "",
+      "access_key": "",
+      "secret_key": "",
+      "region": "us-east-1",
+      "prefix": "backups/"
+    }
+  }
+}

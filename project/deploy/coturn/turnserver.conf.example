@@ -1,0 +1,20 @@
+# Coturn config — copy to worker, set TURN_SERVER_HOST=161.104.18.45
+# Shared secret must match TURN_SHARED_SECRET in turn-node (.env / docker-compose).
+
+listening-port=3478
+fingerprint
+lt-cred-mech
+use-auth-secret
+static-auth-secret=dev-only-insecure-secret-change-me
+realm=messenger
+no-multicast-peers
+no-cli
+
+# Public IP of worker (required behind NAT)
+external-ip=161.104.18.45
+
+# Relay port range (open in firewall)
+min-port=49152
+max-port=49252
+
+verbose

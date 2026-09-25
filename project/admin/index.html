@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<script>
+const firstPath=location.pathname.split("/").filter(Boolean)[0]||"";
+const publicRoutes=new Set(["setup","storage","enrollment","nodes","audit","operator","health-dashboard","vuln","static","api"]);
+window.__ADMIN_BASE=firstPath==="ops"?"/ops":(firstPath&&!publicRoutes.has(firstPath)?`/${firstPath}`:"");
+document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operator Admin — Мониторинг</title>
+<link rel="stylesheet" href="static/theme.css">
+<link rel="stylesheet" href="static/style.css?v=20260924-28">
+</head>
+<body class="page-monitor">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Operator Admin</h1>
+          <p class="subtitle">Project-стек · <span id="localStackLabel">—</span></p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./" class="active">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup">Настройка</a>
+        <a href="storage">Хранилище</a>
+        <a href="enrollment">Доверие</a>
+        <a href="vuln">Политика</a>
+        <a href="audit">Аудит</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить" aria-label="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему" aria-label="Сменить тему">◐</button>
+        <span id="autoRefreshLabel" class="toolbar-hint hidden">5с</span>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="hero-card card" id="localNodeCard">
+        <div class="hero-left">
+          <div class="status-pill" id="runtimeStatusPill">—</div>
+          <h2 id="localNodeTitle">Локальная нода</h2>
+          <p class="muted" id="localNodeMeta">Загрузка…</p>
+        </div>
+        <div class="health-ring" aria-label="Health score">
+          <svg viewBox="0 0 120 120">
+            <circle class="health-bg" cx="60" cy="60" r="52"></circle>
+            <circle class="health-fg" id="healthArc" cx="60" cy="60" r="52"></circle>
+          </svg>
+          <div class="health-value">
+            <span id="healthScore">—</span>
+            <small>Health</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-purpose card" aria-label="Назначение страницы">
+        <div><strong>Что здесь происходит</strong><p>Собирается краткое состояние локальных сервисов и всей зарегистрированной сети.</p></div>
+        <div><strong>На что влияет</strong><p>Страница только показывает данные. Настройки и состояние нод она не изменяет.</p></div>
+      </section>
+
+      <section class="summary-row" id="networkSummary">
+        <div class="summary-chip card"><strong id="sumTotal">—</strong><span>нод в сети</span></div>
+        <div class="summary-chip card"><strong id="sumOnline">—</strong><span>онлайн</span></div>
+        <div class="summary-chip card"><strong id="sumOffline">—</strong><span>требуют внимания</span></div>
+      </section>
+
+      <div class="info-banner card warn-banner hidden" id="alertsBanner"></div>
+
+      <section class="metrics-grid" id="metricsGrid">
+        <div class="metric-card card"><span class="metric-label">CPU</span><span class="metric-value" id="mCpu">—</span></div>
+        <div class="metric-card card"><span class="metric-label">RAM</span><span class="metric-value" id="mRam">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Диск</span><span class="metric-value" id="mDisk">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Подключения</span><span class="metric-value" id="mConn">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Очередь sync</span><span class="metric-value" id="mSync">—</span></div>
+        <div class="metric-card card"><span class="metric-label">Аптайм</span><span class="metric-value" id="mUptime">—</span></div>
+      </section>
+
+      <div class="two-col" id="monitorDetailsRow">
+        <section class="card panel-section" id="connectionsPanel">
+          <div class="section-head">
+            <h3>Подключённые устройства</h3>
+            <span class="badge" id="connCount">0</span>
+          </div>
+          <p class="section-hint">Анонимные ID — без имён и телефонов.</p>
+          <div class="table-wrap">
+            <table class="data-table" id="connectionsTable">
+              <thead>
+                <tr>
+                  <th>user_id</th>
+                  <th>device_id</th>
+                  <th>Тип</th>
+                  <th>WS</th>
+                </tr>
+              </thead>
+              <tbody id="connectionsBody">
+                <tr><td colspan="4" class="empty">Нет активных сессий</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card panel-section">
+          <div class="section-head">
+            <h3>Участие в сети</h3>
+            <a href="setup" class="link-setup">Настроить →</a>
+          </div>
+          <p class="section-hint">Только обзор. Изменения — на странице «Настройка».</p>
+          <div id="participationOverview" class="participation-readonly">
+            <div class="priority-bar readonly" aria-hidden="true">
+              <div class="priority-owner" id="priorityOwnerBar"></div>
+              <div class="priority-network" id="priorityNetworkBar"></div>
+            </div>
+            <p class="participation-summary" id="participationSummary">—</p>
+            <ul class="participation-tags" id="participationTags"></ul>
+          </div>
+        </section>
+      </div>
+
+      <section class="card panel-section services-panel-compact">
+        <div class="section-head">
+          <h3>Локальные сервисы</h3>
+          <a href="setup" class="link-setup">Управление →</a>
+        </div>
+        <div id="servicesStatusRow" class="services-status-row"></div>
+      </section>
+
+    </main>
+  </div>
+  <script src="static/shared.js?v=20260923-23"></script>
+  <script src="static/services.js?v=20260923-23"></script>
+  <script src="static/app.js?v=20260923-21"></script>
+</body>
+</html>

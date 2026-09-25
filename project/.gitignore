@@ -1,0 +1,19 @@
+.env
+.env.local
+.env.secure
+data/
+__pycache__/
+.pytest_cache/
+.venv/
+test-results/
+*.pyc
+
+# Flutter / frontend build artifacts
+client/messenger_app/build/
+client/messenger_app/.dart_tool/
+
+# Local deploy secrets
+config/deploy/gitea.env
+
+# Runtime SQLite (Docker volume is source of truth)
+services/discovery-node/discovery.db

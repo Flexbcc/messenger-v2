@@ -1,0 +1,96 @@
+[
+  {
+    "section": "Обзор",
+    "items": [
+      { "title": "README", "path": "README.md" },
+      { "title": "0000. Проект", "path": "0000_PROJECT.md" },
+      { "title": "0001. Видение", "path": "0001_VISION.md" },
+      { "title": "0002. Принципы", "path": "0002_PRINCIPLES.md" },
+      { "title": "0003. Engineering Principles", "path": "0003_ENGINEERING_PRINCIPLES.md" },
+      { "title": "0004. Project Glossary", "path": "0004_GLOSSARY.md" },
+      { "title": "0005. Design Philosophy", "path": "0005_DESIGN_PHILOSOPHY.md" }
+    ]
+  },
+  {
+    "section": "Архитектура",
+    "items": [
+      { "title": "0100. Архитектура", "path": "0100_ARCHITECTURE.md" },
+      { "title": "0101. Компоненты", "path": "0101_COMPONENTS.md" },
+      { "title": "0102. Потоки данных", "path": "0102_DATA_FLOW.md" },
+      { "title": "0103. Сеть", "path": "0103_NETWORK.md" }
+    ]
+  },
+  {
+    "section": "Протокол",
+    "items": [
+      { "title": "0200. Протокол", "path": "0200_PROTOCOL.md" },
+      { "title": "0201. Пакеты", "path": "0201_PACKETS.md" },
+      { "title": "0202. Доставка", "path": "0202_DELIVERY.md" },
+      { "title": "0203. Маршрутизация", "path": "0203_ROUTING.md" },
+      { "title": "0204. Версионирование", "path": "0204_VERSIONING.md" }
+    ]
+  },
+  {
+    "section": "Криптография",
+    "items": [
+      { "title": "0300. Криптография", "path": "0300_CRYPTO.md" },
+      { "title": "0301. Групповая криптосхема", "path": "0301_GROUP_MESSAGING.md" },
+      { "title": "0302. Модель угроз (детальная)", "path": "0302_THREAT_MODEL.md" }
+    ]
+  },
+  {
+    "section": "Клиент",
+    "items": [
+      { "title": "0400. Клиент", "path": "0400_CLIENT.md" },
+      { "title": "0401. Flutter-клиент", "path": "0401_FLUTTER.md" },
+      { "title": "0402. Private Mode / Secret Room", "path": "0402_PRIVATE_MODE.md" }
+    ]
+  },
+  {
+    "section": "Ядро",
+    "items": [
+      { "title": "0500. Core", "path": "0500_CORE.md" }
+    ]
+  },
+  {
+    "section": "Узлы инфраструктуры",
+    "items": [
+      { "title": "0600. Home Node", "path": "0600_HOME_NODE.md" },
+      { "title": "0601. Relay Node", "path": "0601_RELAY_NODE.md" },
+      { "title": "0602. Storage Node", "path": "0602_STORAGE_NODE.md" },
+      { "title": "0603. Media Node", "path": "0603_MEDIA_NODE.md" },
+      { "title": "0604. Discovery Node", "path": "0604_DISCOVERY_NODE.md" }
+    ]
+  },
+  {
+    "section": "Хранилище",
+    "items": [
+      { "title": "0700. База данных", "path": "0700_DATABASE.md" },
+      { "title": "0701. S3-хранилище", "path": "0701_S3.md" }
+    ]
+  },
+  {
+    "section": "API",
+    "items": [
+      { "title": "0800. API", "path": "0800_API.md" }
+    ]
+  },
+  {
+    "section": "DevOps",
+    "items": [
+      { "title": "0900. DevOps", "path": "0900_DEVOPS.md" }
+    ]
+  },
+  {
+    "section": "ADR",
+    "items": [
+      { "title": "ADR — обзор и шаблон", "path": "ADR/README.md" },
+      { "title": "0001. Protocol-first architecture", "path": "ADR/0001-protocol-first-architecture.md" },
+      { "title": "0002. E2EE: X3DH + Double Ratchet", "path": "ADR/0002-e2ee-scheme-x3dh-double-ratchet.md" },
+      { "title": "0003. Core language: Rust", "path": "ADR/0003-core-language-rust.md" },
+      { "title": "0004. MVP staged implementation", "path": "ADR/0004-mvp-staged-implementation.md" },
+      { "title": "0005. Reuse legacy projects + real crypto", "path": "ADR/0005-reuse-legacy-projects-and-real-crypto.md" },
+      { "title": "0006. Staged decentralization bootstrap authority", "path": "ADR/0006-staged-decentralization-bootstrap-authority.md" }
+    ]
+  }
+]

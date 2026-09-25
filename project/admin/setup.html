@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<script>
+const firstPath=location.pathname.split("/").filter(Boolean)[0]||"";
+const publicRoutes=new Set(["setup","storage","enrollment","nodes","audit","operator","health-dashboard","vuln","static","api"]);
+window.__ADMIN_BASE=firstPath==="ops"?"/ops":(firstPath&&!publicRoutes.has(firstPath)?`/${firstPath}`:"");
+document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operator Admin — Настройка</title>
+<link rel="stylesheet" href="static/theme.css?v=20260922-2">
+<link rel="stylesheet" href="static/style.css?v=20260924-28">
+</head>
+<body class="page-form page-setup">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Настройка</h1>
+          <p class="subtitle">Project-стек · <code>.env</code></p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup" class="active">Настройка</a>
+        <a href="storage">Хранилище</a>
+        <a href="enrollment">Доверие</a>
+        <a href="vuln">Политика</a>
+        <a href="audit">Аудит</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему">◐</button>
+      </div>
+    </header>
+
+    <main class="dashboard setup-compact">
+      <section class="page-intro">
+        <div>
+          <span class="eyebrow">Конфигурация локального стенда</span>
+          <h2>Подключение и роли ноды</h2>
+          <p>Укажите, к какой сети относится нода, какие функции она выполняет и по какому адресу её увидят клиенты.</p>
+        </div>
+        <div class="intro-actions">
+          <span class="view-mode-badge" id="viewModeBadge">Режим просмотра</span>
+          <button type="button" id="editConfigBtn" class="btn-primary">Изменить настройки</button>
+        </div>
+      </section>
+
+      <section class="page-purpose card" aria-label="Назначение страницы">
+        <div><strong>Что здесь происходит</strong><p>Настраиваются Discovery, роли, порты и клиентский адрес локальной ноды.</p></div>
+        <div><strong>На что влияет</strong><p>Сохранение меняет локальную конфигурацию. Применение пересоздаёт сервисы ноды, чтобы они действительно получили новые параметры окружения.</p></div>
+      </section>
+
+      <details class="deployments-hint card" id="deploymentsHint">
+        <summary><span>Текущее размещение компонентов</span><small>Показать технические адреса</small></summary>
+        <ul class="deploy-list" id="deployList"><li>Загрузка сведений…</li></ul>
+      </details>
+
+      <form id="setupForm" class="card form-card setup-form-compact">
+        <div class="setup-grid">
+          <section class="setup-block setup-services">
+            <div class="setup-block-heading">
+              <div><span class="step-number">01</span><h2>Состояние сервисов</h2></div>
+            </div>
+            <p class="block-help">Проверяем процессы текущего Docker-стенда. Управление ими не меняет настройки сети.</p>
+            <div class="setup-block-content">
+              <div class="content-toolbar"><strong>Запущенные компоненты</strong><button type="button" id="refreshServicesBtn" class="btn-ghost btn-xs">Обновить</button></div>
+              <div id="servicesGrid" class="services-grid services-grid-tight"><p class="services-hint loading">Проверяем Docker…</p></div>
+            </div>
+          </section>
+
+          <section class="setup-block">
+            <div class="setup-block-heading"><div><span class="step-number">02</span><h2>Сеть и Discovery</h2></div></div>
+            <p class="block-help">Discovery используется для регистрации и поиска других нод. Это внутренний адрес между контейнерами.</p>
+            <div class="setup-block-content form-content-grid">
+            <label class="field-compact field-wide">Адрес Discovery
+              <div class="input-row">
+                <input name="discovery_node_url" type="url" required placeholder="http://discovery-node:8003">
+                <button type="button" class="btn-secondary btn-check btn-xs" data-check="discovery">✓</button>
+              </div>
+              <div class="field-check-result hidden" data-check-for="discovery"></div>
+            </label>
+            <div class="field-row-2">
+              <label class="field-compact">Идентификатор кластера
+                <input name="cluster_id" type="text" required placeholder="default">
+              </label>
+              <label class="field-compact">IP этого компьютера <span class="muted-xs">для LAN</span>
+                <input name="lan_ip" type="text" placeholder="192.168.1.10">
+              </label>
+            </div>
+            <label class="field-compact">Режим взаимодействия
+              <select name="node_resource_policy">
+                <option value="federated">Федерация — независимые ноды</option>
+                <option value="cluster">Кластер — общая инфраструктура</option>
+                <option value="local">Локально — одна машина</option>
+              </select>
+            </label>
+            <details class="inline-details field-wide">
+              <summary><span>Несколько независимых Discovery</span><small>D1/D2/D3 · quorum</small></summary>
+              <p class="block-help">Нода регистрируется и отправляет heartbeat независимо в каждый указанный Discovery. Критические маршруты, peer-view и federation trust сверяются по нескольким источникам; первый адрес остаётся только совместимым bootstrap-указателем.</p>
+              <label class="field-compact">Адреса D1, D2, D3 через запятую
+                <input name="discovery_quorum_urls" type="text" placeholder="http://discovery-node:8003,http://discovery-node-2:8003,http://discovery-node-3:8003">
+                <small>Указывайте только origin без пути, логина и параметров.</small>
+              </label>
+              <label class="field-compact">Адреса Discovery для клиентов
+                <input name="discovery_public_urls" type="text" placeholder="http://localhost:8003,http://localhost:8013,http://localhost:8023">
+                <small>Их получает Flutter/Web. Они должны открываться с устройства пользователя, а не только внутри Docker.</small>
+              </label>
+              <label class="field-compact">Минимум совпавших источников
+                <input name="discovery_minimum_sources" type="number" min="2" max="16" value="2">
+                <small>При конфликте или недостатке источников control plane замораживается; существующий data plane продолжает работу по кэшу.</small>
+              </label>
+            </details>
+            </div>
+          </section>
+
+          <section class="setup-block">
+            <div class="setup-block-heading"><div><span class="step-number">03</span><h2>Роли этой ноды</h2></div></div>
+            <p class="block-help">Включите только те функции, которые эта машина действительно должна предоставлять сети.</p>
+            <div class="setup-block-content">
+            <label class="field-compact field-wide">Профиль использования
+              <select name="usage_profile" id="usageProfile">
+                <option value="personal">Личная — обслуживать владельца, без чужого транзита</option>
+                <option value="balanced">Сбалансированная — помогать сети с ограничениями</option>
+                <option value="transit">Транзитная — выделить больше ресурсов Relay/Storage</option>
+                <option value="custom">Своя конфигурация</option>
+              </select>
+              <small>Это локальный лимит нагрузки, а не уровень доверия. Discovery всё равно проверяет Capability Certificate.</small>
+            </label>
+            <div class="check-grid">
+              <label class="role-option"><input name="participate_relay" type="checkbox" checked><span><b>Relay для сети</b><small>Принимать транзит чужих нод; повышает CPU, RAM и трафик</small></span></label>
+              <label class="role-option"><input name="participate_storage" type="checkbox" checked><span><b>Storage для сети</b><small>Публиковать временный mailbox другим нодам; локальный mailbox остаётся</small></span></label>
+              <label class="role-option"><input name="participate_witness" type="checkbox"><span><b>Witness</b><small>Наблюдения для доверия</small></span></label>
+              <label class="role-option"><input name="participate_media_cache" type="checkbox"><span><b>Media cache</b><small>Кэш медиаданных</small></span></label>
+              <label class="role-option"><input name="participate_nat_assist" type="checkbox"><span><b>NAT assist</b><small>Помощь с подключением</small></span></label>
+            </div>
+            <div class="url-preview field-wide">Переключатель выражает согласие оператора. Реальное право Relay / Storage появляется только после действующего Capability Certificate и исчезает при его expiry, suspension или revocation.</div>
+            <div class="role-reality field-wide" id="roleReality">
+              <span class="services-hint loading">Сверяем настройки с фактическим состоянием сервисов…</span>
+            </div>
+            <label class="field-compact">Целевой резерв владельца (%)
+              <input name="owner_resource_percent" type="number" min="20" max="100" step="5" value="40">
+              <small>Политика распределения для будущего scheduler. Сейчас жёстко применяются переключатели ролей и точные лимиты ниже.</small>
+            </label>
+            <details class="inline-details transport-settings">
+              <summary><span>Ограничения транспортной нагрузки</span><small>Соединения и таймауты</small></summary>
+              <p class="block-help">Эти лимиты защищают память и файловые дескрипторы. Они не повышают уровень доверия и не выдают ноде право Relay — право определяется Capability Certificate.</p>
+              <div class="form-content-grid">
+                <label class="field-compact">Межнодовый транспорт
+                  <select name="relay_transport_mode">
+                    <option value="http">HTTP — диагностический режим</option>
+                    <option value="websocket-preferred">WSS предпочтительно, HTTP fallback</option>
+                    <option value="websocket-required">Только WSS</option>
+                    <option value="quic-preferred">QUIC предпочтительно, fallback</option>
+                    <option value="quic-required">Только QUIC</option>
+                  </select>
+                  <small>Для рабочего стенда безопаснее «WSS предпочтительно»: активные Relay-связи переиспользуются, но полного mesh со всей сетью нет.</small>
+                </label>
+                <div class="field-row-2">
+                  <label class="field-compact">Постоянных Relay peers
+                    <input name="relay_max_persistent_peers" type="number" min="1" max="64" value="15">
+                    <small>Максимум исходящих WSS/QUIC связей этой Home-ноды.</small>
+                  </label>
+                  <label class="field-compact">Простой Relay-связи, сек
+                    <input name="relay_link_idle_seconds" type="number" min="10" max="3600" value="120">
+                    <small>Неактивная связь закрывается и освобождает ресурсы.</small>
+                  </label>
+                </div>
+                <div class="field-row-3">
+                  <label class="field-compact">Guard peers
+                    <input name="peer_guard_count" type="number" min="1" max="5" value="2">
+                    <small>Стабильные доверенные маршруты, которые не меняются при каждой ротации.</small>
+                  </label>
+                  <label class="field-compact">Ротируемые peers
+                    <input name="peer_rotating_count" type="number" min="0" max="14" value="4">
+                    <small>Частично обновляемая часть сетевого окружения.</small>
+                  </label>
+                  <label class="field-compact">Резервные peers
+                    <input name="peer_reserve_count" type="number" min="0" max="15" value="2">
+                    <small>Используются при недоступности активных Relay.</small>
+                  </label>
+                </div>
+                <div class="field-row-2">
+                  <label class="field-compact">Входящих WSS всего
+                    <input name="relay_ws_max_connections" type="number" min="1" max="10000" value="100">
+                    <small>Общий лимит соединений, принимаемых Relay-сервисом.</small>
+                  </label>
+                  <label class="field-compact">WSS от одной ноды
+                    <input name="relay_ws_max_connections_per_peer" type="number" min="1" max="64" value="4">
+                    <small>Не даёт одному peer занять весь Relay.</small>
+                  </label>
+                </div>
+                <div class="field-row-2">
+                  <label class="field-compact">Home-соединений всего
+                    <input name="direct_max_connections" type="number" min="8" max="4096" value="256">
+                    <small>Короткие и переиспользуемые прямые Home→Home запросы.</small>
+                  </label>
+                  <label class="field-compact">Home keep-alive
+                    <input name="direct_max_keepalive_connections" type="number" min="0" max="1024" value="64">
+                    <small>Сколько недавно активных маршрутов держать тёплыми.</small>
+                  </label>
+                </div>
+                <label class="field-compact">Срок Home keep-alive, сек
+                  <input name="direct_keepalive_expiry_seconds" type="number" min="1" max="600" value="30">
+                  <small>Это не постоянная связь со всей сетью: соединение появляется только после реального обмена и быстро закрывается без активности.</small>
+                </label>
+              </div>
+            </details>
+            </div>
+          </section>
+
+          <section class="setup-block">
+            <div class="setup-block-heading"><div><span class="step-number">04</span><h2>Доступ клиентов</h2></div></div>
+            <p class="block-help">Выберите, откуда приложения смогут подключаться к Home Node.</p>
+            <div class="setup-block-content form-content-grid">
+            <label class="field-compact">Кто будет подключаться
+              <select name="access_mode" id="accessMode">
+                <option value="local">Только этот компьютер</option>
+                <option value="lan">Устройства в Wi‑Fi / LAN</option>
+                <option value="custom">Интернет: домен или внешний IP</option>
+              </select>
+            </label>
+            <label class="field-compact hidden" id="publicHostWrap">Хост
+              <input name="public_host" id="publicHost" type="text" placeholder="localhost">
+            </label>
+            <div class="field-row-2">
+              <label class="field-compact">Home :порт
+                <input name="port_home" type="number" min="1" max="65535" value="8001">
+              </label>
+              <label class="field-compact optional-port">Media :порт
+                <input name="port_media" type="number" min="1" max="65535" value="8004">
+              </label>
+            </div>
+            <div class="access-toggles">
+              <label class="role-option compact"><input name="enable_media" type="checkbox" id="enableMedia" checked><span><b>Media endpoint</b><small>Публиковать адрес Media</small></span></label>
+              <label class="role-option compact"><input name="enable_relay" type="checkbox" id="enableRelay" checked><span><b>Relay endpoint</b><small>Разрешить проверку Relay</small></span></label>
+            </div>
+            <div class="url-preview field-wide" id="urlPreview">Формируем адреса…</div>
+            <input type="hidden" name="home_node_public_url">
+            <input type="hidden" name="storage_node_url">
+            <input type="hidden" name="media_node_public_url">
+            <input type="hidden" name="relay_node_public_url">
+            <div class="check-actions-row field-wide">
+              <button type="button" id="checkAllBtn" class="btn-secondary check-all-button">Проверить подключения</button>
+            </div>
+            <div class="connection-results field-wide">
+            <div class="field-check-result hidden" data-check-for="home"></div>
+            <div class="field-check-result hidden" data-check-for="storage"></div>
+            <div class="field-check-result hidden" data-check-for="media"></div>
+            <div class="field-check-result hidden" data-check-for="relay"></div>
+            </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="setup-footer">
+          <span class="security-badge" id="jwtBadge">JWT — …</span>
+          <div class="form-actions">
+            <button type="button" id="cancelEditBtn" class="btn-ghost">Отменить</button>
+            <button type="submit" class="btn-secondary config-action">Сохранить без перезапуска</button>
+            <button type="button" id="applyConfigBtn" class="btn-primary config-action">Применить настройки ноды</button>
+            <span id="status" class="status-msg"></span>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+  <script src="static/shared.js?v=20260923-23"></script>
+  <script src="static/services.js?v=20260923-23"></script>
+  <script src="static/clusters.js?v=20260922-2"></script>
+  <script src="static/setup.js?v=20260924-28"></script>
+</body>
+</html>

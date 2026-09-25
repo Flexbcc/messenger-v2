@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<script>
+const firstPath=location.pathname.split("/").filter(Boolean)[0]||"";
+const publicRoutes=new Set(["setup","storage","enrollment","nodes","audit","operator","health-dashboard","vuln","static","api"]);
+window.__ADMIN_BASE=firstPath==="ops"?"/ops":(firstPath&&!publicRoutes.has(firstPath)?`/${firstPath}`:"");
+document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operator Admin — Хранилище</title>
+<link rel="stylesheet" href="static/theme.css">
+<link rel="stylesheet" href="static/style.css?v=20260924-28">
+</head>
+<body class="page-form page-storage">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Хранилище</h1>
+          <p class="subtitle">Медиа, облако и резервные копии</p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup">Настройка</a>
+        <a href="storage" class="active">Хранилище</a>
+        <a href="enrollment">Доверие</a>
+        <a href="vuln">Политика</a>
+        <a href="audit">Аудит</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить" aria-label="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему" aria-label="Сменить тему">◐</button>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <div class="storage-hero card admin-page-intro">
+        <div>
+          <span class="eyebrow">Политика данных</span>
+          <h2>Хранилище</h2>
+          <p>Медиа, персональные облака и резервные копии в одном месте.</p>
+        </div>
+        <div class="intro-actions"><span class="view-mode-badge" id="storageModeBadge">Режим просмотра</span><button type="button" id="editStorageBtn" class="btn-primary">Изменить настройки</button></div>
+      </div>
+
+      <section class="page-purpose card" aria-label="Назначение страницы">
+        <div><strong>Что здесь происходит</strong><p>Настраиваются Media, персональное облако и параметры резервных копий.</p></div>
+        <div><strong>На что влияет</strong><p>Изменения определяют размещение новых данных и будущие копии; существующие файлы автоматически не переносятся.</p></div>
+      </section>
+
+      <details class="card admin-help"><summary>Как применяются изменения</summary><p>Сохранение записывает конфигурацию. Применение обновляет Media без перезапуска. Резервную копию можно запустить отдельно.</p></details>
+
+      <form id="storageForm" class="storage-form">
+        <article class="card storage-card unified-row">
+          <header class="storage-card-head">
+            <span class="step-number">01</span>
+            <div>
+              <h2>Медиа</h2>
+              <p>Фото, файлы, голосовые</p>
+            </div>
+          </header>
+          <div class="storage-card-body">
+            <label>Бэкенд
+              <select name="media_primary_backend" id="mediaPrimaryBackend">
+                <option value="local">Локальный диск</option>
+                <option value="s3">S3 / MinIO</option>
+              </select>
+            </label>
+            <label>Путь на диске
+              <input name="media_local_path" type="text" placeholder="/data/media_blobs">
+            </label>
+            <div id="mediaS3Block" class="subpanel hidden">
+              <label>S3 endpoint <input name="media_s3_endpoint" type="url"></label>
+              <label>Bucket <input name="media_s3_bucket" type="text"></label>
+              <label>Access key <input name="media_s3_access_key" type="text" autocomplete="off"></label>
+              <label>Secret key <input name="media_s3_secret_key" type="password" autocomplete="off"></label>
+              <label>Region <input name="media_s3_region" type="text" value="us-east-1"></label>
+              <label>Prefix <input name="media_s3_prefix" type="text" placeholder="media/"></label>
+            </div>
+            <label>TTL кеша сети (часы)
+              <input name="network_cache_ttl_hours" type="number" min="1" max="720" value="48">
+            </label>
+          </div>
+        </article>
+
+        <article class="card storage-card unified-row">
+          <header class="storage-card-head">
+            <span class="step-number">02</span>
+            <div>
+              <h2>Персональное облако</h2>
+              <p>S3 пользователя вместо диска оператора</p>
+            </div>
+          </header>
+          <div class="storage-card-body">
+            <label class="checkbox-row">
+              <input name="personal_cloud_enabled" type="checkbox">
+              Разрешить персональные хранилища
+            </label>
+            <label>По умолчанию для пользователей
+              <select name="default_for_node_users">
+                <option value="operator">operator — диск оператора</option>
+                <option value="personal">personal — свой S3</option>
+              </select>
+            </label>
+          </div>
+        </article>
+
+        <article class="card storage-card unified-row">
+          <header class="storage-card-head">
+            <span class="step-number">03</span>
+            <div>
+              <h2>Резервное копирование</h2>
+              <p>Медиа + база home-node</p>
+            </div>
+          </header>
+          <div class="storage-card-body">
+            <label class="checkbox-row"><input name="backup_enabled" type="checkbox"> Включить бэкап</label>
+            <label>Бэкенд
+              <select name="backup_backend" id="backupBackend">
+                <option value="local">Локальный каталог</option>
+                <option value="s3">S3 / MinIO</option>
+              </select>
+            </label>
+            <label>Каталог (local) <input name="backup_local_path" type="text" placeholder="/data/backups"></label>
+            <label>Интервал (часы) <input name="backup_schedule_hours" type="number" min="1" value="24"></label>
+            <div id="backupS3Block" class="subpanel hidden">
+              <label>S3 endpoint <input name="backup_s3_endpoint" type="url"></label>
+              <label>Bucket <input name="backup_s3_bucket" type="text"></label>
+              <label>Access key <input name="backup_s3_access_key" type="text" autocomplete="off"></label>
+              <label>Secret key <input name="backup_s3_secret_key" type="password" autocomplete="off"></label>
+              <label>Prefix <input name="backup_s3_prefix" type="text" placeholder="backups/"></label>
+            </div>
+          </div>
+        </article>
+
+        <div class="card storage-actions">
+          <button type="button" id="checkMediaBtn" class="btn-secondary">Проверить media-node</button>
+          <div class="field-check-result hidden" data-check-for="media" aria-live="polite"></div>
+          <button type="button" id="cancelStorageBtn" class="btn-ghost">Отменить</button>
+          <button type="submit" class="btn-secondary storage-config-action">Сохранить</button>
+          <button type="button" id="reloadMediaBtn" class="btn-primary storage-config-action">Сохранить и применить</button>
+          <button type="button" id="backupNowBtn" class="btn-secondary storage-config-action">Создать бэкап</button>
+          <span id="status" class="status-msg"></span>
+        </div>
+      </form>
+    </main>
+  </div>
+  <script src="static/shared.js?v=20260923-19"></script>
+  <script src="static/storage.js?v=20260923-22"></script>
+</body>
+</html>

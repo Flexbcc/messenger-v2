@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Клиент OUO — настройки и защита</title>
+  <meta name="description" content="Интерактивное объяснение клиентского приложения OUO: PIN, приватные пространства, уведомления, хранение, блокировки и подключение к ноде.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="client-guide.css">
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+  <div class="wrap client-wrap">
+    <header>
+      <a class="logo" href="index.html" aria-label="OUO — главная"><span class="logo-mark" aria-hidden="true"></span><span>OUO</span></a>
+      <nav aria-label="Основная навигация">
+        <a class="nav-current" href="client-guide.html">Клиент</a>
+        <a href="message-flow.html">Путь сообщения</a>
+        <a href="index.html#node">Своя нода</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="client-hero">
+        <div>
+          <p class="beta-tag">Приложение под контролем пользователя</p>
+          <h1>Настройки, которые<br>действительно что-то меняют</h1>
+          <p class="lead">Выберите функцию в макете приложения. Справа появится её влияние на интерфейс, локальные данные, сеть и границы защиты.</p>
+          <div class="hero-cta"><a class="btn btn-primary btn-lg" href="#interactive">Открыть настройки</a><a class="btn btn-ghost btn-lg" href="message-flow.html">Как идёт сообщение</a></div>
+        </div>
+        <div class="security-orbit" aria-hidden="true"><div class="orbit-ring"></div><div class="orbit-core">YOU</div><span class="o1">PIN</span><span class="o2">E2EE</span><span class="o3">NODE</span><span class="o4">DB</span></div>
+      </section>
+
+      <section class="interactive-section" id="interactive" aria-labelledby="interactive-title">
+        <div class="section-heading"><p class="eyebrow">Интерактивный обзор</p><h2 id="interactive-title">Нажимайте на настройки клиента</h2></div>
+        <div class="client-demo">
+          <div class="phone-shell" aria-label="Макет настроек OUO">
+            <div class="phone-top"><span>9:41</span><strong>Настройки OUO</strong><span>●●●</span></div>
+            <div class="profile-row"><div class="avatar">A</div><div><strong>Алексей</strong><span>UserID защищён ключом Identity Root</span></div></div>
+            <div class="settings-list" role="list">
+              <button class="setting-row is-active" type="button" data-setting="pin"><span class="setting-icon">⌁</span><span><strong>Блокировка приложения</strong><small>Основной PIN и таймер</small></span><b>›</b></button>
+              <button class="setting-row" type="button" data-setting="decoy"><span class="setting-icon">◎</span><span><strong>Дополнительный PIN</strong><small>Безопасный decoy-профиль</small></span><b>›</b></button>
+              <button class="setting-row" type="button" data-setting="private"><span class="setting-icon">◇</span><span><strong>Private Mode</strong><small>Отдельное скрытое пространство</small></span><b>›</b></button>
+              <button class="setting-row" type="button" data-setting="secret"><span class="setting-icon">✦</span><span><strong>Секретная сессия</strong><small>Скрытый слой внутри чата</small></span><b>›</b></button>
+              <button class="setting-row" type="button" data-setting="notifications"><span class="setting-icon">◌</span><span><strong>Уведомления</strong><small>Превью и приватный режим</small></span><b>›</b></button>
+              <button class="setting-row" type="button" data-setting="storage"><span class="setting-icon">▱</span><span><strong>История и хранение</strong><small>Локальная БД и исчезновение</small></span><b>›</b></button>
+              <button class="setting-row" type="button" data-setting="contacts"><span class="setting-icon">⊘</span><span><strong>Контакты и блокировка</strong><small>Кто может писать и звонить</small></span><b>›</b></button>
+              <button class="setting-row" type="button" data-setting="node"><span class="setting-icon">⌬</span><span><strong>Подключение к ноде</strong><small>Home, маршрут и управление</small></span><b>›</b></button>
+            </div>
+          </div>
+
+          <article class="impact-panel" aria-live="polite">
+            <div class="impact-head"><span class="impact-icon" id="impact-icon">⌁</span><div><p id="impact-kicker">Доступ к приложению</p><h3 id="impact-title">Блокировка приложения</h3></div><span class="readiness verified" id="impact-status">Проверено</span></div>
+            <p class="impact-summary" id="impact-summary"></p>
+            <div class="impact-map">
+              <div><span>Интерфейс</span><strong id="impact-ui"></strong></div>
+              <div><span>На устройстве</span><strong id="impact-local"></strong></div>
+              <div><span>В сети</span><strong id="impact-network"></strong></div>
+            </div>
+            <div class="try-box">
+              <div><span>Попробовать поведение</span><strong id="try-label">Автоблокировка через 30 секунд</strong></div>
+              <button class="demo-toggle is-on" id="demo-toggle" type="button" role="switch" aria-checked="true"><span></span></button>
+            </div>
+            <aside class="limit-note"><strong>Граница:</strong> <span id="impact-limit"></span></aside>
+          </article>
+        </div>
+      </section>
+
+      <section class="screen-map-section" id="screens" aria-labelledby="screen-map-title">
+        <div class="screen-map-heading">
+          <div><p class="eyebrow">Полная карта клиента</p><h2 id="screen-map-title">Это не восемь настроек, а целое приложение</h2></div>
+          <p>Ниже перечислены реальные экраны Flutter-клиента. Выберите раздел — увидите страницы, состояния и назначение, а не только презентационную картинку.</p>
+        </div>
+        <div class="screen-category-tabs" id="screen-category-tabs" role="tablist" aria-label="Разделы клиентского приложения"></div>
+        <div class="screen-map-summary"><div><span id="screen-count">0</span><small>экранов и состояний</small></div><p id="screen-category-description"></p></div>
+        <div class="screen-grid" id="screen-grid" aria-live="polite"></div>
+        <aside class="catalog-note"><strong>Фактическое покрытие UI-каталога:</strong> 67 состояний уже автоматически снимаются Flutter-тестами. Дополнительно существуют служебные страницы диагностики, QR-pairing, управления нодами и расширенной безопасности.</aside>
+      </section>
+
+      <section class="layers-section" aria-labelledby="layers-title">
+        <p class="eyebrow">Три разных механизма</p><h2 id="layers-title">Обычный PIN, decoy и Private Mode нельзя смешивать</h2>
+        <div class="layer-track">
+          <article><span>01</span><h3>Основной PIN</h3><p>Закрывает приложение от случайного доступа и открывает настоящий профиль.</p></article>
+          <i>≠</i><article><span>02</span><h3>Дополнительный PIN</h3><p>Открывает заранее подготовленный безопасный контекст без скрытых чатов.</p></article>
+          <i>≠</i><article><span>03</span><h3>Private Mode</h3><p>Отдельный раздел со своим ключевым контекстом и скрытыми разговорами.</p></article>
+        </div>
+      </section>
+
+      <section class="scenario-section" aria-labelledby="scenario-title">
+        <div><p class="eyebrow">Что произойдёт</p><h2 id="scenario-title">Посмотрите клиент в разных ситуациях</h2></div>
+        <div class="scenario-tabs" role="group" aria-label="Сценарии клиента">
+          <button class="mode-button is-active" type="button" data-scenario="lock" aria-pressed="true">Телефон заблокирован</button>
+          <button class="mode-button" type="button" data-scenario="offline" aria-pressed="false">Нет сети</button>
+          <button class="mode-button" type="button" data-scenario="blocked" aria-pressed="false">Контакт заблокирован</button>
+          <button class="mode-button" type="button" data-scenario="compromised" aria-pressed="false">Устройство взломано</button>
+        </div>
+        <div class="scenario-result"><div class="scenario-visual" id="scenario-visual">LOCKED</div><div><span id="scenario-kicker">Локальная защита</span><h3 id="scenario-name">Содержимое скрыто до ввода PIN</h3><p id="scenario-description"></p><ul id="scenario-list"></ul></div></div>
+      </section>
+
+      <section class="owner-section" aria-labelledby="owner-title">
+        <div><p class="eyebrow">Клиент и собственная нода</p><h2 id="owner-title">Один телефон может управлять несколькими вашими нодами</h2><p>Node Owner — отдельная роль. Она не превращает обычный аккаунт мессенджера в администратора и использует отдельный pairing credential.</p></div>
+        <div class="node-stack"><article><span class="node-state ok"></span><div><strong>Домашняя нода</strong><small>Home · Relay</small></div><b>Онлайн</b></article><article><span class="node-state ok"></span><div><strong>Резервная нода</strong><small>Storage</small></div><b>Онлайн</b></article><article><span class="node-state warn"></span><div><strong>Тестовая нода</strong><small>Ожидает pairing</small></div><b>Новая</b></article><p>В приложении: состояние, нагрузка, сертификаты и безопасные операторские действия. Приватные Node Root keys не должны передаваться клиенту.</p></div>
+      </section>
+
+      <aside class="honesty-note"><strong>Честная граница:</strong> PIN, скрытые пространства и зашифрованная локальная база снижают риск случайного доступа и извлечения данных. Полностью контролирующая ОС или root-malware всё ещё может увидеть plaintext на экране и в памяти.</aside>
+    </main>
+    <footer><p>OUO · клиент и настройки · experimental beta</p></footer>
+  </div>
+  <script src="client-guide.js"></script>
+  <script src="client-screens.js"></script>
+</body>
+</html>

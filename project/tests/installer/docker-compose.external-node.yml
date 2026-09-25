@@ -1,0 +1,58 @@
+name: ouo-installer-external-node
+
+services:
+  external-home:
+    image: ouo/installer-test-home:local
+    build:
+      context: ../..
+      dockerfile: services/home-node/Dockerfile
+    restart: "no"
+    environment:
+      HOME_NODE_ID: installer-external-home
+      HOME_NODE_PUBLIC_URL: http://ouo-installer-external-home:8001
+      DISCOVERY_NODE_URL: http://project-discovery-node-1:8003
+      ROUTE_DISCOVERY_URLS: http://project-discovery-node-1:8003
+      ROUTE_RESOLUTION_MODE: "off"
+      ROUTE_MINIMUM_DISCOVERY_SOURCES: "1"
+      SIGNED_PEER_SELECTION_MODE: "off"
+      STORAGE_NODE_URL: http://project-storage-node-1:8002
+      STORAGE_NODE_URLS: http://project-storage-node-1:8002
+      MEDIA_NODE_URL: http://project-media-node-1:8004
+      PUSH_PROXY_URL: http://project-push-proxy-1:8008
+      CLUSTER_ID: default
+      ENROLLMENT_MODE: strict
+      INTERNAL_SECURITY_MODE: legacy
+      FEDERATION_ENVELOPE_MODE: legacy
+      ALLOW_INSECURE_FEDERATION_MODES: "true"
+      ALLOW_INSECURE_HOME_MODES: "true"
+      NODE_RESOURCE_POLICY: private
+      NODE_PARTICIPATE_RELAY: "false"
+      NODE_PARTICIPATE_STORAGE: "false"
+      NODE_PARTICIPATE_WITNESS: "false"
+      HOME_DB_PATH: /data/home.db
+      NODE_TOKEN_PATH: /data/node_token
+      ENROLLMENT_SECRET_PATH: /data/enrollment_secret
+      NODE_SIGNING_KEY_PATH: /data/node_signing_key
+      NODE_ROOT_KEY_PATH: /data/node_root_key
+      NODE_OPERATIONAL_CERTIFICATE_PATH: /data/node_operational_certificate.json
+      NODE_TRANSPORT_KEY_PATH: /data/node_transport_key
+      NODE_TRANSPORT_CERTIFICATE_PATH: /data/node_transport_certificate.json
+      NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: /data/node_operational_credential_chain.json
+      JWT_SECRET: ${JWT_SECRET:?required}
+      PUSH_PROXY_SECRET: ${PUSH_PROXY_SECRET:?required}
+      MEDIA_ACCESS_SECRET: ${MEDIA_ACCESS_SECRET:?required}
+      OWNER_PANEL_SECRET: ${OWNER_PANEL_SECRET:?required}
+    volumes:
+      - external-home-data:/data
+    networks:
+      ouo-existing:
+        aliases:
+          - ouo-installer-external-home
+
+networks:
+  ouo-existing:
+    external: true
+    name: project_default
+
+volumes:
+  external-home-data:

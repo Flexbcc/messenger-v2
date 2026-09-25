@@ -1,0 +1,446 @@
+"""
+Send + paginated history. Pagination cursor pattern (`before` + `limit`)
+ported from ~/secret_room/backend/app/api/messages.py (ADR-0005).
+"""
+from datetime import datetime, timezone
+import logging
+import time
+from typing import Optional
+
+from fastapi import APIRouter, Body, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
+from app.db import get_db
+from app.deps import get_current_device
+from app.disappearing import apply_ttl_to_message
+from app.delivery_metrics import record_delivery_stage
+from app.fanout import (
+    delivery_ack_complete,
+    delivery_target_snapshot,
+    fan_out_message,
+    handle_delivery_ack,
+    purge_message_after_full_delivery,
+    upsert_delivery_ack,
+    user_delivery_ack_complete,
+)
+from app.models import (
+    Conversation,
+    ConversationParticipant,
+    FederatedMediaRef,
+    Message,
+    MessageDeliveryAck,
+    MessageEdit,
+    MessageMediaRef,
+    User,
+)
+from app.schemas import (
+    AckMessageRequest, DeliveryAckResponse, MessagePage, MessageResponse,
+    SendMessageRequest, UpdateDeliveryStatusRequest, MessageStatusUpdateEvent,
+)
+from app.federation_schemas import MAX_MESSAGE_CIPHERTEXT_CHARS
+from app.federation import purge_acknowledged_mailbox_packet
+
+router = APIRouter(prefix="/conversations", tags=["messages"])
+logger = logging.getLogger(__name__)
+
+
+async def _assert_participant(db: AsyncSession, conversation_id: str, user_id: str) -> Conversation:
+    conv = await db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    result = await db.execute(
+        select(ConversationParticipant).where(
+            ConversationParticipant.conversation_id == conversation_id,
+            ConversationParticipant.user_id == user_id,
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Not a participant")
+    return conv
+
+
+def _to_response(
+    m: Message,
+    sender_display_name: Optional[str] = None,
+    recipient_device_id: Optional[str] = None,
+) -> MessageResponse:
+    def _utc(dt: Optional[datetime]) -> Optional[datetime]:
+        if dt is None:
+            return None
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+    ciphertext = m.ciphertext
+    if recipient_device_id and m.device_envelopes:
+        targeted = next(
+            (item for item in m.device_envelopes if item.get("device_id") == recipient_device_id),
+            None,
+        )
+        if targeted and targeted.get("ciphertext"):
+            ciphertext = targeted["ciphertext"]
+
+    return MessageResponse(
+        id=m.id, conversation_id=m.conversation_id, sender_user_id=m.sender_user_id,
+        sender_device_id=m.sender_device_id, sender_display_name=sender_display_name,
+        ciphertext=ciphertext,
+        content_type=m.content_type, crypto_version=m.crypto_version,
+        created_at=_utc(m.created_at),
+        delivery_status=getattr(m, "delivery_status", "sent") or "sent",
+        delivered_at=_utc(getattr(m, "delivered_at", None)),
+        read_at=_utc(getattr(m, "read_at", None)),
+        expires_at=_utc(getattr(m, "expires_at", None)),
+        edited_at=_utc(getattr(m, "edited_at", None)),
+    )
+
+
+@router.post("/{conversation_id}/messages", response_model=MessageResponse)
+async def send_message(
+    conversation_id: str,
+    payload: SendMessageRequest,
+    current=Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    request_started = time.perf_counter()
+    user_id, device_id = current
+    conv = await _assert_participant(db, conversation_id, user_id)
+
+    device_envelopes_json = (
+        [de.model_dump() for de in payload.device_envelopes]
+        if payload.device_envelopes else None
+    )
+    delivery_targets = await delivery_target_snapshot(
+        db,
+        device_envelopes=device_envelopes_json,
+        exclude_user_id=user_id,
+    )
+    message = Message(
+        conversation_id=conversation_id,
+        sender_user_id=user_id,
+        sender_device_id=device_id,
+        client_msg_id=payload.client_msg_id,
+        ciphertext=payload.ciphertext,
+        content_type=payload.content_type,
+        crypto_version=payload.crypto_version,
+        device_envelopes=device_envelopes_json,
+        delivery_target_device_ids=delivery_targets,
+        media_ids=payload.media_ids,
+        # The public origin is server-owned configuration. Trusting the URL
+        # supplied by a client would let it plant an SSRF target for peers.
+        origin_media_node_url=settings.media_node_url if payload.media_ids else None,
+    )
+    db_started = time.perf_counter()
+    db.add(message)
+    await db.flush()
+    # Исчезающие сообщения (Task #70): проставить expires_at если TTL задан
+    await apply_ttl_to_message(message, conv)
+    conv.updated_at = datetime.utcnow()
+    # Storage federation (Task #63): сохраняем маппинг media_id → this Media-node
+    # чтобы получатели на других Home могли найти откуда скачивать медиа.
+    if payload.media_ids:
+        origin_url = settings.media_node_url
+        for mid in payload.media_ids:
+            existing = await db.get(FederatedMediaRef, mid)
+            if not existing:
+                db.add(FederatedMediaRef(media_id=mid, origin_media_node_url=origin_url))
+            db.add(
+                MessageMediaRef(
+                    media_id=mid,
+                    message_id=message.id,
+                    conversation_id=conversation_id,
+                )
+            )
+    await db.commit()
+    await db.refresh(message)
+    record_delivery_stage(
+        "sender_db_commit", (time.perf_counter() - db_started) * 1000
+    )
+
+    fanout_started = time.perf_counter()
+    await fan_out_message(db, conv, message)
+    record_delivery_stage("sender_fanout", (time.perf_counter() - fanout_started) * 1000)
+
+    sender = await db.get(User, user_id)
+    record_delivery_stage("sender_total", (time.perf_counter() - request_started) * 1000)
+    return _to_response(message, sender.display_name if sender else None)
+
+
+@router.get("/{conversation_id}/messages", response_model=MessagePage)
+async def get_messages(
+    conversation_id: str,
+    limit: int = 50,
+    before: Optional[str] = None,
+    after: Optional[str] = None,
+    current=Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """`before=` — пагинация назад (load more): сообщения с created_at < before,
+    сортировка desc (новые первыми). `after=` — догон новых (multi-device catch-up):
+    сообщения с created_at > after, сортировка asc. Возвращает MessagePage с
+    has_more=True и next_cursor когда есть ещё страницы.
+    max limit=200."""
+    user_id, current_device_id = current
+    await _assert_participant(db, conversation_id, user_id)
+
+    capped = min(max(1, limit), 200)
+    # Запрашиваем на 1 больше чтобы определить has_more
+    fetch_limit = capped + 1
+
+    query = select(Message).where(Message.conversation_id == conversation_id)
+    if before:
+        try:
+            query = query.where(Message.created_at < datetime.fromisoformat(before))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Неверный формат before (ожидается ISO datetime)")
+    if after:
+        try:
+            query = query.where(Message.created_at > datetime.fromisoformat(after))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Неверный формат after (ожидается ISO datetime)")
+
+    asc_order = bool(after)
+    query = query.order_by(
+        Message.created_at.asc() if asc_order else Message.created_at.desc()
+    ).limit(fetch_limit)
+
+    result = await db.execute(query)
+    rows = result.scalars().all()
+
+    has_more = len(rows) > capped
+    messages = rows[:capped]
+
+    # next_cursor — created_at крайнего сообщения (для следующего before=)
+    next_cursor: Optional[str] = None
+    if has_more and messages:
+        oldest = messages[-1] if not asc_order else messages[0]
+        next_cursor = oldest.created_at.isoformat()
+
+    sender_ids = {m.sender_user_id for m in messages}
+    names_result = await db.execute(
+        select(User.id, User.display_name).where(User.id.in_(sender_ids))
+    )
+    display_names = {row[0]: row[1] for row in names_result.all()}
+
+    items = [
+        _to_response(m, display_names.get(m.sender_user_id), current_device_id)
+        for m in messages
+    ]
+    return MessagePage(items=items, has_more=has_more, next_cursor=next_cursor)
+
+
+@router.post("/{conversation_id}/messages/{packet_id}/ack", response_model=DeliveryAckResponse)
+async def ack_message(
+    conversation_id: str,
+    packet_id: str,
+    payload: AckMessageRequest = AckMessageRequest(),
+    current=Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """Post-R5 semantic e2e delivery ACK (spec/0202_DELIVERY.md). Caller must
+    be a participant of conversation_id; idempotent — acking the same
+    packet_id twice from the same user still returns 200."""
+    user_id, device_id = current
+    await _assert_participant(db, conversation_id, user_id)
+    if payload.device_id is not None and payload.device_id != device_id:
+        raise HTTPException(status_code=403, detail="ACK device does not match session")
+
+    message = await db.get(Message, packet_id)
+    if not message or message.conversation_id != conversation_id:
+        previous_ack = await db.execute(
+            select(MessageDeliveryAck.id).where(
+                MessageDeliveryAck.packet_id == packet_id,
+                MessageDeliveryAck.conversation_id == conversation_id,
+                MessageDeliveryAck.from_user_id == user_id,
+                MessageDeliveryAck.from_device_id.in_((device_id, "")),
+            )
+        )
+        if previous_ack.scalar_one_or_none():
+            purged = await purge_acknowledged_mailbox_packet(user_id, packet_id)
+            from app.federation import record_mailbox_purge
+            record_mailbox_purge(purged)
+            return DeliveryAckResponse()
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    target_devices = set(message.delivery_target_device_ids or [])
+    if target_devices and device_id not in target_devices:
+        raise HTTPException(status_code=403, detail="Device is not a delivery target")
+
+    acked_at, ack_created = await upsert_delivery_ack(
+        db,
+        packet_id=packet_id,
+        conversation_id=conversation_id,
+        from_user_id=user_id,
+        from_device_id=device_id if target_devices else "",
+    )
+    if ack_created:
+        from app.federation import record_device_ack
+        record_device_ack()
+    complete = await delivery_ack_complete(db, message=message)
+    await handle_delivery_ack(
+        db,
+        message=message,
+        from_user_id=user_id,
+        from_device_id=device_id if target_devices else "",
+        acked_at=acked_at,
+        delivery_complete=complete,
+    )
+    # Release recipient mailbox replicas only after the ACK is visible at the
+    # sender Home (or delivered to the local sender). If forwarding raises,
+    # both Message and mailbox stay available for a duplicate endpoint ACK.
+    user_complete = await user_delivery_ack_complete(
+        db, message=message, user_id=user_id
+    )
+    if user_complete:
+        purged = await purge_acknowledged_mailbox_packet(user_id, packet_id)
+        from app.federation import record_mailbox_purge
+        record_mailbox_purge(purged)
+    await purge_message_after_full_delivery(db, message=message)
+
+    return DeliveryAckResponse()
+
+
+_STATUS_ORDER = {"sent": 0, "delivered": 1, "read": 2}
+
+
+@router.patch("/{conversation_id}/messages/{message_id}/status", response_model=MessageResponse)
+async def update_message_status(
+    conversation_id: str,
+    message_id: str,
+    payload: UpdateDeliveryStatusRequest,
+    current=Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Обновить статус доставки сообщения: delivered или read.
+    Вызывается получателем. Статус может только расти: sent→delivered→read.
+    После обновления WS-событие message_status_update рассылается отправителю.
+    """
+    user_id, _device_id = current
+    await _assert_participant(db, conversation_id, user_id)
+
+    if payload.status not in ("delivered", "read"):
+        raise HTTPException(status_code=400, detail="status must be 'delivered' or 'read'")
+
+    message = await db.get(Message, message_id)
+    if not message or message.conversation_id != conversation_id:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Статус может только расти
+    current_rank = _STATUS_ORDER.get(getattr(message, "delivery_status", "sent") or "sent", 0)
+    new_rank = _STATUS_ORDER[payload.status]
+    if new_rank <= current_rank:
+        # Уже в этом или более высоком статусе — идемпотентно
+        sender = await db.get(User, message.sender_user_id)
+        return _to_response(message, sender.display_name if sender else None)
+
+    now = datetime.utcnow()
+    message.delivery_status = payload.status  # type: ignore[assignment]
+    if payload.status == "delivered":
+        message.delivered_at = now  # type: ignore[assignment]
+    elif payload.status == "read":
+        if not getattr(message, "delivered_at", None):
+            message.delivered_at = now  # type: ignore[assignment]
+        message.read_at = now  # type: ignore[assignment]
+
+    await db.commit()
+    await db.refresh(message)
+
+    # WS-событие отправителю
+    try:
+        from app.ws import manager
+        event = MessageStatusUpdateEvent(
+            message_id=message_id,
+            conversation_id=conversation_id,
+            status=payload.status,
+            updated_by=user_id,
+            updated_at=now.replace(tzinfo=timezone.utc),
+        )
+        await manager.send_to_user(message.sender_user_id, event.model_dump(mode="json"))
+    except Exception:
+        pass  # WS — best-effort
+
+    sender = await db.get(User, message.sender_user_id)
+    return _to_response(message, sender.display_name if sender else None)
+
+
+# ---------------------------------------------------------------------------
+# Task #71 — Редактирование отправленных сообщений
+# ---------------------------------------------------------------------------
+
+import os as _os
+
+_EDIT_WINDOW_SECONDS = int(_os.environ.get("MESSAGE_EDIT_WINDOW_SECONDS", "300"))  # 5 минут
+
+
+@router.patch("/{conversation_id}/messages/{message_id}")
+async def edit_message(
+    conversation_id: str,
+    message_id: str,
+    new_ciphertext: str = Body(
+        ...,
+        embed=True,
+        min_length=1,
+        max_length=MAX_MESSAGE_CIPHERTEXT_CHARS,
+    ),
+    current=Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """Редактировать отправленное сообщение (Task #71).
+
+    Только отправитель может редактировать своё сообщение.
+    Редактирование разрешено только в течение MESSAGE_EDIT_WINDOW_SECONDS (по умолчанию 5 минут).
+    Старый ciphertext сохраняется в MessageEdit (история правок).
+    WS-событие message_edited рассылается всем участникам разговора.
+    """
+    user_id, _device_id = current
+    await _assert_participant(db, conversation_id, user_id)
+
+    message = await db.get(Message, message_id)
+    if not message or message.conversation_id != conversation_id:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    if message.sender_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Only the sender can edit their message")
+
+    # Проверяем окно редактирования
+    msg_age = (datetime.now(timezone.utc) - message.created_at.replace(tzinfo=timezone.utc)).total_seconds()
+    if msg_age > _EDIT_WINDOW_SECONDS:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Edit window expired ({_EDIT_WINDOW_SECONDS}s). Message is {int(msg_age)}s old."
+        )
+
+    # Сохраняем старую версию в историю
+    db.add(MessageEdit(message_id=message_id, old_ciphertext=message.ciphertext))
+
+    # Обновляем сообщение
+    message.ciphertext = new_ciphertext
+    message.edited_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(message)
+
+    # WS push всем участникам разговора
+    try:
+        from app.ws import manager
+        from sqlalchemy import select as _select
+        from app.models import ConversationParticipant as _CP
+        participants = await db.execute(
+            _select(_CP.user_id).where(_CP.conversation_id == conversation_id)
+        )
+        for (uid,) in participants:
+            await manager.send_to_user(uid, {
+                "type": "message_edited",
+                "message_id": message_id,
+                "conversation_id": conversation_id,
+                "new_ciphertext": new_ciphertext,
+                "edited_at": message.edited_at.isoformat(),
+                "edited_by": user_id,
+            })
+    except Exception:
+        logger.exception(
+            "Message edit persisted but realtime notification failed",
+            extra={"conversation_id": conversation_id, "message_id": message_id},
+        )
+
+    sender = await db.get(User, user_id)
+    return _to_response(message, sender.display_name if sender else None)

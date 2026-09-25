@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<script>
+const firstPath=location.pathname.split("/").filter(Boolean)[0]||"";
+const publicRoutes=new Set(["setup","storage","enrollment","nodes","audit","operator","health-dashboard","vuln","static","api"]);
+window.__ADMIN_BASE=firstPath==="ops"?"/ops":(firstPath&&!publicRoutes.has(firstPath)?`/${firstPath}`:"");
+document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Health Dashboard — Messenger</title>
+<link rel="stylesheet" href="static/theme.css?v=20260922-2">
+<link rel="stylesheet" href="static/style.css?v=20260924-28">
+<script src="static/shared.js?v=20260923-23"></script>
+</head>
+<body class="page-health">
+
+<div class="app-shell">
+<header class="topbar">
+  <div class="brand"><div class="brand-mark" aria-hidden="true"></div><div><h1>Health</h1><p class="subtitle">Прямые проверки сервисов</p></div></div>
+  <nav class="site-nav">
+    <a href="./">Мониторинг</a><a href="nodes">Ноды</a><a href="setup">Настройка</a><a href="storage">Хранилище</a><a href="enrollment">Доверие</a><a href="vuln">Политика</a><a href="audit">Аудит</a>
+  </nav>
+  <div class="topbar-actions"><a href="health" class="btn-icon active" title="Health">●</a></div>
+</header>
+
+<main class="dashboard">
+<section class="admin-page-intro card health-intro"><div><span class="eyebrow">Диагностика</span><h2>Health сервисов</h2><p>Прямой опрос выбранных URL без изменения конфигурации нод.</p></div><span id="last-update"></span></section>
+
+<section class="page-purpose card" aria-label="Назначение страницы">
+  <div><strong>Что здесь происходит</strong><p>Браузер напрямую опрашивает только явно заданные оператором health-адреса и показывает их текущий ответ.</p></div>
+  <div><strong>На что влияет</strong><p>Проверка ничего не меняет. Для общего состояния сети и защищённых транспортных метрик используйте страницу «Ноды».</p></div>
+</section>
+
+<div class="toolbar">
+  <label>Интервал:</label>
+  <select id="interval-select">
+    <option value="10">10 с</option>
+    <option value="30" selected>30 с</option>
+    <option value="60">60 с</option>
+    <option value="0">Вручную</option>
+  </select>
+  <button onclick="refresh()">↻ Обновить</button>
+</div>
+
+<div class="grid" id="grid"></div>
+</main>
+</div>
+
+<script>
+// Список нод — URL читаем из localStorage (чтобы не хардкодить).
+// Можно задать через: localStorage.setItem('health_nodes', JSON.stringify([...]))
+// Или добавить ниже дефолты.
+
+const DEFAULT_NODES = [
+  { name: 'discovery-node', url: '' },
+  { name: 'home-node',      url: '' },
+  { name: 'storage-node',   url: '' },
+  { name: 'relay-node',     url: '' },
+  { name: 'media-node',     url: '' },
+  { name: 'turn-node',      url: '' },
+  { name: 'gateway-node',   url: '' },
+];
+
+function loadNodes() {
+  try {
+    const saved = localStorage.getItem('health_nodes');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  // Попытка читать из meta-тегов (можно сгенерить сервером)
+  const metas = document.querySelectorAll('meta[data-node]');
+  if (metas.length) {
+    return Array.from(metas).map(m => ({ name: m.dataset.node, url: m.dataset.url }));
+  }
+  return DEFAULT_NODES;
+}
+
+const nodes = loadNodes().filter(n => n.url);
+
+const esc = (value) => AdminUi.escapeHtml(String(value ?? ''));
+
+function saveNodes() { localStorage.setItem('health_nodes', JSON.stringify(nodes)); }
+
+// Если нет ни одной ноды — показываем инструкцию
+if (!nodes.length) {
+  document.getElementById('grid').innerHTML = `
+    <div class="card health-empty">
+      <strong>Нет адресов для прямой проверки</strong>
+      <p>Используйте реестр нод для текущего состояния сети или добавьте диагностические URL в конфигурацию Health.</p>
+      <a class="btn-secondary" href="nodes">Открыть реестр нод</a>
+    </div>`;
+}
+
+// Рендер карточек (сначала пустые)
+function renderCards() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  nodes.forEach(node => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const cardId = `health-card-${crypto.randomUUID()}`;
+    card.id = cardId;
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="dot loading"></div>
+        <span class="card-title">${esc(node.name)}</span>
+        <span class="card-url">${esc(node.url)}</span>
+      </div>
+      <div class="card-body">
+        <div class="kv"><span class="k">Загрузка…</span></div>
+      </div>`;
+    node.cardId = cardId;
+    grid.appendChild(card);
+  });
+}
+
+async function fetchNode(node) {
+  const card = document.getElementById(node.cardId);
+  const dot = card.querySelector('.dot');
+  const body = card.querySelector('.card-body');
+  dot.className = 'dot loading';
+
+  try {
+    const resp = await fetch(`${node.url}/health`, { signal: AbortSignal.timeout(6000) });
+    const d = await resp.json();
+
+    const status = d.status || 'unknown';
+    dot.className = status === 'ok' ? 'dot ok' : 'dot warn';
+
+    let rows = `
+      <div class="kv"><span class="k">status</span><span class="v ${status==='ok'?'ok':'warn'}">${esc(status)}</span></div>
+      <div class="kv"><span class="k">build</span><span class="v">${esc(d.build_hash || d.version || '—')}</span></div>`;
+
+    const load = d.load || {};
+
+    if (load.active_connections !== undefined)
+      rows += kv('ws connections', load.active_connections);
+    if (load.buffered_items !== undefined)
+      rows += kv('buffered items', load.buffered_items);
+    if (load.buffer_limit_per_recipient !== undefined)
+      rows += kv('buf limit/recipient', load.buffer_limit_per_recipient);
+    if (load.buffer_eviction_policy !== undefined)
+      rows += kv('eviction', load.buffer_eviction_policy);
+    if (load.queued !== undefined)
+      rows += kv('outbox queued', load.queued);
+    if (load.dead !== undefined)
+      rows += kv('outbox dead', load.dead, load.dead > 0 ? 'err' : 'ok');
+
+    // Federation counters
+    if (load.federation) {
+      const f = load.federation;
+      rows += `<div class="fed-row">
+        <span class="fed-pill">direct <span>${f.direct_ok||0}</span></span>
+        <span class="fed-pill">relay <span>${f.relay_ok||0}</span></span>
+        <span class="fed-pill">buffer <span>${f.buffer_ok||0}</span></span>
+        <span class="fed-pill err-pill">failed <span class="${(f.failed||0)>0?'value-error':'value-ok'}">${f.failed||0}</span></span>
+      </div>`;
+    }
+
+    body.innerHTML = rows;
+  } catch (e) {
+    dot.className = 'dot err';
+    body.innerHTML = `<div class="card-error">Недоступен: ${esc(e.message)}</div>`;
+  }
+}
+
+function kv(label, value, cls) {
+  const c = cls || '';
+  return `<div class="kv"><span class="k">${esc(label)}</span><span class="v ${esc(c)}">${esc(value)}</span></div>`;
+}
+
+function refresh() {
+  document.getElementById('last-update').textContent = 'Обновление…';
+  Promise.all(nodes.map(fetchNode)).then(() => {
+    const t = new Date().toLocaleTimeString('ru');
+    document.getElementById('last-update').textContent = `Обновлено: ${t}`;
+  });
+}
+
+// Авто-обновление
+let timer = null;
+function applyInterval() {
+  clearInterval(timer);
+  const val = parseInt(document.getElementById('interval-select').value);
+  if (val > 0) timer = setInterval(refresh, val * 1000);
+}
+document.getElementById('interval-select').addEventListener('change', applyInterval);
+AdminTheme.init();
+
+if (nodes.length) {
+  renderCards();
+  refresh();
+  applyInterval();
+} else {
+  document.getElementById('last-update').textContent = 'URL не настроены';
+}
+</script>
+</body>
+</html>

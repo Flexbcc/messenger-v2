@@ -1,0 +1,13 @@
+{
+  "listeners": [
+    {
+      "name": "relay-ingress",
+      "listen_host": "0.0.0.0",
+      "listen_port": 18005,
+      "upstream_host": "relay-node",
+      "upstream_port": 8005,
+      "source_label": "home-peer",
+      "target_label": "relay"
+    }
+  ]
+}

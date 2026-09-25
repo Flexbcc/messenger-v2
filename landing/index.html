@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OUO — распределённый защищённый мессенджер</title>
+  <meta name="description" content="OUO: E2EE-мессенджер с пользовательскими Home Nodes, временным Storage и распределённым Discovery.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+  <div class="wrap">
+    <header>
+      <a class="logo" href="#top" aria-label="OUO — начало страницы">
+        <span class="logo-mark" aria-hidden="true"></span><span>OUO</span>
+      </a>
+      <nav aria-label="Основная навигация">
+        <a href="#architecture">Как устроено</a>
+        <a href="message-flow.html">Путь сообщения</a>
+        <a href="client-guide.html">Клиент</a>
+        <a href="#node">Своя нода</a>
+        <a href="#contribute">Помочь</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <p class="beta-tag">Закрытая тестовая сеть · <span id="version-label">0.1.0</span></p>
+        <h1>Ваши сообщения принадлежат устройствам,<br>а не серверу</h1>
+        <p class="lead">
+          OUO — распределённый мессенджер, где пользователь может выбрать Home
+          Node или запустить свою. Серверы доставляют зашифрованные данные, а
+          ключи и открытый текст остаются на конечных устройствах.
+        </p>
+        <div class="hero-meta">
+          <span class="pill ok"><span class="status-dot ok"></span>E2EE 1:1</span>
+          <span class="pill">Web · Android · macOS · iOS source</span>
+          <span class="pill" id="channel-pill">канал: beta</span>
+        </div>
+        <div class="hero-cta">
+          <a class="btn btn-primary btn-lg" href="#downloads">Выбрать клиент</a>
+          <a class="btn btn-ghost btn-lg" href="#node">Запустить ноду</a>
+        </div>
+      </section>
+
+      <section id="architecture" class="prose-block">
+        <h2>Как это устроено</h2>
+        <p class="section-lead">
+          OUO не строится вокруг одного «главного сервера». У каждого компонента
+          узкая роль, а компрометация отдельной ноды не должна автоматически
+          раскрывать переписку или давать контроль над сетью.
+        </p>
+        <div class="flow-card" role="img" aria-label="Путь зашифрованного сообщения">
+          <ol class="flow-steps">
+            <li><strong>Устройство отправителя</strong> шифрует сообщение для устройств получателя.</li>
+            <li><strong>Home Node</strong> принимает ciphertext и выбирает доступный маршрут.</li>
+            <li><strong>Relay</strong> пересылает, а <strong>Storage</strong> временно буферизует сообщение, если адресат офлайн.</li>
+            <li><strong>Устройство получателя</strong> подтверждает доставку и расшифровывает сообщение локально.</li>
+          </ol>
+          <a class="flow-link" href="message-flow.html">Посмотреть путь сообщения по шагам →</a>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card"><h3>Discovery</h3><p>Bootstrap и подписанные сведения о нодах. Не владеет пользовательскими ключами.</p></article>
+          <article class="feature-card"><h3>Home Node</h3><p>Подключения устройств, маршрутизация и доставка без доступа к plaintext.</p></article>
+          <article class="feature-card"><h3>Relay</h3><p>Транзит между нодами; не считается доверенным получателем сообщения.</p></article>
+          <article class="feature-card"><h3>Storage</h3><p>Краткоживущий офлайн-буфер для непрозрачных зашифрованных пакетов.</p></article>
+        </div>
+      </section>
+
+      <section id="downloads">
+        <h2>Клиент OUO</h2>
+        <p class="section-lead">Публичный релиз ещё не объявлен. Доступность ниже описывает текущие тестовые каналы, а не обещание App Store.</p>
+        <div class="products">
+          <article class="product-card">
+            <h3>Открыть и установить</h3>
+            <p class="desc">Один Flutter-клиент для Web/PWA и нативных платформ.</p>
+            <ul class="download-list">
+              <li class="available"><div class="platform"><strong>Web / PWA</strong><span>тестовая web-сборка</span></div><a class="btn btn-primary" href="app/">Открыть</a></li>
+              <li class="available"><div class="platform"><strong>macOS Apple Silicon</strong><span>неподписанная beta-сборка</span></div><a class="btn btn-primary" href="downloads/Messenger-macos-arm64.zip" download>Скачать ZIP</a></li>
+              <li><div class="platform"><strong>Android</strong><span>сборка APK из исходников; публичного релиза пока нет</span></div><span class="btn btn-soon">Beta</span></li>
+              <li><div class="platform"><strong>iPhone / iPad</strong><span>исходники готовы; подписанного IPA/TestFlight пока нет</span></div><span class="btn btn-soon">Позже</span></li>
+              <li><div class="platform"><strong>Windows / Linux</strong><span>сборка на целевой ОС</span></div><span class="btn btn-soon">Beta</span></li>
+            </ul>
+          </article>
+          <article class="product-card">
+            <h3>Что уже проверяется</h3>
+            <p class="desc">Функции считаются готовыми только после воспроизводимой проверки.</p>
+            <ul class="plain-list">
+              <li>E2EE-обмен между двумя настоящими тестовыми пользователями</li>
+              <li>локальные ключи, encrypted backup и разделение аккаунтов</li>
+              <li>основной PIN, fake PIN и режим-приманка</li>
+              <li>доставка через Home и временный Storage</li>
+              <li>управление несколькими своими нодами с телефона</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="node">
+        <h2>Своя пользовательская нода</h2>
+        <div class="prose-grid">
+          <div>
+            <p>Ноду можно установить с локальной админ-панелью или без неё. В обоих режимах её можно отдельно сопрячь с телефоном владельца одноразовым кодом; это не даёт ноде доступа к переписке.</p>
+            <pre><code>git clone https://github.com/Flexbcc/messenger-v2.git
+cd messenger-v2/project
+python3 scripts/bootstrap-node.py --dry-run</code></pre>
+          </div>
+          <div>
+            <p><strong>Важно:</strong> лабораторный HTTP-режим предназначен только для закрытого стенда. Публичная нода требует TLS и доступа к управлению через VPN или mTLS.</p>
+            <a class="btn btn-ghost" href="https://github.com/Flexbcc/messenger-v2/blob/main/project/docs/NODE-INSTALL-WIZARD.md">Инструкция по установке</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="contribute">
+        <h2>Помочь проекту</h2>
+        <div class="note">
+          Начните с корневого README и выберите один модуль: клиент, ноды,
+          админка, симулятор или документация. Изменения принимаются отдельными
+          ветками с результатами тестов. Секреты, `.env`, базы и приватные ключи
+          в Git не добавляются.
+          <div class="note-actions"><a class="btn btn-primary" href="https://github.com/Flexbcc/messenger-v2">Открыть GitHub</a></div>
+        </div>
+      </section>
+    </main>
+
+    <footer><p>OUO · experimental beta · <span id="footer-version">0.1.0</span></p></footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

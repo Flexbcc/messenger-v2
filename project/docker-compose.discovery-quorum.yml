@@ -1,0 +1,150 @@
+# Optional local D1/D2/D3 control plane. The default stack remains single-D1.
+# Start together with docker-compose.yml; every Discovery has its own /data,
+# Node Root/Operational keys and registry database.
+
+x-discovery-gossip: &discovery-gossip
+  DISCOVERY_SELF_REGISTRATION_ENABLED: "true"
+  ENROLLMENT_MODE: "legacy"
+  CAPABILITY_AUTHORITY_STATE_PATH: /run/ouo/capability-authority.json
+  TRUST_AUTHORITY_STATE_PATH: /run/ouo/capability-authority.json
+  RECOVERY_AUTHORITY_STATE_PATH: /run/ouo/capability-authority.json
+  NODE_CAPABILITY_CERTIFICATE_PATH: /data/capability-certificate.json
+  NODE_CAPABILITY_AUTHORITY_STATE_PATH: /run/ouo/capability-authority.json
+  NODE_OPERATIONAL_CREDENTIAL_CHAIN_PATH: /data/node_operational_credential_chain.json
+  AUTHORITY_GOSSIP_ENABLED: "true"
+  NODE_ADVERTISEMENT_GOSSIP_ENABLED: "true"
+  RENDEZVOUS_GOSSIP_ENABLED: "true"
+  TRUST_RECORD_GOSSIP_ENABLED: "true"
+  CHALLENGE_ASSIGNMENT_GOSSIP_ENABLED: "true"
+  AUTHORITY_GOSSIP_INTERVAL_SECONDS: "10"
+  NODE_ADVERTISEMENT_GOSSIP_INTERVAL_SECONDS: "10"
+  RENDEZVOUS_GOSSIP_INTERVAL_SECONDS: "10"
+  TRUST_RECORD_GOSSIP_INTERVAL_SECONDS: "10"
+  CHALLENGE_ASSIGNMENT_GOSSIP_INTERVAL_SECONDS: "10"
+
+x-three-discovery-client: &three-discovery-client
+  FEDERATION_DISCOVERY_URLS: http://discovery-node:8003,http://discovery-node-2:8003,http://discovery-node-3:8003
+  FEDERATION_MINIMUM_DISCOVERY_SOURCES: "2"
+  NODE_REGISTRATION_DISCOVERY_URLS: http://discovery-node:8003,http://discovery-node-2:8003,http://discovery-node-3:8003
+
+services:
+  discovery-node:
+    environment:
+      <<: *discovery-gossip
+      DISCOVERY_NODE_ID: discovery-d1
+      DISCOVERY_NODE_PUBLIC_URL: http://discovery-node:8003
+      DISCOVERY_NODE_URL: http://discovery-node:8003
+      NODE_REGISTRATION_DISCOVERY_URLS: http://discovery-node:8003,http://discovery-node-2:8003,http://discovery-node-3:8003
+      AUTHORITY_GOSSIP_PEERS: http://discovery-node-2:8003,http://discovery-node-3:8003
+      NODE_ADVERTISEMENT_GOSSIP_PEERS: http://discovery-node-2:8003,http://discovery-node-3:8003
+      RENDEZVOUS_GOSSIP_PEERS: http://discovery-node-2:8003,http://discovery-node-3:8003
+      TRUST_RECORD_GOSSIP_PEERS: http://discovery-node-2:8003,http://discovery-node-3:8003
+      CHALLENGE_ASSIGNMENT_GOSSIP_PEERS: http://discovery-node-2:8003,http://discovery-node-3:8003
+    volumes:
+      - ./data/discovery:/data
+      - ./data/capability-authority/state.json:/run/ouo/capability-authority.json:ro
+
+  discovery-node-2:
+    extends:
+      file: docker-compose.yml
+      service: discovery-node
+    ports: !override
+      - "127.0.0.1:${DISCOVERY_D2_PORT:-8013}:8003"
+    environment:
+      <<: *discovery-gossip
+      DISCOVERY_NODE_ID: discovery-d2
+      DISCOVERY_NODE_PUBLIC_URL: http://discovery-node-2:8003
+      DISCOVERY_NODE_URL: http://discovery-node-2:8003
+      NODE_REGISTRATION_DISCOVERY_URLS: http://discovery-node:8003,http://discovery-node-2:8003,http://discovery-node-3:8003
+      AUTHORITY_GOSSIP_PEERS: http://discovery-node:8003,http://discovery-node-3:8003
+      NODE_ADVERTISEMENT_GOSSIP_PEERS: http://discovery-node:8003,http://discovery-node-3:8003
+      RENDEZVOUS_GOSSIP_PEERS: http://discovery-node:8003,http://discovery-node-3:8003
+      TRUST_RECORD_GOSSIP_PEERS: http://discovery-node:8003,http://discovery-node-3:8003
+      CHALLENGE_ASSIGNMENT_GOSSIP_PEERS: http://discovery-node:8003,http://discovery-node-3:8003
+    volumes:
+      - ./data/discovery-2:/data
+      - ./data/capability-authority/state.json:/run/ouo/capability-authority.json:ro
+
+  discovery-node-3:
+    extends:
+      file: docker-compose.yml
+      service: discovery-node
+    ports: !override
+      - "127.0.0.1:${DISCOVERY_D3_PORT:-8023}:8003"
+    environment:
+      <<: *discovery-gossip
+      DISCOVERY_NODE_ID: discovery-d3
+      DISCOVERY_NODE_PUBLIC_URL: http://discovery-node-3:8003
+      DISCOVERY_NODE_URL: http://discovery-node-3:8003
+      NODE_REGISTRATION_DISCOVERY_URLS: http://discovery-node:8003,http://discovery-node-2:8003,http://discovery-node-3:8003
+      AUTHORITY_GOSSIP_PEERS: http://discovery-node:8003,http://discovery-node-2:8003
+      NODE_ADVERTISEMENT_GOSSIP_PEERS: http://discovery-node:8003,http://discovery-node-2:8003
+      RENDEZVOUS_GOSSIP_PEERS: http://discovery-node:8003,http://discovery-node-2:8003
+      TRUST_RECORD_GOSSIP_PEERS: http://discovery-node:8003,http://discovery-node-2:8003
+      CHALLENGE_ASSIGNMENT_GOSSIP_PEERS: http://discovery-node:8003,http://discovery-node-2:8003
+    volumes:
+      - ./data/discovery-3:/data
+      - ./data/capability-authority/state.json:/run/ouo/capability-authority.json:ro
+
+  home-node:
+    environment:
+      <<: *three-discovery-client
+      NODE_CAPABILITY_CERTIFICATE_PATH: /data/capability-certificate.json
+      NODE_CAPABILITY_AUTHORITY_STATE_PATH: /run/ouo/capability-authority.json
+      DISCOVERY_NODE_URL: http://discovery-node:8003
+      ROUTE_DISCOVERY_URLS: http://discovery-node:8003,http://discovery-node-2:8003,http://discovery-node-3:8003
+      ROUTE_MINIMUM_DISCOVERY_SOURCES: "2"
+      PEER_DISCOVERY_URLS: http://discovery-node:8003,http://discovery-node-2:8003,http://discovery-node-3:8003
+    volumes:
+      - ./data/capability-authority/state.json:/run/ouo/capability-authority.json:ro
+
+  relay-node:
+    environment:
+      <<: *three-discovery-client
+      NODE_CAPABILITY_CERTIFICATE_PATH: /data/capability-certificate.json
+      NODE_CAPABILITY_AUTHORITY_STATE_PATH: /run/ouo/capability-authority.json
+      DISCOVERY_NODE_URL: http://discovery-node:8003
+      MIX_DISCOVERY_URLS: http://discovery-node:8003,http://discovery-node-2:8003,http://discovery-node-3:8003
+      MIX_MINIMUM_DISCOVERY_SOURCES: "2"
+    volumes:
+      - ./data/capability-authority/state.json:/run/ouo/capability-authority.json:ro
+
+  storage-node:
+    environment:
+      <<: *three-discovery-client
+      NODE_CAPABILITY_CERTIFICATE_PATH: /data/capability-certificate.json
+      NODE_CAPABILITY_AUTHORITY_STATE_PATH: /run/ouo/capability-authority.json
+      DISCOVERY_NODE_URL: http://discovery-node:8003
+    volumes:
+      - ./data/capability-authority/state.json:/run/ouo/capability-authority.json:ro
+
+  media-node:
+    environment:
+      <<: *three-discovery-client
+      NODE_CAPABILITY_CERTIFICATE_PATH: /data/capability-certificate.json
+      NODE_CAPABILITY_AUTHORITY_STATE_PATH: /run/ouo/capability-authority.json
+      DISCOVERY_NODE_URL: http://discovery-node:8003
+      MEDIA_NODE_PUBLIC_URL: http://localhost:8004
+    volumes:
+      - ./data/capability-authority/state.json:/run/ouo/capability-authority.json:ro
+
+  turn-node:
+    environment:
+      <<: *three-discovery-client
+      NODE_CAPABILITY_CERTIFICATE_PATH: /data/capability-certificate.json
+      NODE_CAPABILITY_AUTHORITY_STATE_PATH: /run/ouo/capability-authority.json
+      DISCOVERY_NODE_URL: http://discovery-node:8003
+    volumes:
+      - ./data/capability-authority/state.json:/run/ouo/capability-authority.json:ro
+
+  gateway-node:
+    environment:
+      <<: *three-discovery-client
+      NODE_CAPABILITY_CERTIFICATE_PATH: /data/capability-certificate.json
+      NODE_CAPABILITY_AUTHORITY_STATE_PATH: /run/ouo/capability-authority.json
+      DISCOVERY_NODE_URL: http://discovery-node:8003
+      GATEWAY_DISCOVERY_PUBLIC_URL: http://localhost:8003
+      GATEWAY_DISCOVERY_URLS: http://discovery-node:8003,http://discovery-node-2:8003,http://discovery-node-3:8003
+      GATEWAY_DISCOVERY_PUBLIC_URLS: http://localhost:8003,http://localhost:8013,http://localhost:8023
+    volumes:
+      - ./data/capability-authority/state.json:/run/ouo/capability-authority.json:ro

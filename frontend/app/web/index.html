@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Зашифрованный мессенджер — тестовая PWA">
+  <meta name="app-build" content="2026-07-31.1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Мессенджер">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Мессенджер</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; background: #0f1115; }
+    #app-loader { height: 100%; display: grid; place-items: center; color: #fff;
+      font: 16px system-ui, -apple-system, sans-serif; }
+    #app-loader span { opacity: .72; }
+  </style>
+</head>
+<body>
+  <div id="app-loader"><span>Загрузка мессенджера…</span></div>
+  <script src="push_bridge.js"></script>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      document.getElementById('app-loader')?.remove();
+    });
+
+    // Remove the legacy Flutter offline worker. It attempted to pre-cache the
+    // whole multi-megabyte bundle before startup and could leave the app in a
+    // retry loop on slow connections. The separate /push/ worker is preserved.
+    (async function startFlutter() {
+      let removedControllingWorker = false;
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          if (registration.scope.endsWith('/push/')) continue;
+          if (navigator.serviceWorker.controller) removedControllingWorker = true;
+          await registration.unregister();
+        }
+      }
+      if (removedControllingWorker && !sessionStorage.getItem('flutter-sw-cleared')) {
+        sessionStorage.setItem('flutter-sw-cleared', '1');
+        location.reload();
+        return;
+      }
+      const loader = document.createElement('script');
+      loader.src = 'flutter_bootstrap.js';
+      document.body.appendChild(loader);
+    })();
+  </script>
+</body>
+</html>

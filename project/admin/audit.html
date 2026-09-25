@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<script>
+const firstPath=location.pathname.split("/").filter(Boolean)[0]||"";
+const publicRoutes=new Set(["setup","storage","enrollment","nodes","audit","operator","health-dashboard","vuln","static","api"]);
+window.__ADMIN_BASE=firstPath==="ops"?"/ops":(firstPath&&!publicRoutes.has(firstPath)?`/${firstPath}`:"");
+document.write('<base href="'+(window.__ADMIN_BASE||"")+'/">');
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audit Log — Admin</title>
+<link rel="stylesheet" href="static/theme.css">
+<link rel="stylesheet" href="static/style.css?v=20260924-28">
+<!-- shared.js — AdminBase + перехватчик авторизации панели. Должен идти первым. -->
+<script src="static/shared.js?v=20260923-23"></script>
+</head>
+<body class="page-audit">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Operator Admin</h1>
+          <p class="subtitle">Журнал административных действий</p>
+          <span class="operator-badge">Оператор</span>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="./">Мониторинг</a>
+        <a href="nodes">Узлы</a>
+        <a href="setup">Настройка</a>
+        <a href="storage">Хранилище</a>
+        <a href="enrollment">Доверие</a>
+        <a href="vuln">Политика</a>
+        <a href="audit" class="active">Аудит</a>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" id="refreshBtn" class="btn-icon" title="Обновить" aria-label="Обновить">↻</button>
+        <button type="button" id="themeToggle" class="btn-icon" title="Сменить тему" aria-label="Сменить тему">◐</button>
+      </div>
+    </header>
+
+<main class="dashboard">
+  <section class="admin-page-intro card">
+    <div><span class="eyebrow">ЕДИНАЯ ИСТОРИЯ ИЗМЕНЕНИЙ</span><h2>Журнал действий</h2><p>Кто, когда и какое административное действие выполнил.</p></div>
+  </section>
+
+  <section class="page-purpose card" aria-label="Назначение страницы">
+    <div><strong>Что здесь происходит</strong><p>В одном журнале показываются административные действия, их время, инициатор и результат.</p></div>
+    <div><strong>На что влияет</strong><p>Поиск и фильтры меняют только отображение журнала; данные и состояние нод не изменяются.</p></div>
+  </section>
+
+  <div class="page-toolbar audit-filters">
+    <select id="limit-select">
+      <option value="50">50 записей</option>
+      <option value="100" selected>100 записей</option>
+      <option value="250">250 записей</option>
+      <option value="500">500 записей</option>
+    </select>
+    <select id="action-filter" aria-label="Фильтр по действию">
+      <option value="">Все действия</option>
+      <option value="approve">Принятие ноды</option>
+      <option value="suspend">Приостановление</option>
+      <option value="reinstate">Восстановление</option>
+      <option value="compromise">Компрометация</option>
+      <option value="promote">Повышение уровня</option>
+      <option value="re-enroll">Повторная регистрация</option>
+    </select>
+    <input id="audit-search" type="search" placeholder="Нода, оператор или детали…" aria-label="Поиск по журналу">
+    <span id="status" class="page-subtitle"></span>
+    <button class="btn btn-secondary" id="audit-refresh">Обновить</button>
+  </div>
+
+  <div class="table-wrap">
+    <table class="audit-table">
+      <thead>
+        <tr>
+          <th>Время</th>
+          <th>Действие</th>
+          <th>Нода</th>
+          <th>Кластер</th>
+          <th>Оператор</th>
+          <th>Детали</th>
+        </tr>
+      </thead>
+      <tbody id="audit-body">
+        <tr class="empty-row"><td colspan="6">Загрузка…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+  </div>
+
+<script>
+  const auditBody = document.getElementById("audit-body");
+  const statusEl  = document.getElementById("status");
+  const limitSel  = document.getElementById("limit-select");
+  const actionFilter = document.getElementById("action-filter");
+  const searchInput = document.getElementById("audit-search");
+  let allEntries = [];
+
+  const ACTION_CLASSES = {
+    approve: "action-approve",
+    reinstate: "action-reinstate",
+    suspend: "action-suspend",
+    compromise: "action-compromise",
+    promote: "action-promote",
+    block_version: "action-block_version",
+  };
+  const ACTION_LABELS = {
+    approve: "Нода принята",
+    reinstate: "Доверие восстановлено",
+    suspend: "Нода приостановлена",
+    compromise: "Отмечена компрометация",
+    promote: "Уровень повышен",
+    "re-enroll": "Повторная регистрация",
+    block_version: "Версия заблокирована",
+  };
+
+  function actionPill(action) {
+    const cls = ACTION_CLASSES[action] || "action-default";
+    return `<span class="action-pill ${cls}">${esc(ACTION_LABELS[action] || action)}</span>`;
+  }
+
+  function esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;",
+    }[c]));
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    try { return new Date(iso).toLocaleString("ru-RU", { dateStyle:"short", timeStyle:"medium" }); }
+    catch { return iso; }
+  }
+
+  function render() {
+    const action = actionFilter.value;
+    const query = searchInput.value.trim().toLowerCase();
+    const entries = allEntries.filter((entry) => {
+      if (action && entry.action !== action) return false;
+      if (!query) return true;
+      return [entry.node_id, entry.cluster_id, entry.actor, entry.detail, entry.action]
+        .some((value) => String(value || "").toLowerCase().includes(query));
+    });
+    statusEl.textContent = `${entries.length} из ${allEntries.length}`;
+    if (!entries.length) {
+      auditBody.innerHTML = '<tr class="empty-row"><td colspan="6">По выбранным условиям записей нет</td></tr>';
+      return;
+    }
+    auditBody.innerHTML = entries.map(e => `
+      <tr>
+        <td class="mono nowrap">${esc(fmtDate(e.created_at))}</td>
+        <td>${actionPill(e.action)}</td>
+        <td><code>${esc(e.node_id || "—")}</code></td>
+        <td class="muted">${esc(e.cluster_id || "—")}</td>
+        <td>${esc(e.actor || "—")}</td>
+        <td class="muted">${esc(e.detail || "—")}</td>
+      </tr>
+    `).join("");
+  }
+
+  async function load() {
+    const limit = limitSel.value || 100;
+    statusEl.textContent = "Загрузка…";
+    try {
+      // Запрос идёт на admin-server, который проксирует в discovery
+      // и сам подставляет DISCOVERY_ADMIN_SECRET. Заголовок авторизации
+      // панели (X-Admin-Panel-Secret) добавляет перехватчик в shared.js.
+      const url = AdminBase.url(`/api/monitor/audit/history?limit=${limit}`);
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+      const data = await r.json();
+      allEntries = data.entries || [];
+      if (!allEntries.length) {
+        statusEl.textContent = "0 записей";
+        auditBody.innerHTML = '<tr class="empty-row"><td colspan="6">Нет записей</td></tr>';
+        return;
+      }
+      render();
+    } catch (err) {
+      statusEl.textContent = `Ошибка: ${err.message}`;
+      auditBody.innerHTML = `<tr class="empty-row"><td colspan="6" class="text-danger">${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  limitSel.addEventListener("change", load);
+  actionFilter.addEventListener("change", render);
+  searchInput.addEventListener("input", render);
+  document.getElementById("audit-refresh").addEventListener("click", load);
+  document.getElementById("refreshBtn").addEventListener("click", load);
+  AdminTheme.init();
+  load();
+</script>
+</body>
+</html>

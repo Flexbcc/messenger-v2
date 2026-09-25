@@ -1,0 +1,26 @@
+# Systemd unit for Gitea auto-deploy webhook.
+# Install:
+#   sudo cp deploy/gitea/messenger-deploy-webhook.service.example /etc/systemd/system/messenger-deploy-webhook.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now messenger-deploy-webhook
+#
+# Edit Environment= lines before enable.
+
+[Unit]
+Description=Messenger Gitea deploy webhook
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/messenger/project
+Environment=DEPLOY_ROOT=/opt/messenger/project
+Environment=GIT_BRANCH=main
+Environment=DEPLOY_WEBHOOK_PORT=9009
+Environment=DEPLOY_WEBHOOK_SECRET=CHANGE_ME
+Environment=DEPLOY_LOG=/var/log/messenger-deploy.log
+ExecStart=/usr/bin/python3 /opt/messenger/project/scripts/deploy-webhook.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Как идёт сообщение в OUO</title>
+  <meta name="description" content="Наглядный путь сообщения OUO: локальное шифрование, Home Node, транзит, временный offline-буфер и расшифровка на устройстве получателя.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="message-flow.css">
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+  <div class="wrap journey-wrap">
+    <header>
+      <a class="logo" href="index.html" aria-label="OUO — главная">
+        <span class="logo-mark" aria-hidden="true"></span><span>OUO</span>
+      </a>
+      <nav aria-label="Основная навигация">
+        <a class="nav-current" href="message-flow.html">Путь сообщения</a>
+        <a href="client-guide.html">Клиент</a>
+        <a href="index.html#node">Своя нода</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="journey-hero">
+        <p class="beta-tag">Архитектура без магии</p>
+        <h1>Сообщение видно только тем,<br>для кого оно написано</h1>
+        <p class="lead">
+          Нажимайте на этапы и смотрите, что происходит с сообщением, кто что
+          видит и почему взлом одного промежуточного сервера не раскрывает текст.
+        </p>
+        <div class="journey-switch" role="group" aria-label="Состояние получателя">
+          <button class="mode-button is-active" type="button" data-mode="online" aria-pressed="true">Получатель онлайн</button>
+          <button class="mode-button" type="button" data-mode="offline" aria-pressed="false">Получатель офлайн</button>
+        </div>
+      </section>
+
+      <section class="journey-section" aria-labelledby="journey-title">
+        <div class="journey-heading">
+          <div>
+            <p class="eyebrow">Путь одного сообщения</p>
+            <h2 id="journey-title">От клавиатуры до экрана собеседника</h2>
+          </div>
+          <p class="journey-counter" aria-live="polite"><span id="step-number">1</span> / <span id="step-total">6</span></p>
+        </div>
+
+        <div class="route-shell">
+          <div class="simulation-toolbar">
+            <div><span class="simulation-light" id="simulation-light" aria-hidden="true"></span><strong id="simulation-status">Демонстрация готова</strong></div>
+            <div class="simulation-actions">
+              <label>Скорость <select id="simulation-speed" aria-label="Скорость демонстрации"><option value="1500">Спокойно</option><option value="850" selected>Обычно</option><option value="420">Быстро</option></select></label>
+              <button class="simulation-button primary" id="simulation-play" type="button">▶ Запустить путь</button>
+              <button class="simulation-button" id="simulation-reset" type="button">↺ Сначала</button>
+            </div>
+          </div>
+          <div class="route-track" id="route-track" role="group" aria-label="Этапы доставки сообщения"></div>
+          <article class="stage-detail" id="stage-detail" aria-live="polite">
+            <div class="stage-detail-icon" id="stage-icon" aria-hidden="true"></div>
+            <div>
+              <p class="stage-kicker" id="stage-kicker"></p>
+              <h3 id="stage-title"></h3>
+              <p id="stage-description"></p>
+              <div class="visibility-line">
+                <span>Что видно здесь</span>
+                <strong id="stage-visible"></strong>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="payload-section" aria-labelledby="payload-title">
+        <div>
+          <p class="eyebrow">Что путешествует по сети</p>
+          <h2 id="payload-title">Не текст, а непрозрачный контейнер</h2>
+          <p class="section-lead">
+            Текст превращается в ciphertext ещё на устройстве отправителя.
+            Промежуточные сервисы работают с зашифрованными данными и служебной
+            информацией, необходимой только для доставки.
+          </p>
+        </div>
+        <div class="payload-compare">
+          <article class="payload-card payload-private">
+            <span class="payload-label">На устройствах</span>
+            <div class="message-bubble">Буду через 15 минут</div>
+            <p>Открытый текст существует до шифрования и после расшифровки.</p>
+          </article>
+          <div class="payload-arrow" aria-hidden="true">→</div>
+          <article class="payload-card payload-network">
+            <span class="payload-label">В сети</span>
+            <code>v1 · nonce · 9f3a…e21c · auth tag</code>
+            <p>Сервер может доставить пакет, но не прочитать исходную фразу.</p>
+          </article>
+        </div>
+      </section>
+
+      <nav class="story-index" aria-label="Сценарии архитектуры">
+        <a href="#multi-node"><span>01</span>Несколько нод</a>
+        <a href="#calls"><span>02</span>Звонки</a>
+        <a href="#data"><span>03</span>Хранение данных</a>
+        <a href="#observer"><span>04</span>Что видно сети</a>
+      </nav>
+
+      <section class="architecture-section" id="multi-node" aria-labelledby="multi-node-title">
+        <div class="section-heading-wide">
+          <div>
+            <p class="eyebrow">Несколько независимых нод</p>
+            <h2 id="multi-node-title">Сообщение не привязано к одному серверу</h2>
+          </div>
+          <p>Home обслуживает пользователя, Relay передаёт трафик, Discovery помогает найти актуальный маршрут, а Storage ждёт офлайн-получателя.</p>
+        </div>
+
+        <div class="profile-switch" role="group" aria-label="Профиль транспорта">
+          <button class="mode-button is-active" type="button" data-network-profile="current" aria-pressed="true">Работает сейчас</button>
+          <button class="mode-button" type="button" data-network-profile="privacy" aria-pressed="false">Privacy-этап</button>
+        </div>
+
+        <div class="network-panel" data-network-panel="current">
+          <div class="network-route" aria-label="Текущий многонодовый маршрут">
+            <button class="network-actor endpoint" type="button" data-actor="device-a"><small>Устройство A</small><strong>Шифрует</strong><span>plaintext → ciphertext</span></button>
+            <i aria-hidden="true">→</i>
+            <button class="network-actor home-node" type="button" data-actor="home-a"><small>Home A</small><strong>Принимает</strong><span>сессия устройства</span></button>
+            <i aria-hidden="true">→</i>
+            <button class="network-actor relay-node" type="button" data-actor="relay-1"><small>Relay 1</small><strong>Транзит</strong><span>базовый маршрут</span></button>
+            <i aria-hidden="true">→</i>
+            <button class="network-actor relay-node" type="button" data-actor="relay-2"><small>Relay 2</small><strong>Fallback</strong><span>если прямой путь недоступен</span></button>
+            <i aria-hidden="true">→</i>
+            <button class="network-actor home-node" type="button" data-actor="home-b"><small>Home B</small><strong>Доставляет</strong><span>онлайн или mailbox</span></button>
+            <i aria-hidden="true">→</i>
+            <button class="network-actor endpoint" type="button" data-actor="device-b"><small>Устройство B</small><strong>Расшифровывает</strong><span>ciphertext → plaintext</span></button>
+          </div>
+          <div class="actor-inspector" id="actor-inspector" aria-live="polite">
+            <div><span id="actor-role">Нажмите на элемент маршрута</span><h3 id="actor-title">Кто что видит?</h3></div>
+            <p id="actor-description">Выберите устройство, Home или Relay — здесь появится его роль и доступная ему информация.</p>
+          </div>
+          <div class="status-explain">
+            <span class="status-pill live">Реализовано</span>
+            <p>Базовый Relay может использовать прямую доставку и дополнительный L2-переход. Сообщение остаётся E2EE, но Relay текущей версии ещё видит целевую Home Node.</p>
+          </div>
+        </div>
+
+        <div class="network-panel" data-network-panel="privacy" hidden>
+          <div class="privacy-route" aria-label="Целевой приватный маршрут">
+            <div class="network-actor endpoint"><small>Отправитель</small><strong>Контейнер</strong><span>fixed cells</span></div>
+            <div class="path-fan" aria-hidden="true">
+              <span>Ingress A → Mix 17 → Mix 41</span>
+              <span>Ingress B → Mix 28 → Mix 63</span>
+              <span>Ingress C → Mix 51 → Mix 92</span>
+            </div>
+            <div class="network-actor endpoint"><small>Получатель</small><strong>Сборка</strong><span>K-of-N + E2EE</span></div>
+          </div>
+          <div class="status-explain">
+            <span class="status-pill roadmap">Следующий этап</span>
+            <p>Sphinx-подобные слои, fixed-size cells, multipath, K-of-N, mix pool, jitter и cover traffic должны уменьшать корреляцию маршрута. Это направление разработки, а не уже доказанная гарантия.</p>
+          </div>
+        </div>
+
+        <aside class="discovery-strip">
+          <div><span>D1</span><span>D2</span><span>D3</span></div>
+          <p><strong>Discovery — справочник, а не центр сообщений.</strong> Он распространяет подписанные bootstrap-записи и маршруты. После установления связи контакты обмениваются RouteDescriptor внутри E2EE.</p>
+        </aside>
+      </section>
+
+      <section class="architecture-section" id="calls" aria-labelledby="calls-title">
+        <div class="section-heading-wide">
+          <div>
+            <p class="eyebrow">Звонки — отдельный транспорт</p>
+            <h2 id="calls-title">Сигнал идёт через OUO, голос — коротким маршрутом</h2>
+          </div>
+          <p>Текст можно задерживать ради смешивания трафика. Разговору нужна низкая задержка, поэтому звонок не проходит через медленный Mix Pool.</p>
+        </div>
+
+        <div class="call-grid">
+          <article class="call-card">
+            <div class="card-number">01</div>
+            <span class="status-pill live">E2EE signaling</span>
+            <h3>Договориться о звонке</h3>
+            <p>Offer, answer, ICE-кандидаты, отмена и завершение отправляются как защищённые служебные сообщения по обычному маршруту OUO.</p>
+            <div class="mini-route"><span>A</span><i>→</i><span>Home</span><i>→</i><span>Relay</span><i>→</i><span>B</span></div>
+          </article>
+          <article class="call-card call-media-card">
+            <div class="card-number">02</div>
+            <div class="profile-switch compact" role="group" aria-label="Маршрут голосового потока">
+              <button class="mode-button is-active" type="button" data-call-mode="p2p" aria-pressed="true">P2P</button>
+              <button class="mode-button" type="button" data-call-mode="turn" aria-pressed="false">Через TURN</button>
+            </div>
+            <h3 id="call-mode-title">Прямой голосовой поток</h3>
+            <div class="media-route" id="media-route"><span>Микрофон A</span><i>⇄</i><span>Устройство B</span></div>
+            <p id="call-mode-description">WebRTC выбирает прямой путь, когда сеть позволяет. Аудио защищено DTLS-SRTP, но стороны могут увидеть IP друг друга.</p>
+            <div class="visibility-line"><span>Посредник видит</span><strong id="call-mode-visible">Посредника нет</strong></div>
+          </article>
+        </div>
+        <div class="verification-note"><span class="status-pill verify">Нужна live-проверка</span><p>Логика signaling и восстановления соединения проверена локально. Реальный Web ↔ desktop аудиозвонок, внешний NAT и relay-only режим ещё должны пройти сквозной тест на разных сетях.</p></div>
+      </section>
+
+      <section class="architecture-section" id="data" aria-labelledby="data-title">
+        <div class="section-heading-wide">
+          <div>
+            <p class="eyebrow">Жизненный цикл данных</p>
+            <h2 id="data-title">Не всё хранится в одном месте и одинаково долго</h2>
+          </div>
+          <p>Серверная доставка, локальная история и временный offline mailbox — разные слои с разными ключами и сроками жизни.</p>
+        </div>
+        <div class="data-grid">
+          <article class="data-card primary-data" data-data-card tabindex="0">
+            <div class="data-icon">D</div><div><span class="data-place">Устройство</span><h3>Личная история</h3></div>
+            <p>Расшифрованная переписка доступна клиенту и хранится в локальной зашифрованной базе по выбранной политике.</p>
+            <dl><div><dt>Содержимое</dt><dd>plaintext для пользователя</dd></div><div><dt>Защита</dt><dd>локальное шифрование + ключ устройства</dd></div></dl>
+          </article>
+          <article class="data-card" data-data-card tabindex="0">
+            <div class="data-icon">H</div><div><span class="data-place">Home Node</span><h3>Доставка и очередь</h3></div>
+            <p>Работает с ciphertext и служебными данными доставки. Не должен становиться постоянной копией всей переписки.</p>
+            <dl><div><dt>Содержимое</dt><dd>ciphertext + минимум metadata</dd></div><div><dt>Срок</dt><dd>задаётся политикой retention</dd></div></dl>
+          </article>
+          <article class="data-card" data-data-card tabindex="0">
+            <div class="data-icon">S</div><div><span class="data-place">Storage / mailbox</span><h3>Получатель офлайн</h3></div>
+            <p>Временно держит непрозрачный пакет до получения, ACK или истечения TTL. Opaque mailbox-путь ещё интегрируется полностью.</p>
+            <dl><div><dt>Содержимое</dt><dd>encrypted cell</dd></div><div><dt>Удаление</dt><dd>ACK / expiry / quota</dd></div></dl>
+          </article>
+          <article class="data-card" data-data-card tabindex="0">
+            <div class="data-icon">R</div><div><span class="data-place">Relay / TURN</span><h3>Только транзит</h3></div>
+            <p>Relay пересылает сообщения, TURN — зашифрованный медиапоток. Архив сообщений или запись звонка им не нужны.</p>
+            <dl><div><dt>Содержимое</dt><dd>ciphertext / SRTP packets</dd></div><div><dt>Цель</dt><dd>получить → передать → забыть</dd></div></dl>
+          </article>
+        </div>
+        <aside class="retention-warning"><strong>Важно:</strong> конкретный срок серверного хранения должен быть явно настроен и проверен на production. Архитектурная цель — короткий буфер, но страница не подменяет реально включённую retention-политику.</aside>
+      </section>
+
+      <section class="observer-section" id="observer" aria-labelledby="observer-title">
+        <div>
+          <p class="eyebrow">Взгляд снаружи</p>
+          <h2 id="observer-title">Шифрование скрывает содержание, но не делает сеть невидимой</h2>
+          <p>Провайдер или глобальный наблюдатель может заметить соединение с OUO, объём и время трафика. Он не получает текст сообщения или ключи.</p>
+        </div>
+        <div class="observer-columns">
+          <article><span class="status-pill warn">Может увидеть</span><ul><li>IP и факт соединения</li><li>время и объём пакетов</li><li>сетевые endpoints</li><li>статистические связи</li></ul></article>
+          <article><span class="status-pill live">Не должен увидеть</span><ul><li>текст сообщения</li><li>E2EE-ключи</li><li>содержимое звонка</li><li>локальную историю</li></ul></article>
+        </div>
+      </section>
+
+      <section aria-labelledby="knowledge-title">
+        <p class="eyebrow">Минимум доверия</p>
+        <h2 id="knowledge-title">Каждый компонент знает только необходимое</h2>
+        <div class="knowledge-grid">
+          <article class="knowledge-card">
+            <div class="knowledge-top"><span class="actor-dot device"></span><h3>Устройство</h3></div>
+            <p><strong>Знает:</strong> текст, ключи своей сессии и собеседника.</p>
+            <p><strong>Не отдаёт:</strong> E2EE-ключи Home, Relay или Storage.</p>
+          </article>
+          <article class="knowledge-card">
+            <div class="knowledge-top"><span class="actor-dot home"></span><h3>Home Node</h3></div>
+            <p><strong>Знает:</strong> подключённое устройство и куда передать ciphertext.</p>
+            <p><strong>Не знает:</strong> содержание сообщения и ключ расшифрования.</p>
+          </article>
+          <article class="knowledge-card">
+            <div class="knowledge-top"><span class="actor-dot relay"></span><h3>Relay</h3></div>
+            <p><strong>Сейчас знает:</strong> транспортные переходы и целевую Home Node базового маршрута.</p>
+            <p><strong>Не знает:</strong> plaintext и E2EE-ключи; сокрытие полного маршрута относится к следующему Mix-этапу.</p>
+          </article>
+          <article class="knowledge-card">
+            <div class="knowledge-top"><span class="actor-dot storage"></span><h3>Storage</h3></div>
+            <p><strong>Хранит:</strong> delivery/mailbox-идентификатор и зашифрованный пакет с ограниченным сроком жизни.</p>
+            <p><strong>Не получает:</strong> открытую историю переписки.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="why-section" aria-labelledby="why-title">
+        <div class="why-copy">
+          <p class="eyebrow">Почему это важно</p>
+          <h2 id="why-title">Взлом сервера — не равен взлому переписки</h2>
+          <p>
+            Обычный серверный мессенджер концентрирует слишком много доверия в
+            одном месте. OUO разделяет роли: устройства шифруют, Home доставляет,
+            Relay транзитит, Storage временно ждёт получателя.
+          </p>
+        </div>
+        <ul class="benefit-list">
+          <li><span>01</span><div><strong>Ключи остаются на устройствах</strong><p>Инфраструктура не становится E2EE endpoint.</p></div></li>
+          <li><span>02</span><div><strong>Офлайн не превращается в вечный архив</strong><p>Storage — временный буфер, а не серверная копия жизни пользователя.</p></div></li>
+          <li><span>03</span><div><strong>Отказ одной ноды не обязан останавливать сеть</strong><p>Маршруты и инфраструктурные роли можно распределять.</p></div></li>
+        </ul>
+      </section>
+
+      <aside class="honesty-note">
+        <strong>Честная граница:</strong> если полностью взломано конечное устройство,
+        злоумышленник может увидеть текст до шифрования или после расшифровки.
+        OUO локализует компрометацию инфраструктуры, но не обещает невозможного.
+      </aside>
+
+      <section class="journey-cta">
+        <h2>Хотите увидеть это в работе?</h2>
+        <p>Откройте тестовый клиент или изучите исходный код протокола.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary btn-lg" href="index.html#downloads">Выбрать клиент</a>
+          <a class="btn btn-ghost btn-lg" href="https://github.com/Flexbcc/messenger-v2">Открыть GitHub</a>
+        </div>
+      </section>
+    </main>
+
+    <footer><p>OUO · путь сообщения · experimental beta</p></footer>
+  </div>
+  <script src="message-flow.js"></script>
+</body>
+</html>

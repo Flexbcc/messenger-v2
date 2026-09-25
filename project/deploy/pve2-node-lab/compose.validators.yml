@@ -1,0 +1,37 @@
+# Optional second-stage override after 5-of-7 authority provisioning.
+services:
+  home-a:
+    environment:
+      NODE_VALIDATOR_ENABLED: "true"
+      NODE_VALIDATOR_ID: ${VALIDATOR_1_ID:?required}
+      NODE_VALIDATOR_KEY_PATH: /data/validator.key
+  home-b:
+    environment:
+      NODE_VALIDATOR_ENABLED: "true"
+      NODE_VALIDATOR_ID: ${VALIDATOR_2_ID:?required}
+      NODE_VALIDATOR_KEY_PATH: /data/validator.key
+  home-c:
+    environment:
+      NODE_VALIDATOR_ENABLED: "true"
+      NODE_VALIDATOR_ID: ${VALIDATOR_3_ID:?required}
+      NODE_VALIDATOR_KEY_PATH: /data/validator.key
+  relay-a:
+    environment:
+      NODE_VALIDATOR_ENABLED: "true"
+      NODE_VALIDATOR_ID: ${VALIDATOR_4_ID:?required}
+      NODE_VALIDATOR_KEY_PATH: /data/validator.key
+  relay-b:
+    environment:
+      NODE_VALIDATOR_ENABLED: "true"
+      NODE_VALIDATOR_ID: ${VALIDATOR_5_ID:?required}
+      NODE_VALIDATOR_KEY_PATH: /data/validator.key
+  storage-a:
+    environment:
+      NODE_VALIDATOR_ENABLED: "true"
+      NODE_VALIDATOR_ID: ${VALIDATOR_6_ID:?required}
+      NODE_VALIDATOR_KEY_PATH: /data/validator.key
+  storage-b:
+    environment:
+      NODE_VALIDATOR_ENABLED: "true"
+      NODE_VALIDATOR_ID: ${VALIDATOR_7_ID:?required}
+      NODE_VALIDATOR_KEY_PATH: /data/validator.key

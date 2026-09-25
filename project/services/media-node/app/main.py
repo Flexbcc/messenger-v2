@@ -1,0 +1,84 @@
+import os
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config_loader import get_settings
+from app.config import settings as node_settings, validate_security_configuration
+from app.db import init_db
+from app.node_registration import start_node_registration
+from app.routers import admin_storage, media
+from app.storage_service import purge_expired
+from shared.mesh.install import install_mesh
+from shared.security.health import security_health_snapshot
+from shared.security.cors_config import client_allowed_origins
+from shared.security.body_limit import RequestBodyLimitMiddleware
+from shared.security.nonce_cleanup import start_nonce_cleanup
+from shared.security.relay_challenge_receiver import install_relay_challenge_receiver
+from app.media_auth import get_federation_security
+
+app = FastAPI(title="Media Node", version="0.2.0")
+install_relay_challenge_receiver(app, get_federation_security)
+app.add_middleware(
+    RequestBodyLimitMiddleware,
+    path_prefixes=("/media",),
+    max_body_bytes=node_settings.max_upload_bytes + 1024 * 1024,
+    require_federation_headers=False,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=client_allowed_origins(),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.on_event("startup")
+async def on_startup():
+    validate_security_configuration()
+    init_db()
+    purge_expired()
+    start_node_registration()
+    from app.media_auth import get_federation_security
+    start_nonce_cleanup(get_federation_security().nonce_store)
+
+
+@app.get("/health")
+def health():
+    settings = get_settings()
+    from app.media_auth import get_federation_security
+    fs = get_federation_security()
+    files_count = 0
+    bytes_total = 0
+    root = settings.media.local_path
+    if os.path.isdir(root):
+        for name in os.listdir(root):
+            path = os.path.join(root, name)
+            if os.path.isfile(path):
+                files_count += 1
+                bytes_total += os.path.getsize(path)
+    return {
+        "status": "ok",
+        "node_role": "media",
+        "node_id": fs.node_id,
+        "node_alias": node_settings.node_id,
+        "load": {
+            "files_count": files_count,
+            "bytes_total": bytes_total,
+            "primary_backend": settings.media.primary_backend,
+            "cache_ttl_hours": settings.media.network_cache_ttl_hours,
+        },
+        "security": security_health_snapshot(),
+    }
+
+
+app.include_router(media.router)
+app.include_router(admin_storage.router)
+
+install_mesh(
+    app,
+    discovery_url=node_settings.discovery_url,
+    node_id=node_settings.node_id,
+    cluster_id=node_settings.cluster_id,
+)

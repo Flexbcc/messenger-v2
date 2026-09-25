@@ -1,0 +1,232 @@
+{
+  "meta": {
+    "version": 1,
+    "description": "Dev/test seed — keys use snake_case (profile_avatar style). Dots also accepted.",
+    "generated_from": "ouo-settings-spec.json"
+  },
+  "values": {
+    "profile_display_name": "kekwekke",
+    "profile_username_enabled": false,
+    "profile_username": "kekwekke_user",
+    "profile_bio": "bio kekwekke demo",
+    "profile_language": "ru",
+    "profile_time_format": "24h",
+    "profile_date_format": "YYYY-MM-DD",
+    "identity_phone_enabled": false,
+    "identity_phone": "+79991234567",
+    "identity_phone_login": true,
+    "identity_phone_recovery": false,
+    "identity_email_enabled": false,
+    "identity_email": "kekwekke@example.test",
+    "identity_email_login": true,
+    "identity_email_recovery": true,
+    "identity_security_notifications": [
+      "email",
+      "push"
+    ],
+    "privacy_phone_visibility": "selected",
+    "privacy_phone_search": "everyone",
+    "privacy_email_visibility": "contacts",
+    "privacy_username_search": true,
+    "privacy_avatar_visibility": "contacts",
+    "privacy_last_seen": "nobody",
+    "privacy_online_status": false,
+    "privacy_read_receipts": true,
+    "privacy_typing_status": true,
+    "privacy_voice_record_status": true,
+    "privacy_incoming_messages": "nobody",
+    "privacy_calls_from": "everyone",
+    "privacy_group_invites": "nobody",
+    "privacy_qr_only": true,
+    "privacy_qr_mode": "temporary",
+    "privacy_qr_ttl_minutes": 73,
+    "privacy_invisible_mode": true,
+    "security_pin_enabled": true,
+    "security_pin_length": 4,
+    "security_alphanumeric_password": false,
+    "security_autolock": "15m",
+    "security_lock_on_background": true,
+    "security_lock_on_screen_off": true,
+    "security_biometry": false,
+    "security_wipe_enabled": true,
+    "security_wipe_after": 20,
+    "security_fake_pin_enabled": true,
+    "security_fake_profile_mode": "empty_profile",
+    "security_distress_signal": false,
+    "security_recovery_key_enabled": true,
+    "security_require_pin_for_critical": [
+      "export",
+      "add_device"
+    ],
+    "hidden_enabled": true,
+    "hidden_open_method": "pin",
+    "hidden_hide_from_search": false,
+    "hidden_hide_notifications": true,
+    "hidden_hide_media": true,
+    "hidden_autolock": "immediately",
+    "contacts_import_enabled": true,
+    "contacts_hash_lookup": true,
+    "contacts_auto_add_mutual": false,
+    "contacts_trusted_enabled": true,
+    "contacts_trust_levels_enabled": true,
+    "contacts_trust_levels": [
+      "unknown",
+      "unverified"
+    ],
+    "contacts_key_change_warning": true,
+    "contacts_block_on_key_change": true,
+    "notifications_enabled": true,
+    "notifications_preview": "hidden",
+    "notifications_types": [
+      "direct",
+      "groups",
+      "mentions"
+    ],
+    "notifications_dnd_enabled": true,
+    "notifications_hidden_chat_policy": "generic",
+    "messages_send_key": "enter",
+    "messages_save_drafts": true,
+    "messages_confirm_delete": true,
+    "messages_confirm_large_files": false,
+    "messages_large_file_mb": 80,
+    "messages_read_receipts_override": false,
+    "messages_auto_delete_enabled": false,
+    "messages_auto_delete_ttl": "1h",
+    "messages_link_preview": "local_only",
+    "media_autoload_wifi": [
+      "photos",
+      "videos"
+    ],
+    "media_autoload_mobile": [
+      "photos"
+    ],
+    "media_max_autoload_mb": 13,
+    "media_image_quality": "original",
+    "media_video_quality": "balanced",
+    "media_save_to_gallery": true,
+    "media_cache_limit_gb": 68,
+    "media_auto_cleanup": true,
+    "media_auto_cleanup_after": "30d",
+    "devices_require_approval": true,
+    "devices_approval_methods": [
+      "trusted_device",
+      "qr"
+    ],
+    "devices_history_sync_default": "all",
+    "devices_hidden_access_default": true,
+    "devices_remote_wipe": false,
+    "node_mode": "personal",
+    "node_custom_enabled": false,
+    "node_custom_address": "http://localhost:8001",
+    "node_allow_fallback": true,
+    "node_allow_relays": true,
+    "node_allow_service_nodes": false,
+    "node_proxy_enabled": false,
+    "node_proxy_type": "socks5",
+    "node_proxy_address": "test_proxy_address_kekwekke",
+    "node_mobile_data": false,
+    "node_roaming": false,
+    "sync_enabled": false,
+    "sync_types": [
+      "messages",
+      "contacts"
+    ],
+    "sync_network": "wifi_only",
+    "sync_history_depth": "all",
+    "storage_message_location": "personal_node",
+    "storage_replication_factor": 5,
+    "storage_media_location": "personal_node_s3",
+    "storage_s3_endpoint": "https://s3.kekwekke.test",
+    "storage_s3_bucket": "kekwekke-bucket",
+    "storage_media_ttl_enabled": false,
+    "storage_media_ttl": "1y",
+    "storage_key_location": "hardware_keystore",
+    "storage_backup_location": [
+      "none"
+    ],
+    "backup_enabled": true,
+    "backup_schedule": "weekly",
+    "backup_contents": [
+      "profile",
+      "settings",
+      "contacts"
+    ],
+    "backup_encryption": false,
+    "calls_p2p": true,
+    "calls_force_relay": true,
+    "calls_video": false,
+    "calls_quality": "balanced",
+    "calls_noise_suppression": true,
+    "calls_echo_cancellation": false,
+    "calls_data_saver": false,
+    "appearance_theme": "dark",
+    "appearance_text_size": "large",
+    "appearance_compact": false,
+    "appearance_animations": false,
+    "appearance_reduce_motion": false,
+    "appearance_chat_bubbles": "compact",
+    "developer_enabled": false
+  },
+  "lists": {
+    "privacy_phone_visibility_list": [
+      "list_phone_visibility_list_alpha",
+      "list_phone_visibility_list_beta"
+    ],
+    "privacy_email_visibility_list": [
+      "list_email_visibility_list_alpha",
+      "list_email_visibility_list_beta"
+    ],
+    "privacy_last_seen_list": [
+      "list_last_seen_list_alpha",
+      "list_last_seen_list_beta"
+    ],
+    "privacy_calls_allowlist": [
+      "list_calls_allowlist_alpha",
+      "list_calls_allowlist_beta"
+    ],
+    "security_fake_profile_chats": [
+      "list_fake_profile_chats_alpha",
+      "list_fake_profile_chats_beta"
+    ],
+    "security_distress_contacts": [
+      "list_distress_contacts_alpha",
+      "list_distress_contacts_beta"
+    ],
+    "hidden_chat_list": [
+      "list_chat_list_alpha",
+      "list_chat_list_beta"
+    ],
+    "contacts_trusted_list": [
+      "list_trusted_list_alpha",
+      "list_trusted_list_beta"
+    ],
+    "contacts_blocked_list": [
+      "list_blocked_list_alpha",
+      "list_blocked_list_beta"
+    ],
+    "notifications_dnd_schedule": [
+      "list_dnd_schedule_alpha",
+      "list_dnd_schedule_beta"
+    ],
+    "notifications_dnd_exceptions": [
+      "list_dnd_exceptions_alpha",
+      "list_dnd_exceptions_beta"
+    ],
+    "devices_list": [
+      "list_list_alpha",
+      "list_list_beta"
+    ],
+    "storage_message_nodes": [
+      "list_message_nodes_alpha",
+      "list_message_nodes_beta"
+    ],
+    "storage_access_devices": [
+      "list_access_devices_alpha",
+      "list_access_devices_beta"
+    ],
+    "storage_access_nodes": [
+      "list_access_nodes_alpha",
+      "list_access_nodes_beta"
+    ]
+  }
+}

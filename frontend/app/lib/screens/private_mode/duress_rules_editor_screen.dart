@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_card.dart';
+import '../../core/ui/app_page.dart';
 import '../../core/ui/app_tile.dart';
 import '../../models/duress_policy.dart';
 import '../../services/duress_policy_session.dart';
@@ -75,15 +76,22 @@ class _DuressRulesEditorScreenState extends State<DuressRulesEditorScreen> {
     final colors = context.colors;
 
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppPage(
+        title: 'Свои правила',
+        scroll: false,
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Свои правила'),
-        actions: [IconButton(icon: const Icon(Icons.add), onPressed: _addRule)],
+    return AppPage(
+      title: 'Свои правила',
+      actions: [IconButton(icon: const Icon(Icons.add), onPressed: _addRule)],
+      scroll: false,
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addRule,
+        child: const Icon(Icons.add),
       ),
-      body: ListView(
+      child: ListView(
         padding: const EdgeInsets.only(bottom: AppSpacing.xl),
         children: [
           Padding(
@@ -143,10 +151,6 @@ class _DuressRulesEditorScreenState extends State<DuressRulesEditorScreen> {
               ],
             ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addRule,
-        child: const Icon(Icons.add),
       ),
     );
   }

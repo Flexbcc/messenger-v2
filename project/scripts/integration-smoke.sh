@@ -15,11 +15,13 @@ check() {
   fi
 }
 
-check "discovery" "http://localhost:8003/health"
-check "home"      "http://localhost:8001/health"
-check "media"     "http://localhost:8004/health"
-check "turn"      "http://localhost:8006/health"
-check "gateway"   "http://localhost:8007/health"
+check "discovery" "http://localhost:${DISCOVERY_PORT:-8003}/health"
+check "home"      "http://localhost:${HOME_PORT:-8001}/health"
+check "media"     "http://localhost:${MEDIA_PORT:-8004}/health"
+check "turn"      "http://localhost:${TURN_PORT:-8006}/health"
+check "gateway"   "http://localhost:${GATEWAY_PORT:-8007}/health"
+check "push"      "http://localhost:${PUSH_PROXY_PORT:-8008}/health"
+check "admin"     "http://localhost:${ADMIN_PORT:-9201}/health"
 
 # Storage/relay are internal — probe via docker exec (slim images lack curl)
 _internal_health() {

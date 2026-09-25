@@ -7,6 +7,7 @@ import threading
 from typing import Any, Iterable, Mapping
 
 import httpx
+from shared.security.outbound_tls import outbound_tls_verify
 
 from app.config import (
     MESH_NOTIFY_ENABLED,
@@ -45,6 +46,7 @@ def _notify_peer_sync(peer_url: str, payload: dict) -> None:
             timeout=MESH_NOTIFY_TIMEOUT_SECONDS,
             follow_redirects=False,
             trust_env=False,
+            verify=outbound_tls_verify(),
         ) as client:
             resp = client.post(url, json=payload, headers=headers)
             resp.raise_for_status()

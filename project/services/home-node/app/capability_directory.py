@@ -140,6 +140,7 @@ async def _ping(url: str) -> str:
         timeout=RELAY_PING_TIMEOUT_SECONDS,
         follow_redirects=False,
         trust_env=False,
+        verify=outbound_tls_verify(),
     ) as client:
         response = await client.get(f"{origin}/health")
         response.raise_for_status()

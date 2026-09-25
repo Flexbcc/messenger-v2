@@ -6,6 +6,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 test-results/
+deploy/pve2-node-lab/runtime/
 *.pyc
 
 # Flutter / frontend build artifacts

@@ -31,27 +31,49 @@ bound on the VM host, and all are loopback-only:
 They are intended for an SSH/Tailscale tunnel. The Proxmox panel is not part of
 this compose project and must never be published by it.
 
-## Security stages
+## Automated strict lab
 
-1. Copy `.env.example` to an untracked `.env` and replace every secret with an
-   independently generated value.
-2. Start only D1/D2/D3 for genesis/bootstrap.
-3. Provision the public Capability/Trust Authority states. Private authority
-   keys must remain outside the VM.
-4. Enroll every node and place its own Capability Certificate in its own volume.
-5. Start the remaining roles. Verify that D1/D2/D3 expose one converged signed
-   peer view before enabling validator runtimes.
-6. Provision Validator Keys only into selected validator volumes and set the
-   validator runtime variables for those containers. The optional
-   `compose.validators.yml` maps seven separately provisioned validators; it
-   must not be used before their public credentials are in the authority state.
-7. Install internal TLS, change every advertised endpoint to HTTPS/WSS and set
-   `NODE_CHALLENGE_ALLOW_HTTP=false` before any non-isolated use.
+The isolated lab is provisioned without disabling signed validation or TLS:
 
-`NODE_CHALLENGE_ALLOW_HTTP=true` is an explicit lab-only bridge because the
-application containers currently expose plain HTTP inside the isolated Docker
-network. Federation requests remain signed, but HTTP does not hide metadata or
-ciphertext from a compromised VM/network namespace. It is not production-safe.
+```bash
+./lab-up.sh
+```
+
+После запуска можно создать 25 независимых тестовых пользователей и проверить
+100 сообщений между разными Home Node. Клиентские приватные ключи и подробный
+отчёт сохраняются только в игнорируемом `runtime/operator`:
+
+```bash
+docker compose --env-file runtime/lab.env --profile tools run --rm verifier
+```
+
+После перезапуска сервисов сохранность истории и клиентская расшифровка
+проверяются повторно:
+
+```bash
+docker compose --env-file runtime/lab.env --profile tools run --rm restart-verifier
+```
+
+Верификатор шифрует каждое сообщение отдельным X25519 + HKDF + AES-GCM
+конвертом и расшифровывает его только приватным ключом получателя. Это проверка
+реального зашифрованного транспорта стенда; production-клиент при этом
+по-прежнему использует собственный ratchet, а не тестовый формат конверта.
+
+The default command starts the five Home nodes plus three Discovery, two Relay
+and two Storage nodes. Gateway and TURN remain optional because their public
+TLS/mTLS boundary must be configured separately. The one-shot provisioner
+still creates their credentials in advance, so enabling them never reuses a
+core node identity.
+
+The one-shot provisioner creates a 5-of-7 authority, a distinct Root,
+Operational and Transport identity for every service, and a quorum-signed
+Capability Certificate for its role. Runtime credentials and operator-only
+validator private keys are written below ignored `runtime/`; they are never
+part of the image or Git repository. Re-running `lab-up.sh` preserves the
+existing identities. Re-provisioning requires deliberate removal of the lab
+volumes and `runtime/` together. The provisioner creates a private lab CA and a
+separate TLS certificate for every service. Advertised endpoints use HTTPS/WSS
+and `NODE_CHALLENGE_ALLOW_HTTP=false`.
 
 ## Persistent boundaries
 
@@ -64,30 +86,11 @@ Storage is limited in application configuration to 1 GiB of opaque cells per
 instance. Docker named volumes themselves do not enforce disk quotas, so the VM
 filesystem must also have monitoring and a free-space alert.
 
-## Commands for the approved deployment stage
-
-These commands are documentation only and have not been run:
-
-```bash
-cd project/deploy/pve2-node-lab
-docker compose --env-file .env config --quiet
-docker compose --env-file .env up -d discovery-d1 discovery-d2 discovery-d3
-docker compose --env-file .env ps
-```
-
-After authority provisioning, the validator override is added explicitly:
-
-```bash
-docker compose --env-file .env -f compose.yml -f compose.validators.yml config --quiet
-```
-
-Starting all services, generating/provisioning secrets, modifying VM networking
-or exposing ports must wait for explicit approval and the read-only VM audit.
-
 ## Readiness boundary
 
 Compose `healthy` proves only that a process answers `/health`. Cluster readiness
-requires factual logs for registration, heartbeat, three-source convergence,
-signed challenge assignments, Relay delivery receipts, Trust votes and ledger
-application. Those checks intentionally belong to the later VM test phase and
-have not been claimed by this package.
+also requires every Discovery service to expose the full signed peer view.
+`lab-up.sh` waits for that condition before starting the data plane; the
+verifier then requires every Home to see two signed Relay and two signed Storage
+candidates before creating users. Public exposure, DNS, external anti-DDoS and
+Proxmox networking remain outside this local package.

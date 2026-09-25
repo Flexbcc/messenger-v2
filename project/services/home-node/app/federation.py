@@ -191,6 +191,14 @@ async def publish_user_to_discovery(
                 signing_key=fs.signing_key,
                 node_id=fs.node_id,
             )
+            if resp.status_code >= 300:
+                logger.warning(
+                    "Discovery rejected user publication for %s: HTTP %s %s",
+                    user_id,
+                    resp.status_code,
+                    resp.text[:400],
+                )
+                return None
             return _home_change_info(user_id, resp)
         except httpx.HTTPError as e:
             logger.warning("Failed to publish user %s to discovery: %s", user_id, e)
@@ -441,9 +449,15 @@ async def _resolve_storage_urls() -> list[str]:
     if settings.resource_policy == "local":
         selected = configured
     else:
-        candidates = await _list_discovery_nodes(
-            "storage", _discovery_cluster_filter()
-        )
+        candidates: list[str] = []
+        if settings.signed_peer_selection_mode != "off":
+            from app.peer_runtime import signed_capability_urls
+
+            candidates = signed_capability_urls("storage")
+        if not candidates and settings.signed_peer_selection_mode != "enforce":
+            candidates = await _list_discovery_nodes(
+                "storage", _discovery_cluster_filter()
+            )
         reachable = await _rank_reachable(candidates)
         selected = (
             reachable

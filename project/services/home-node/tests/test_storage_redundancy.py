@@ -1,11 +1,13 @@
 """Home-side Storage replica selection, write quorum and deduplicated drain."""
 
+import json
 from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 
 from app import federation
+from app import storage_buffer_client
 
 
 class _DummyClient:
@@ -20,6 +22,7 @@ class _Response:
     def __init__(self, *, status_code=200, body=None):
         self.status_code = status_code
         self._body = body or {}
+        self.content = json.dumps(self._body).encode()
 
     def json(self):
         return self._body
@@ -36,6 +39,7 @@ class _Response:
 @pytest.mark.asyncio
 async def test_storage_replica_selection_is_bounded_and_deduplicated(monkeypatch):
     monkeypatch.setattr(federation.settings, "resource_policy", "federated")
+    monkeypatch.setattr(federation.settings, "signed_peer_selection_mode", "off")
     monkeypatch.setattr(federation.settings, "storage_node_url", "http://storage-a")
     monkeypatch.setattr(
         federation.settings,
@@ -70,7 +74,7 @@ async def test_storage_write_succeeds_when_quorum_is_reached(monkeypatch):
     )
     monkeypatch.setattr(federation.settings, "storage_write_quorum", 1)
     monkeypatch.setattr(
-        federation.httpx, "AsyncClient", lambda **_kwargs: _DummyClient()
+        storage_buffer_client.httpx, "AsyncClient", lambda **_kwargs: _DummyClient()
     )
     calls = []
 
@@ -80,7 +84,7 @@ async def test_storage_write_succeeds_when_quorum_is_reached(monkeypatch):
             raise httpx.ConnectError("offline")
         return _Response()
 
-    monkeypatch.setattr(federation, "federation_post", post)
+    monkeypatch.setattr(storage_buffer_client, "federation_post", post)
     await federation.buffer_for_offline_user(
         "user-b", {"packet_id": "packet-1", "ciphertext": "opaque"}
     )
@@ -99,7 +103,7 @@ async def test_storage_write_fails_closed_below_quorum(monkeypatch):
     )
     monkeypatch.setattr(federation.settings, "storage_write_quorum", 2)
     monkeypatch.setattr(
-        federation.httpx, "AsyncClient", lambda **_kwargs: _DummyClient()
+        storage_buffer_client.httpx, "AsyncClient", lambda **_kwargs: _DummyClient()
     )
 
     async def post(_client, url, **_kwargs):
@@ -107,7 +111,7 @@ async def test_storage_write_fails_closed_below_quorum(monkeypatch):
             raise httpx.ConnectError("offline")
         return _Response()
 
-    monkeypatch.setattr(federation, "federation_post", post)
+    monkeypatch.setattr(storage_buffer_client, "federation_post", post)
     with pytest.raises(RuntimeError, match="write quorum"):
         await federation.buffer_for_offline_user(
             "user-b", {"packet_id": "packet-1", "ciphertext": "opaque"}
@@ -115,14 +119,14 @@ async def test_storage_write_fails_closed_below_quorum(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_replicated_drain_delivers_once_and_deletes_every_copy(monkeypatch):
+async def test_replicated_drain_delivers_once_and_keeps_copies_until_ack(monkeypatch):
     monkeypatch.setattr(
         federation,
         "_resolve_storage_urls",
         AsyncMock(return_value=["http://storage-a", "http://storage-b"]),
     )
     monkeypatch.setattr(
-        federation.httpx, "AsyncClient", lambda **_kwargs: _DummyClient()
+        storage_buffer_client.httpx, "AsyncClient", lambda **_kwargs: _DummyClient()
     )
     envelope = {"packet_id": "packet-1", "ciphertext": "opaque"}
 
@@ -130,20 +134,9 @@ async def test_replicated_drain_delivers_once_and_deletes_every_copy(monkeypatch
         entry_id = "entry-a" if url.startswith("http://storage-a") else "entry-b"
         return _Response(body={"envelopes": [{"id": entry_id, "envelope": envelope}]})
 
-    deleted = []
-
-    async def delete(_client, url, **_kwargs):
-        deleted.append(url)
-        return _Response(status_code=204)
-
     deliver = AsyncMock(return_value=True)
-    monkeypatch.setattr(federation, "federation_get", get)
-    monkeypatch.setattr(federation, "federation_delete", delete)
+    monkeypatch.setattr(storage_buffer_client, "federation_get", get)
 
     await federation.drain_buffer("user-b", deliver)
 
     deliver.assert_awaited_once_with(envelope)
-    assert set(deleted) == {
-        "http://storage-a/buffer/entry-a",
-        "http://storage-b/buffer/entry-b",
-    }

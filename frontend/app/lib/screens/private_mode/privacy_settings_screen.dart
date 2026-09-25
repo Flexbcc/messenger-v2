@@ -150,7 +150,10 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
     final text = context.textStyles;
 
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppPage(
+        scroll: false,
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
     return AppListPage(

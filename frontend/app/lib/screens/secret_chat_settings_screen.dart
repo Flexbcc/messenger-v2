@@ -5,6 +5,8 @@ import '../../core/extensions/context_extensions.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/ui/app_bottom_sheet.dart';
 import '../../core/ui/app_card.dart';
+import '../../core/ui/app_empty_state.dart';
+import '../../core/ui/app_page.dart';
 import '../../core/ui/app_tile.dart';
 import '../../security/secret_chat_security.dart';
 import '../../security/private_feature_access.dart';
@@ -246,90 +248,95 @@ class _SecretChatSettingsScreenState
     final text = context.textStyles;
 
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppPage(
+        scroll: false,
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     if (!_accessAllowed) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Защищённый раздел')),
-        body: const Center(child: Text('Сначала завершите настройку защиты')),
+      return const AppPage(
+        title: 'Защищённый раздел',
+        scroll: false,
+        child: AppEmptyState(
+          icon: Icons.lock_outline,
+          title: 'Настройка защиты не завершена',
+          subtitle: 'Создайте основной PIN и включите секретные функции',
+        ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Секретная комната')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.screenPadding),
-            child: Text(
-              'Временный режим внутри обычного чата. Сообщения помечаются локально и скрыты без пароля. '
-              'Выход в список чатов всегда выключает режим.',
-              style: text.caption,
+    return AppListPage(
+      title: 'Секретная комната',
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.screenPadding),
+          child: Text(
+            'Временный режим внутри обычного чата. Сообщения помечаются локально и скрыты без пароля. '
+            'Выход в список чатов всегда выключает режим.',
+            style: text.caption,
+          ),
+        ),
+        AppSettingsGroup(
+          title: 'Пароль',
+          children: [
+            AppTile(
+              leading: Icon(
+                Icons.lock_outline,
+                color: context.colors.textSecondary,
+              ),
+              title: _configured ? 'Сменить пароль' : 'Задать пароль',
+              subtitle: _configured
+                  ? 'В чате: пароль + два пробела + Enter'
+                  : 'Обязательно перед использованием',
+              trailing: AppTile.chevron(context),
+              onTap: _setPassword,
+              showDivider: _configured,
             ),
-          ),
-          AppSettingsGroup(
-            title: 'Пароль',
-            children: [
+            if (_configured)
               AppTile(
                 leading: Icon(
-                  Icons.lock_outline,
+                  Icons.lock_open_outlined,
                   color: context.colors.textSecondary,
                 ),
-                title: _configured ? 'Сменить пароль' : 'Задать пароль',
-                subtitle: _configured
-                    ? 'В чате: пароль + два пробела + Enter'
-                    : 'Обязательно перед использованием',
+                title: 'Удалить пароль',
                 trailing: AppTile.chevron(context),
-                onTap: _setPassword,
-                showDivider: _configured,
+                onTap: _clearPassword,
               ),
-              if (_configured)
-                AppTile(
-                  leading: Icon(
-                    Icons.lock_open_outlined,
-                    color: context.colors.textSecondary,
-                  ),
-                  title: 'Удалить пароль',
-                  trailing: AppTile.chevron(context),
-                  onTap: _clearPassword,
-                ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Сессия в чате',
-            children: [
-              AppTile(
-                leading: Icon(
-                  Icons.timer_outlined,
-                  color: context.colors.textSecondary,
-                ),
-                title: 'Таймер бездействия',
-                subtitle: '$_timeoutMin мин — только пока вы в чате',
-                trailing: AppTile.chevron(context),
-                onTap: _pickTimeout,
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          title: 'Сессия в чате',
+          children: [
+            AppTile(
+              leading: Icon(
+                Icons.timer_outlined,
+                color: context.colors.textSecondary,
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSettingsGroup(
-            title: 'Секретные сообщения',
-            children: [
-              AppTile(
-                leading: Icon(
-                  Icons.auto_delete_outlined,
-                  color: context.colors.textSecondary,
-                ),
-                title: 'Исчезающие секретные',
-                subtitle: _disappearLabel(),
-                trailing: AppTile.chevron(context),
-                onTap: _pickDisappearing,
+              title: 'Таймер бездействия',
+              subtitle: '$_timeoutMin мин — только пока вы в чате',
+              trailing: AppTile.chevron(context),
+              onTap: _pickTimeout,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSettingsGroup(
+          title: 'Секретные сообщения',
+          children: [
+            AppTile(
+              leading: Icon(
+                Icons.auto_delete_outlined,
+                color: context.colors.textSecondary,
               ),
-            ],
-          ),
-        ],
-      ),
+              title: 'Исчезающие секретные',
+              subtitle: _disappearLabel(),
+              trailing: AppTile.chevron(context),
+              onTap: _pickDisappearing,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -9,6 +9,7 @@ import '../../core/ui/app_button.dart';
 import '../../core/ui/app_card.dart';
 import '../../core/ui/app_section.dart';
 import '../../core/ui/app_tile.dart';
+import '../../core/ui/app_page.dart';
 import '../../models/connection_probe_result.dart';
 import '../../services/debug_log.dart';
 import '../../services/node_config_resolver.dart';
@@ -85,9 +86,10 @@ class _ConnectionStatusScreenState
     final snapshot = _snapshot;
     final online = snapshot?.clientReachable ?? false;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Состояние соединения')),
-      body: RefreshIndicator(
+    return AppPage(
+      title: 'Состояние соединения',
+      scroll: false,
+      child: RefreshIndicator(
         onRefresh: _probe,
         child: ListView(
           padding: const EdgeInsets.only(bottom: AppSpacing.xl),

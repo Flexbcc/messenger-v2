@@ -5,6 +5,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/ui/app_card.dart';
 import '../core/ui/app_empty_state.dart';
 import '../core/ui/app_notice.dart';
+import '../core/ui/app_page.dart';
 import '../services/node_owner/managed_node.dart';
 import '../services/node_owner/managed_node_registry.dart';
 import '../services/node_owner/node_owner_api_client.dart';
@@ -122,8 +123,9 @@ class _ManagedNodesScreenState extends State<ManagedNodesScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Мои ноды')),
+    return AppPage(
+      title: 'Мои ноды',
+      scroll: false,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _pairing ? null : _addNode,
         icon: _pairing
@@ -134,7 +136,7 @@ class _ManagedNodesScreenState extends State<ManagedNodesScreen> {
             : const Icon(Icons.qr_code_scanner),
         label: Text(_pairing ? 'Подключение…' : 'Добавить ноду'),
       ),
-      body: _loading
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _reload,
@@ -309,9 +311,10 @@ class _ManagedNodeDetailsScreenState extends State<ManagedNodeDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.node.localLabel)),
-      body: RefreshIndicator(
+    return AppPage(
+      title: widget.node.localLabel,
+      scroll: false,
+      child: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.screenPadding),

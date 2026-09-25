@@ -10,6 +10,7 @@ import '../core/ui/app_button.dart';
 import '../core/ui/app_card.dart';
 import '../core/ui/app_search_field.dart';
 import '../core/ui/app_section.dart';
+import '../core/ui/app_page.dart';
 import '../core/ui/app_tile.dart';
 import '../config.dart';
 import '../services/api_client.dart';
@@ -224,27 +225,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final controller = ref.watch(appControllerProvider);
     final session = controller.session;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Профиль'),
-        actions: [
-          if (!_loading && _error == null)
-            TextButton(
-              onPressed: _saving
-                  ? null
-                  : () {
-                      if (_editing) {
-                        _saveProfile();
-                      } else {
-                        _populateEditors(controller);
-                        setState(() => _editing = true);
-                      }
-                    },
-              child: Text(_editing ? 'Готово' : 'Изменить'),
-            ),
-        ],
-      ),
-      body: _loading
+    return AppPage(
+      title: 'Профиль',
+      scroll: false,
+      actions: [
+        if (!_loading && _error == null)
+          TextButton(
+            onPressed: _saving
+                ? null
+                : () {
+                    if (_editing) {
+                      _saveProfile();
+                    } else {
+                      _populateEditors(controller);
+                      setState(() => _editing = true);
+                    }
+                  },
+            child: Text(_editing ? 'Готово' : 'Изменить'),
+          ),
+      ],
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? Center(

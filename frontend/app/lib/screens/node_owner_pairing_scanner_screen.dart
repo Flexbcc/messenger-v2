@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../core/theme/app_spacing.dart';
+import '../core/ui/app_page.dart';
 import '../services/node_owner/node_owner_pairing_payload.dart';
 import '../services/qr_image_decoder.dart';
 
@@ -58,9 +59,10 @@ class _NodeOwnerPairingScannerScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Подключение ноды')),
-      body: Column(
+    return AppPage(
+      title: 'Подключение ноды',
+      scroll: false,
+      child: Column(
         children: [
           Expanded(
             child: MobileScanner(

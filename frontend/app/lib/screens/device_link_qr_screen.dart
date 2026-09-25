@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../core/theme/app_spacing.dart';
+import '../core/ui/app_page.dart';
 import '../state/app_controller.dart';
 
 /// New device: displays a one-time QR and waits for any trusted device.
@@ -72,9 +73,10 @@ class _DeviceLinkQrScreenState extends ConsumerState<DeviceLinkQrScreen> {
   @override
   Widget build(BuildContext context) {
     final link = _link;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Вход по QR')),
-      body: Center(
+    return AppPage(
+      title: 'Вход по QR',
+      scroll: false,
+      child: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: ConstrainedBox(

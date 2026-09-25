@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../core/theme/app_spacing.dart';
+import '../core/ui/app_page.dart';
 import '../services/contact_pairing_payload.dart';
 import '../services/qr_image_decoder.dart';
 
@@ -66,9 +67,10 @@ class _ProfileQrScannerScreenState extends State<ProfileQrScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('QR собеседника')),
-      body: Column(
+    return AppPage(
+      title: 'QR собеседника',
+      scroll: false,
+      child: Column(
         children: [
           Expanded(
             child: MobileScanner(

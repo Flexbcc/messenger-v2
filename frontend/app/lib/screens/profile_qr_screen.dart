@@ -7,6 +7,7 @@ import '../core/extensions/context_extensions.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/ui/app_button.dart';
 import '../core/ui/app_card.dart';
+import '../core/ui/app_page.dart';
 import '../crypto/auth_keypair.dart';
 import '../crypto/crypto_service.dart';
 import '../services/contact_pairing_payload.dart';
@@ -63,9 +64,10 @@ class _ProfileQrScreenState extends ConsumerState<ProfileQrScreen> {
     final colors = context.colors;
     final expired = _expiresAt != null && DateTime.now().isAfter(_expiresAt!);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('QR профиля')),
-      body: _loading
+    return AppPage(
+      title: 'QR профиля',
+      scroll: false,
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.all(AppSpacing.screenPadding),

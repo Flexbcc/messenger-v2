@@ -32,9 +32,12 @@ from app.schemas import (
     ProfileSettingsPayload,
     UpdateDisplayNameRequest,
     UpdateProfileRequest,
+    UserIdentityBindingRequest,
+    UserIdentityBindingResponse,
 )
 from app.security import hash_password, verify_password
 from app.ws import manager
+from shared.security.user_identity_binding import validate_user_identity_binding
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -68,6 +71,56 @@ async def get_me(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return _me_response(user)
+
+
+@router.put("/me/identity-root", response_model=UserIdentityBindingResponse)
+async def bind_identity_root(
+    payload: UserIdentityBindingRequest,
+    current: tuple[str, str] = Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bind a stable Identity Root to this account without exposing its key.
+
+    Both the new Identity Root and the already-authenticated DeviceKey must
+    sign the same short-lived object.  Once set, this endpoint is idempotent
+    for the same root but cannot replace it; replacement requires the future
+    IdentityTransition recovery protocol.
+    """
+    from datetime import datetime, timezone
+
+    user_id, device_id = current
+    user = await db.get(User, user_id)
+    device = await _device_for_user(db, user_id, device_id)
+    if user is None or device is None:
+        raise HTTPException(status_code=404, detail="Account or device not found")
+    binding = payload.model_dump()
+    minimum_version = user.identity_version or 1
+    validation = validate_user_identity_binding(
+        binding,
+        now=datetime.now(timezone.utc),
+        expected_user_id=user_id,
+        expected_device_id=device_id,
+        expected_device_public_key=device.auth_public_key,
+        current_identity_public_key=user.identity_root_public_key,
+        minimum_identity_version=minimum_version,
+    )
+    if not validation.valid:
+        raise HTTPException(status_code=400, detail=validation.reason)
+    if user.identity_version is not None and payload.identity_version != user.identity_version:
+        raise HTTPException(
+            status_code=409,
+            detail="Identity version change requires IdentityTransition",
+        )
+    user.identity_root_public_key = payload.identity_public_key
+    user.identity_version = payload.identity_version
+    user.identity_binding = binding
+    await db.commit()
+    return UserIdentityBindingResponse(
+        user_id=user.id,
+        identity_root_public_key=user.identity_root_public_key,
+        identity_version=user.identity_version,
+        binding_id=payload.binding_id,
+    )
 
 
 @router.patch("/me", response_model=MeResponse)

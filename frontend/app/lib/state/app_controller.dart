@@ -63,6 +63,7 @@ import '../services/in_app_notification_service.dart';
 import '../services/node_config_resolver.dart';
 import '../services/os_notification_service.dart';
 import '../services/network_usage_store.dart';
+import '../services/user_identity_binding_service.dart';
 import '../models/peer_home_entry.dart';
 import '../services/peer_home_cache.dart';
 import '../services/profile_service.dart';
@@ -707,6 +708,24 @@ class AppController extends ChangeNotifier {
       accessToken: session!.accessToken,
       displayName: displayNameFallback,
     );
+    // Transitional accounts still use a server UUID. Bind that UUID to a
+    // stable endpoint-held Identity Root so a later Home migration can be
+    // authorized without trusting either Home server alone. Failure keeps
+    // messaging available but leaves migration disabled until a retry.
+    try {
+      final binding = await const UserIdentityBindingService().issue(
+        networkId: 'ouo-cluster:${AppConfig.clusterId}',
+        userId: session!.userId,
+        deviceId: session!.deviceId,
+        deviceKey: authKeyPair!,
+      );
+      await _api.bindIdentityRoot(binding);
+    } catch (error) {
+      DebugLog.instance.warn(
+        'identity',
+        'Identity Root binding is pending: ${error.runtimeType}',
+      );
+    }
     homeMovedMessage = null;
 
     try {

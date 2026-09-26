@@ -268,6 +268,13 @@ class ApiClient {
     return _decodeObject(resp);
   }
 
+  Future<Map<String, dynamic>> bindIdentityRoot(
+    Map<String, dynamic> binding,
+  ) async {
+    final resp = await _putJson(_homeUri('/users/me/identity-root'), binding);
+    return _decodeObject(resp);
+  }
+
   Future<(String, String)> _solveRegistrationPow() async {
     final response = await _get(_homeUri('/auth/pow-challenge'));
     final payload = _decodeObject(response);

@@ -100,6 +100,29 @@ class RegisterResponse(BaseModel):
     access_token: str
 
 
+class UserIdentityBindingRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    protocol_version: str = Field(min_length=1, max_length=64)
+    object_version: int = Field(ge=1, le=32)
+    binding_id: str = Field(min_length=36, max_length=36)
+    user_id: str = Field(min_length=1, max_length=128)
+    identity_public_key: str = Field(min_length=40, max_length=128)
+    identity_version: int = Field(ge=1, le=2_147_483_647)
+    authorizing_device_id: str = Field(min_length=1, max_length=64)
+    authorizing_device_public_key: str = Field(min_length=40, max_length=128)
+    issued_at: str = Field(min_length=20, max_length=64)
+    identity_signature: str = Field(min_length=80, max_length=128)
+    device_signature: str = Field(min_length=80, max_length=128)
+
+
+class UserIdentityBindingResponse(BaseModel):
+    user_id: str
+    identity_root_public_key: str
+    identity_version: int
+    binding_id: str
+
+
 class LoginRequest(BaseModel):
     """
     Temporary bridge login — see ADR-0007. Not the target auth model.

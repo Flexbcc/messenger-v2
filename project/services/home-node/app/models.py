@@ -38,6 +38,11 @@ class User(Base):
     # Minimal server-enforced presence policy. This is intentionally separate
     # from local UI settings and contains no recovery/key material.
     presence_policy: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Identity Root is distinct from every DeviceKey.  Legacy UUID accounts
+    # enroll it through a dual-signed binding before they may migrate Home.
+    identity_root_public_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    identity_version: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    identity_binding: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     password_hash: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

@@ -34,6 +34,18 @@ def _migrate_columns(connection):
             connection.execute(sa.text("ALTER TABLE users ADD COLUMN profile_settings JSON"))
         if "presence_policy" not in cols:
             connection.execute(sa.text("ALTER TABLE users ADD COLUMN presence_policy JSON"))
+        if "identity_root_public_key" not in cols:
+            connection.execute(sa.text(
+                "ALTER TABLE users ADD COLUMN identity_root_public_key TEXT"
+            ))
+        if "identity_version" not in cols:
+            connection.execute(sa.text(
+                "ALTER TABLE users ADD COLUMN identity_version INTEGER"
+            ))
+        if "identity_binding" not in cols:
+            connection.execute(sa.text(
+                "ALTER TABLE users ADD COLUMN identity_binding JSON"
+            ))
 
     # messages table — статус доставки + исчезающие + редактирование
     if "devices" in tables:

@@ -411,6 +411,8 @@ class SettingsRuntime {
   Future<int> maxAutoloadMb() => _reader.getInt('media.max_autoload_mb', 20);
   Future<String> imageQuality() =>
       _reader.getString('media.image_quality', 'balanced');
+  Future<bool> stripImageMetadata() =>
+      _reader.getBool('media.strip_image_metadata', true);
   Future<int> cacheLimitGb() => _reader.getInt('media.cache_limit_gb', 2);
   Future<bool> autoCleanup() => _reader.getBool('media.auto_cleanup', true);
   Future<String> autoCleanupAfter() =>
@@ -777,6 +779,7 @@ class SettingsRuntime {
     'media.autoload_mobile',
     'media.max_autoload_mb',
     'media.image_quality',
+    'media.strip_image_metadata',
     'media.cache_limit_gb',
     'media.auto_cleanup',
     'media.auto_cleanup_after',

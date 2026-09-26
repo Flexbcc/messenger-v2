@@ -32,6 +32,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadAddresses();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.service.showPairingOnReady && mounted) {
+        widget.service.showPairingOnReady = false;
+        _showPairingDialog();
+      }
+    });
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       widget.service.clearExpiredPairCode();
       if (mounted) setState(() {});
@@ -57,11 +63,56 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  int _pairTtlRemaining() {
-    final code = widget.service.activePairCode;
-    if (code == null) return 0;
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    return (code.expiresAt - now).clamp(0, 300);
+  Future<void> _showPairingDialog() async {
+    if (!widget.service.serverRunning) return;
+    widget.service.issuePairingCode();
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Row(children: [
+                const Icon(Icons.qr_code_2),
+                const SizedBox(width: 10),
+                Text('Подключить телефон',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const Spacer(),
+                IconButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    icon: const Icon(Icons.close)),
+              ]),
+              const SizedBox(height: 8),
+              const Text(
+                'В OUO Messenger откройте «Настройки → Личное '
+                'хранилище» и отсканируйте код.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              PairingQrCard(service: widget.service, lanHosts: _addresses),
+              const SizedBox(height: 12),
+              Text('Код одноразовый и действует 5 минут.',
+                  style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () {
+                  final json = widget.service.pairingPayloadJson(
+                    _addresses,
+                    includeQrSecret: false,
+                  );
+                  if (json != null) _copy('Код подключения', json);
+                },
+                icon: const Icon(Icons.keyboard_outlined),
+                label: const Text('Скопировать ручной код'),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -130,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
             folderReady: service.allowedRoot?.isNotEmpty == true,
             serverReady: service.serverRunning,
             phoneReady: peers.isNotEmpty,
-            onConnect: service.serverRunning ? service.issuePairingCode : null,
+            onConnect: service.serverRunning ? _showPairingDialog : null,
           ),
           const SizedBox(height: 16),
           _StatusCard(
@@ -221,48 +272,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          if (service.activePairCode != null) ...[
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    service.activePairCode!.code,
-                    style: theme.textTheme.displayMedium?.copyWith(
-                      letterSpacing: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'осталось ${_pairTtlRemaining()} с',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            PairingQrCard(service: service, lanHosts: _addresses),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () {
-                final json = service.pairingPayloadJson(
-                  _addresses,
-                  includeQrSecret: false,
-                );
-                if (json != null) _copy('Pairing JSON', json);
-              },
-              icon: const Icon(Icons.data_object, size: 18),
-              label: const Text('Ручное подключение без QR'),
-            ),
-            const SizedBox(height: 12),
-          ],
           FilledButton.icon(
-            onPressed: service.serverRunning ? service.issuePairingCode : null,
+            onPressed: service.serverRunning ? _showPairingDialog : null,
             icon: const Icon(Icons.link),
             label: Text(
               service.activePairCode == null

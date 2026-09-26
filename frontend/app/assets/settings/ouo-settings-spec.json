@@ -2304,6 +2304,24 @@
           "storage": "profile_settings"
         },
         {
+          "id": "media.strip_image_metadata",
+          "title": "Удалять метаданные фото",
+          "type": "boolean",
+          "default": true,
+          "description": "Перед шифрованием клиент заново кодирует изображение и удаляет EXIF, GPS и сведения о камере. Видео пока передаётся без перекодирования.",
+          "data": {
+            "json_type": "boolean"
+          },
+          "ui": {
+            "control": "switch",
+            "placeholder": "",
+            "danger": false,
+            "requires_confirmation": false
+          },
+          "scope": "device",
+          "storage": "profile_settings"
+        },
+        {
           "id": "media.cache_limit_gb",
           "title": "Лимит кэша, ГБ",
           "type": "number",

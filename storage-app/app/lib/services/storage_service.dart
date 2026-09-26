@@ -26,6 +26,7 @@ class StorageService extends ChangeNotifier {
   StorageApp? app;
   PairCode? activePairCode;
   bool serverRunning = false;
+  bool showPairingOnReady = false;
 
   Future<void> init() async {
     try {
@@ -49,17 +50,20 @@ class StorageService extends ChangeNotifier {
     return p.join(dir.path, 'storage-app', 'data');
   }
 
-  Future<void> completeOnboarding(String allowedRoot, {int port = 7345}) async {
+  Future<void> completeOnboarding(String allowedRoot,
+      {int port = 7345, bool localOnly = true}) async {
     phase = StorageUiPhase.loading;
     errorMessage = null;
     notifyListeners();
 
     try {
       await Directory(allowedRoot).create(recursive: true);
-      await AppSettings().save(allowedRoot: allowedRoot, port: port);
+      await AppSettings()
+          .save(allowedRoot: allowedRoot, port: port, localOnly: localOnly);
       settings = await AppSettings.load();
       await _bootstrapAndStart(allowedRoot, port);
       phase = StorageUiPhase.ready;
+      showPairingOnReady = true;
     } catch (e) {
       phase = StorageUiPhase.error;
       errorMessage = '$e';
@@ -81,7 +85,7 @@ class StorageService extends ChangeNotifier {
       enabled: settings.pinEnabled,
     );
     app!.pairing.allowOpen = settings.openPairing;
-    await app!.start();
+    await app!.start(allowRemote: !settings.localOnly);
     serverRunning = true;
     activePairCode = null;
   }
@@ -91,7 +95,7 @@ class StorageService extends ChangeNotifier {
     if (serverRunning) {
       await stopServer();
     } else {
-      await app!.start();
+      await app!.start(allowRemote: !settings.localOnly);
       serverRunning = true;
     }
     notifyListeners();
@@ -144,9 +148,20 @@ class StorageService extends ChangeNotifier {
   Future<void> updateStoragePath(String newRoot) async {
     await Directory(newRoot).create(recursive: true);
     final port = settings.port;
-    await AppSettings().save(allowedRoot: newRoot, port: port);
+    await AppSettings()
+        .save(allowedRoot: newRoot, port: port, localOnly: settings.localOnly);
     settings = await AppSettings.load();
     await _bootstrapAndStart(newRoot, port);
+    notifyListeners();
+  }
+
+  /// Переключить локальный/direct режим и перезапустить сетевой слой.
+  Future<void> setLocalOnly(bool value) async {
+    if (value == settings.localOnly) return;
+    await AppSettings().setLocalOnly(value);
+    settings = await AppSettings.load();
+    final root = allowedRoot;
+    if (root != null) await _bootstrapAndStart(root, settings.port);
     notifyListeners();
   }
 

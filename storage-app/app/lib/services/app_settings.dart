@@ -12,6 +12,7 @@ class AppSettings {
   static const _keyPinSalt = 'pairing_pin_salt';
   static const _keyPinEnabled = 'pairing_pin_enabled';
   static const _keyOpenPairing = 'open_pairing_enabled';
+  static const _keyLocalOnly = 'local_network_only';
 
   final String? allowedRoot;
   final int port;
@@ -21,6 +22,7 @@ class AppSettings {
   final String? pinSalt;
   final bool pinEnabled;
   final bool openPairing;
+  final bool localOnly;
 
   const AppSettings({
     this.allowedRoot,
@@ -31,6 +33,7 @@ class AppSettings {
     this.pinSalt,
     this.pinEnabled = false,
     this.openPairing = false,
+    this.localOnly = true,
   });
 
   bool get isConfigured =>
@@ -47,14 +50,19 @@ class AppSettings {
       pinSalt: prefs.getString(_keyPinSalt),
       pinEnabled: prefs.getBool(_keyPinEnabled) ?? false,
       openPairing: prefs.getBool(_keyOpenPairing) ?? false,
+      localOnly: prefs.getBool(_keyLocalOnly) ?? true,
     );
   }
 
-  Future<void> save({required String allowedRoot, int port = 7345}) async {
+  Future<void> save(
+      {required String allowedRoot,
+      int port = 7345,
+      bool localOnly = true}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyAllowedRoot, allowedRoot);
     await prefs.setInt(_keyPort, port);
     await prefs.setBool(_keyOnboarded, true);
+    await prefs.setBool(_keyLocalOnly, localOnly);
   }
 
   Future<void> updatePort(int port) async {
@@ -65,6 +73,11 @@ class AppSettings {
   Future<void> updateAllowedRoot(String allowedRoot) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyAllowedRoot, allowedRoot);
+  }
+
+  Future<void> setLocalOnly(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyLocalOnly, value);
   }
 
   Future<void> setMinimizeToTray(bool value) async {
@@ -104,5 +117,6 @@ class AppSettings {
     await prefs.remove(_keyPinSalt);
     await prefs.remove(_keyPinEnabled);
     await prefs.remove(_keyOpenPairing);
+    await prefs.remove(_keyLocalOnly);
   }
 }

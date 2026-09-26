@@ -182,6 +182,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const Divider(height: 32),
+            Text('Где доступно хранилище',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            RadioGroup<bool>(
+              groupValue: s.settings.localOnly,
+              onChanged: (value) {
+                if (value != null) _run(() => s.setLocalOnly(value));
+              },
+              child: Column(
+                children: [
+                  const RadioListTile<bool>(
+                    contentPadding: EdgeInsets.zero,
+                    value: true,
+                    title: Text('Только локальная сеть'),
+                    subtitle: Text(
+                      'Телефон находит ПК через mDNS и передаёт данные '
+                      'напрямую — быстро, как AirDrop.',
+                    ),
+                  ),
+                  const RadioListTile<bool>(
+                    contentPadding: EdgeInsets.zero,
+                    value: false,
+                    title: Text('Локальная сеть + Relay'),
+                    subtitle: Text(
+                      'Дома используется прямое соединение, вне дома — '
+                      'настроенный защищённый Relay.',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 32),
             Text('Как подключать устройства',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),

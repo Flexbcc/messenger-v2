@@ -83,7 +83,7 @@ class StorageApp {
     );
   }
 
-  Future<void> start() async {
+  Future<void> start({bool allowRemote = true}) async {
     await server.start();
     _startGcScheduler();
     try {
@@ -97,7 +97,7 @@ class StorageApp {
       mdnsActive = false;
     }
 
-    final env = relayEnv;
+    final env = allowRemote ? relayEnv : null;
     if (env != null) {
       relayAgent = PpcRelayAgent(
         relayUrl: env.relayUrl,

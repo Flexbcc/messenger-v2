@@ -10,7 +10,7 @@ import 'services/storage_service.dart';
 import 'services/tray_controller.dart';
 import 'theme/ouo_theme.dart';
 import 'ui/home_screen.dart';
-import 'ui/onboarding_screen.dart';
+import 'ui/setup_wizard_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -107,7 +107,7 @@ class _StorageAppEntryState extends State<StorageAppEntry> with WindowListener {
           body: Center(child: CircularProgressIndicator()),
         );
       case StorageUiPhase.onboarding:
-        return OnboardingScreen(service: _service);
+        return SetupWizardScreen(service: _service);
       case StorageUiPhase.ready:
         return HomeScreen(service: _service);
       case StorageUiPhase.error:

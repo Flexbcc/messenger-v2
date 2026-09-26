@@ -4,8 +4,9 @@ import 'dart:ui' as ui;
 
 import 'settings_runtime.dart';
 
-/// Compresses outbound images according to [media.image_quality].
-/// Video has no client encoder — [prepareVideo] only records the quality hint.
+/// Prepares outbound images before encryption. Re-encoding also removes EXIF,
+/// GPS and camera metadata when [media.strip_image_metadata] is enabled.
+/// Video has no bundled client encoder yet and is passed through unchanged.
 class MediaQuality {
   MediaQuality._();
 
@@ -13,15 +14,25 @@ class MediaQuality {
   /// `original` / already small enough.
   static Future<Uint8List> prepareImage(Uint8List bytes) async {
     final quality = await SettingsRuntime.instance.imageQuality();
-    if (quality == 'original') return bytes;
+    final stripMetadata = await SettingsRuntime.instance.stripImageMetadata();
+    if (quality == 'original' && !stripMetadata) return bytes;
 
-    final maxEdge = quality == 'compressed' ? 1280 : 1920;
-    return _resizeIfNeeded(bytes, maxEdge: maxEdge);
+    final maxEdge = quality == 'original'
+        ? null
+        : quality == 'compressed'
+        ? 1280
+        : 1920;
+    return _reencodeImage(
+      bytes,
+      maxEdge: maxEdge,
+      forceReencode: stripMetadata,
+    );
   }
 
-  static Future<Uint8List> _resizeIfNeeded(
+  static Future<Uint8List> _reencodeImage(
     Uint8List bytes, {
-    required int maxEdge,
+    required int? maxEdge,
+    required bool forceReencode,
   }) async {
     try {
       final codec = await ui.instantiateImageCodec(bytes);
@@ -30,25 +41,30 @@ class MediaQuality {
       final w = image.width;
       final h = image.height;
       final longest = math.max(w, h);
-      if (longest <= maxEdge) {
+      if (maxEdge != null && longest > maxEdge) {
+        final scale = maxEdge / longest;
+        final tw = math.max(1, (w * scale).round());
+        final th = math.max(1, (h * scale).round());
+        image.dispose();
+        final resizedCodec = await ui.instantiateImageCodec(
+          bytes,
+          targetWidth: tw,
+          targetHeight: th,
+        );
+        final resizedFrame = await resizedCodec.getNextFrame();
+        final data = await resizedFrame.image.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+        resizedFrame.image.dispose();
+        if (data == null) return bytes;
+        return data.buffer.asUint8List();
+      }
+      if (!forceReencode) {
         image.dispose();
         return bytes;
       }
-      final scale = maxEdge / longest;
-      final tw = math.max(1, (w * scale).round());
-      final th = math.max(1, (h * scale).round());
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
-
-      final resizedCodec = await ui.instantiateImageCodec(
-        bytes,
-        targetWidth: tw,
-        targetHeight: th,
-      );
-      final resizedFrame = await resizedCodec.getNextFrame();
-      final data = await resizedFrame.image.toByteData(
-        format: ui.ImageByteFormat.png,
-      );
-      resizedFrame.image.dispose();
       if (data == null) return bytes;
       return data.buffer.asUint8List();
     } catch (_) {

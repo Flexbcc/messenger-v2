@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'services/storage_service.dart';
 import 'services/tray_controller.dart';
+import 'theme/ouo_theme.dart';
 import 'ui/home_screen.dart';
 import 'ui/onboarding_screen.dart';
 
@@ -90,11 +91,9 @@ class _StorageAppEntryState extends State<StorageAppEntry> with WindowListener {
       listenable: _service,
       builder: (context, _) {
         return MaterialApp(
-          title: 'storage-app',
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-            useMaterial3: true,
-          ),
+          title: 'OUO Storage',
+          debugShowCheckedModeBanner: false,
+          theme: OuoTheme.dark(),
           home: _buildHome(),
         );
       },

@@ -99,13 +99,17 @@ class _PeersScreenState extends State<PeersScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Пир «${name.isNotEmpty ? name : userUuid}» потеряет доступ.',
+                'Устройство «${name.isNotEmpty ? name : userUuid}» '
+                'потеряет доступ.',
               ),
               const SizedBox(height: 12),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Удалить блобы этого пира'),
-                subtitle: const Text('Папка users/<id>/ на диске'),
+                title: const Text('Удалить зашифрованные объекты устройства'),
+                subtitle: const Text(
+                  'Действие необратимо. Данные других устройств останутся '
+                  'без изменений.',
+                ),
                 value: deleteBlobs,
                 onChanged: (v) => setLocal(() => deleteBlobs = v ?? false),
               ),

@@ -34,8 +34,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
       body: entries.isEmpty
           ? Center(
               child: Text(
-                'Пока нет записей.\nОперации PUT/GET/DELETE/pair/revoke '
-                'появятся здесь.',
+                'Пока нет записей.\nПодключения устройств, загрузка, чтение '
+                'и удаление объектов появятся здесь.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -57,6 +57,26 @@ class _AuditTile extends StatelessWidget {
 
   final AuditEntry entry;
 
+  String get _operationLabel => switch (entry.op.toUpperCase()) {
+        'PUT' => 'Объект сохранён',
+        'GET' => 'Объект прочитан',
+        'DELETE' => 'Объект удалён',
+        'PAIR' => 'Устройство подключено',
+        'PAIR_REQUEST' => 'Запрошен доступ',
+        'REVOKE' => 'Доступ отозван',
+        _ => entry.op,
+      };
+
+  String get _resultLabel => switch (entry.result) {
+        'ok' => 'успешно',
+        'pending' => 'ожидает подтверждения',
+        'denied' => 'отклонено',
+        'bad_code' => 'неверный код',
+        'quota_exceeded' => 'превышена квота',
+        'integrity' => 'ошибка целостности',
+        _ => entry.result,
+      };
+
   Color _resultColor(BuildContext context) {
     if (entry.result == 'ok') return Colors.green.shade700;
     if (entry.result == 'bad_code' ||
@@ -77,14 +97,24 @@ class _AuditTile extends StatelessWidget {
       dense: true,
       leading: CircleAvatar(
         radius: 16,
-        child: Text(entry.op.substring(0, 1), style: const TextStyle(fontSize: 12)),
+        child: Icon(
+          switch (entry.op.toUpperCase()) {
+            'PUT' => Icons.upload_outlined,
+            'GET' => Icons.download_outlined,
+            'DELETE' => Icons.delete_outline,
+            'PAIR' || 'PAIR_REQUEST' => Icons.phonelink_lock_outlined,
+            'REVOKE' => Icons.link_off,
+            _ => Icons.history,
+          },
+          size: 17,
+        ),
       ),
-      title: Text('${entry.op} · ${entry.result}',
+      title: Text('$_operationLabel · $_resultLabel',
           style: TextStyle(color: _resultColor(context))),
       subtitle: Text(
         [
           formatTimestamp(entry.ts),
-          if (entry.userUuid != null) 'peer: ${entry.userUuid}',
+          if (entry.userUuid != null) 'устройство: ${entry.userUuid}',
           if (hashShort != null) 'hash: $hashShort',
           if (entry.size > 0) formatBytes(entry.size),
           if (entry.detail.isNotEmpty) entry.detail,

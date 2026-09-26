@@ -20,7 +20,7 @@ class TrayController with TrayListener {
 
   Future<void> init() async {
     await trayManager.setIcon('assets/icons/tray.png');
-    await trayManager.setToolTip('storage-app — личное хранилище');
+    await trayManager.setToolTip('OUO Storage — личное хранилище');
     await _rebuildMenu();
     trayManager.addListener(this);
     _ready = true;
@@ -88,10 +88,10 @@ class TrayController with TrayListener {
 Future<void> initDesktopWindow() async {
   await windowManager.ensureInitialized();
   const opts = WindowOptions(
-    size: Size(520, 720),
-    minimumSize: Size(420, 560),
+    size: Size(820, 760),
+    minimumSize: Size(520, 620),
     center: true,
-    title: 'storage-app',
+    title: 'OUO Storage',
   );
   await windowManager.waitUntilReadyToShow(opts, () async {
     await windowManager.show();

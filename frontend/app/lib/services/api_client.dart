@@ -275,6 +275,23 @@ class ApiClient {
     return _decodeObject(resp);
   }
 
+  Future<Map<String, dynamic>> exportHomeMigration(String toHome) async {
+    final target = Uri.tryParse(toHome);
+    if (target == null ||
+        target.scheme != 'https' ||
+        target.host.isEmpty ||
+        target.userInfo.isNotEmpty ||
+        target.hasQuery ||
+        target.hasFragment ||
+        (target.path.isNotEmpty && target.path != '/')) {
+      throw const FormatException('Destination Home must be an HTTPS origin');
+    }
+    final uri = _homeUri(
+      '/users/me/home-migration/export',
+    ).replace(queryParameters: {'to_home': toHome});
+    return _decodeObject(await _get(uri));
+  }
+
   Future<(String, String)> _solveRegistrationPow() async {
     final response = await _get(_homeUri('/auth/pow-challenge'));
     final payload = _decodeObject(response);

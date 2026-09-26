@@ -107,6 +107,7 @@ def home_migration_signing_payload(ticket: Mapping[str, Any]) -> bytes:
 def issue_home_migration_ticket(
     *,
     identity_signing_key: SigningKey,
+    user_id: Optional[str] = None,
     identity_version: int,
     route_epoch: int,
     from_home: str,
@@ -125,7 +126,7 @@ def issue_home_migration_ticket(
         "protocol_version": PROTOCOL_VERSION,
         "object_version": OBJECT_VERSION,
         "migration_id": migration_id or str(uuid.uuid4()),
-        "user_id": user_id_from_identity_public_key(identity_public_key),
+        "user_id": user_id or user_id_from_identity_public_key(identity_public_key),
         "identity_public_key": public_key_b64(identity_signing_key),
         "identity_version": identity_version,
         "route_epoch": route_epoch,
@@ -147,6 +148,7 @@ def validate_home_migration_ticket(
     *,
     now: datetime,
     expected_user_id: Optional[str] = None,
+    expected_identity_public_key: Optional[str] = None,
     expected_from_home: Optional[str] = None,
     expected_to_home: Optional[str] = None,
     expected_manifest_hash: Optional[str] = None,
@@ -212,9 +214,24 @@ def validate_home_migration_ticket(
         return HomeMigrationValidation(False, "malformed ticket")
     if len(nonce) != 32:
         return HomeMigrationValidation(False, "invalid nonce")
-    if ticket.get("user_id") != derived_user_id:
-        return HomeMigrationValidation(False, "user_id does not match identity key")
-    if expected_user_id is not None and derived_user_id != expected_user_id:
+    # New identities are self-certifying. Transitional UUID accounts instead
+    # rely on a previously dual-signed UserIdentityBinding supplied by the
+    # caller as expected_identity_public_key.
+    if expected_identity_public_key is None:
+        if ticket.get("user_id") != derived_user_id:
+            return HomeMigrationValidation(False, "user_id does not match identity key")
+    else:
+        try:
+            expected_key = base64.b64decode(
+                expected_identity_public_key.encode("ascii"),
+                altchars=b"-_",
+                validate=True,
+            )
+        except (AttributeError, TypeError, ValueError):
+            return HomeMigrationValidation(False, "invalid expected identity key")
+        if expected_key != identity_public_key:
+            return HomeMigrationValidation(False, "Identity Root mismatch")
+    if expected_user_id is not None and ticket.get("user_id") != expected_user_id:
         return HomeMigrationValidation(False, "unexpected user_id")
     lifetime = expires_at - issued_at
     if lifetime <= timedelta(0) or lifetime > MAX_LIFETIME:
@@ -240,6 +257,7 @@ def validate_and_consume_home_migration_ticket(
     nonce_store: NonceStore,
     now: datetime,
     expected_user_id: Optional[str] = None,
+    expected_identity_public_key: Optional[str] = None,
     expected_from_home: Optional[str] = None,
     expected_to_home: Optional[str] = None,
     expected_manifest_hash: Optional[str] = None,
@@ -256,6 +274,7 @@ def validate_and_consume_home_migration_ticket(
         ticket,
         now=now,
         expected_user_id=expected_user_id,
+        expected_identity_public_key=expected_identity_public_key,
         expected_from_home=expected_from_home,
         expected_to_home=expected_to_home,
         expected_manifest_hash=expected_manifest_hash,

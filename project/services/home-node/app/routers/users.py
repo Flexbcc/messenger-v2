@@ -6,6 +6,9 @@ user and is unauthenticated by design (needed by any sender before X3DH).
 This router is auth-scoped to "me" only — no endpoint here can read or
 change another user's account.
 """
+from datetime import timezone
+from urllib.parse import urlsplit
+
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import aliased
@@ -26,6 +29,7 @@ from app.models import (
 )
 from app.schemas import (
     ChangePasswordRequest,
+    HomeMigrationExportResponse,
     MeResponse,
     PresencePolicyPayload,
     PresenceResponse,
@@ -38,6 +42,7 @@ from app.schemas import (
 from app.security import hash_password, verify_password
 from app.ws import manager
 from shared.security.user_identity_binding import validate_user_identity_binding
+from shared.security.home_migration import device_manifest_hash
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -59,6 +64,58 @@ async def _device_for_user(db: AsyncSession, user_id: str, device_id: str) -> De
     if device is None or device.user_id != user_id:
         return None
     return device
+
+
+def _home_migration_manifest(user: User, devices: list[Device]) -> dict:
+    """Build the exact account state that a destination Home may import.
+
+    Deliberately excluded: password_hash, tokens, messages, conversations,
+    private keys, and server-side delivery queues.
+    """
+    return {
+        "manifest_version": 1,
+        "user": {
+            "user_id": user.id,
+            "display_name": user.display_name,
+            "phone": user.phone,
+            "login": user.login,
+            "email": user.email,
+            "bio": user.bio,
+            "profile_settings": user.profile_settings,
+            "presence_policy": user.presence_policy,
+            "created_at": user.created_at.replace(tzinfo=timezone.utc).isoformat()
+            if user.created_at.tzinfo is None
+            else user.created_at.astimezone(timezone.utc).isoformat(),
+        },
+        "devices": [
+            {
+                "device_id": device.id,
+                "device_name": device.device_name,
+                "device_type": device.device_type,
+                "auth_public_key": device.auth_public_key,
+                "identity_key_bundle": device.identity_key_bundle,
+                "trusted": bool(device.trusted),
+                "created_at": device.created_at.replace(tzinfo=timezone.utc).isoformat()
+                if device.created_at.tzinfo is None
+                else device.created_at.astimezone(timezone.utc).isoformat(),
+            }
+            for device in sorted(devices, key=lambda value: value.id)
+        ],
+    }
+
+
+def _valid_migration_destination(value: str) -> bool:
+    parsed = urlsplit(value)
+    return bool(
+        len(value) <= 2048
+        and parsed.scheme == "https"
+        and parsed.hostname
+        and not parsed.username
+        and not parsed.password
+        and not parsed.query
+        and not parsed.fragment
+        and (not parsed.path or parsed.path == "/")
+    )
 
 
 @router.get("/me", response_model=MeResponse)
@@ -120,6 +177,39 @@ async def bind_identity_root(
         identity_root_public_key=user.identity_root_public_key,
         identity_version=user.identity_version,
         binding_id=payload.binding_id,
+    )
+
+
+@router.get("/me/home-migration/export", response_model=HomeMigrationExportResponse)
+async def export_home_migration_manifest(
+    to_home: str = Query(..., min_length=8, max_length=2048),
+    current: tuple[str, str] = Depends(get_current_device),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export only public account/device material for a new Home.
+
+    The returned hash is what the endpoint signs in its short-lived migration
+    ticket.  Export alone changes nothing and grants no access on a new Home.
+    """
+    if not _valid_migration_destination(to_home):
+        raise HTTPException(status_code=400, detail="Destination Home must be an HTTPS origin")
+    user_id, _device_id = current
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.identity_root_public_key or not user.identity_binding:
+        raise HTTPException(status_code=409, detail="Identity Root binding is required")
+    rows = await db.execute(select(Device).where(Device.user_id == user_id))
+    devices = list(rows.scalars().all())
+    if not devices:
+        raise HTTPException(status_code=409, detail="No active devices to migrate")
+    manifest = _home_migration_manifest(user, devices)
+    return HomeMigrationExportResponse(
+        manifest=manifest,
+        manifest_hash=device_manifest_hash(manifest),
+        identity_binding=user.identity_binding,
+        from_home=settings.public_url,
+        to_home=to_home.rstrip("/"),
     )
 
 

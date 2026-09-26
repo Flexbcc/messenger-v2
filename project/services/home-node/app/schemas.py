@@ -123,6 +123,14 @@ class UserIdentityBindingResponse(BaseModel):
     binding_id: str
 
 
+class HomeMigrationExportResponse(BaseModel):
+    manifest: dict
+    manifest_hash: str
+    identity_binding: dict
+    from_home: str
+    to_home: str
+
+
 class LoginRequest(BaseModel):
     """
     Temporary bridge login — see ADR-0007. Not the target auth model.

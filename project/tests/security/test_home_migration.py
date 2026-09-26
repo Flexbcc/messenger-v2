@@ -9,6 +9,7 @@ from shared.security.home_migration import (
     validate_home_migration_ticket,
 )
 from shared.security.nonce_store import NonceStore
+from shared.security.keys import public_key_b64
 
 
 NOW = datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc)
@@ -123,3 +124,50 @@ def test_ticket_can_be_consumed_only_once():
     assert first.valid
     assert not replay.valid
     assert replay.reason == "migration ticket already consumed"
+
+
+def test_dual_bound_legacy_uuid_can_authorize_migration():
+    key = SigningKey.generate()
+    manifest_hash = device_manifest_hash(_manifest())
+    ticket = issue_home_migration_ticket(
+        identity_signing_key=key,
+        user_id="legacy-account-uuid",
+        identity_version=1,
+        route_epoch=4,
+        from_home="https://old.example/home",
+        to_home="https://new.example/home",
+        manifest_hash=manifest_hash,
+        issued_at=NOW,
+        expires_at=NOW + timedelta(minutes=10),
+    )
+    result = validate_home_migration_ticket(
+        ticket,
+        now=NOW,
+        expected_user_id="legacy-account-uuid",
+        expected_identity_public_key=public_key_b64(key),
+        expected_manifest_hash=manifest_hash,
+    )
+    assert result.valid, result.reason
+
+
+def test_legacy_uuid_rejects_a_different_identity_root():
+    key = SigningKey.generate()
+    ticket = issue_home_migration_ticket(
+        identity_signing_key=key,
+        user_id="legacy-account-uuid",
+        identity_version=1,
+        route_epoch=4,
+        from_home="https://old.example/home",
+        to_home="https://new.example/home",
+        manifest_hash=device_manifest_hash(_manifest()),
+        issued_at=NOW,
+        expires_at=NOW + timedelta(minutes=10),
+    )
+    result = validate_home_migration_ticket(
+        ticket,
+        now=NOW,
+        expected_user_id="legacy-account-uuid",
+        expected_identity_public_key=public_key_b64(SigningKey.generate()),
+    )
+    assert not result.valid
+    assert result.reason == "Identity Root mismatch"

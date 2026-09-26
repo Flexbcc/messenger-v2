@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from nacl.signing import SigningKey
 
 from app.models import Device, User
-from app.routers.users import bind_identity_root
+from app.routers.users import _home_migration_manifest, bind_identity_root
 from app.schemas import UserIdentityBindingRequest
 from shared.security.keys import public_key_b64
 from shared.security.user_identity_binding import issue_user_identity_binding
@@ -34,6 +34,7 @@ def _objects(device_key: SigningKey):
         display_name="Alice",
         phone="+10000000000",
         password_hash="unused",
+        created_at=datetime(2026, 1, 1),
     )
     device = Device(
         id="device-a",
@@ -43,6 +44,7 @@ def _objects(device_key: SigningKey):
         auth_public_key=public_key_b64(device_key),
         identity_key_bundle={},
         trusted=True,
+        created_at=datetime(2026, 1, 2),
     )
     return user, device
 
@@ -102,3 +104,20 @@ async def test_existing_root_cannot_be_silently_replaced():
     assert exc.value.status_code == 400
     assert "replacement requires transition" in str(exc.value.detail)
     assert db.commits == 0
+
+
+def test_migration_manifest_contains_only_portable_public_state():
+    device_key = SigningKey.generate()
+    user, device = _objects(device_key)
+    user.login = "alice"
+    user.email = "alice@example.test"
+    user.password_hash = "must-never-leave-old-home"
+    manifest = _home_migration_manifest(user, [device])
+
+    encoded = str(manifest)
+    assert manifest["user"]["user_id"] == "user-a"
+    assert manifest["devices"][0]["auth_public_key"] == public_key_b64(device_key)
+    assert "password_hash" not in encoded
+    assert "access_token" not in encoded
+    assert "message" not in encoded
+    assert "private" not in encoded

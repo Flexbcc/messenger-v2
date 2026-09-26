@@ -17,6 +17,7 @@ void main() {
     'pairing_secret': List.filled(43, 'x').join(),
     'role': 'owner',
     'expires_at': '2026-09-24T12:05:00Z',
+    'home_endpoint': 'https://home.example.test',
   };
 
   test('parses a node-bound short-lived pairing QR', () {
@@ -26,6 +27,7 @@ void main() {
     );
     expect(parsed.role, 'owner');
     expect(parsed.managementEndpoints.single.scheme, 'https');
+    expect(parsed.homeEndpoint.toString(), 'https://home.example.test');
   });
 
   test('rejects wrong NodeID and plaintext remote endpoint', () {

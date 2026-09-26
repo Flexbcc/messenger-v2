@@ -45,6 +45,12 @@ def main() -> int:
         "--ca-fingerprint",
         default=os.environ.get("MANAGEMENT_CA_FINGERPRINT", ""),
     )
+    pair.add_argument(
+        "--home-endpoint",
+        default=os.environ.get("HOME_PUBLIC_ENDPOINT")
+        or os.environ.get("HOME_NODE_PUBLIC_URL", ""),
+        help="public HTTPS Home endpoint offered to the owner's client",
+    )
 
     commands.add_parser("list", help="list paired owner devices")
     revoke = commands.add_parser("revoke", help="revoke one owner device certificate")
@@ -72,6 +78,8 @@ def main() -> int:
         if not fingerprint and fingerprint_file.is_file():
             fingerprint = fingerprint_file.read_text(encoding="utf-8").strip()
         payload["management_ca_fingerprint"] = fingerprint
+        if args.home_endpoint:
+            payload["home_endpoint"] = args.home_endpoint
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
     if args.command == "list":

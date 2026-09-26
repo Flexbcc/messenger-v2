@@ -166,9 +166,22 @@ services:
     environment:
       NODE_ROOT_KEY_PATH: /data/node_root_key
       OWNER_MANAGEMENT_STATE_PATH: /data/owner_management_state.json
+      OUO_NODE_VERSION: ${OUO_NODE_VERSION:-development}
+      OUO_NODE_ROLES: ${OUO_NODE_ROLES:-home,management}
+      HOME_PUBLIC_ENDPOINT: ${HOME_PUBLIC_ENDPOINT:-}
+      HOME_NODE_PUBLIC_URL: ${HOME_NODE_PUBLIC_URL:-}
+      MANAGEMENT_PUBLIC_ENDPOINT: ${MANAGEMENT_PUBLIC_ENDPOINT:-}
+      MANAGEMENT_CA_FINGERPRINT: ${MANAGEMENT_CA_FINGERPRINT:-}
+      OWNER_RUNTIME_CONFIG_PATH: /data/owner_runtime_config.json
+      OWNER_AUDIT_PATH: /data/owner_audit.jsonl
+      OWNER_AGENT_SPOOL_PATH: /agent
+      OWNER_AGENT_SECRET: ${OWNER_AGENT_SECRET:-}
+      GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://gateway-node:8007}
+      GATEWAY_INVITE_SECRET: ${GATEWAY_INVITE_SECRET:-}
     volumes:
       - ./data/home:/data
       - ./data/management-tls:/tls:ro
+      - ${OWNER_AGENT_DIR:-./data/owner-agent}:/agent
 
   push-proxy:
     build:

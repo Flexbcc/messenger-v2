@@ -83,6 +83,7 @@ class NodeOwnerApiClient {
         caFingerprint: pairing.managementCaFingerprint,
         ownerDeviceCertificate: certificate.json,
         keyAlias: key.keyAlias,
+        homeEndpoint: pairing.homeEndpoint?.toString(),
       );
       await _registry.add(node);
       return node;
@@ -113,6 +114,139 @@ class NodeOwnerApiClient {
         .toList(growable: false);
   }
 
+  Future<Map<String, dynamic>> diagnostics(String nodeId) async {
+    final node = await _requireNode(nodeId);
+    return _signedJson(
+      node: node,
+      method: 'GET',
+      path: '/owner/v1/diagnostics',
+    );
+  }
+
+  Future<Map<String, dynamic>> config(String nodeId) async {
+    final node = await _requireNode(nodeId);
+    return _signedJson(node: node, method: 'GET', path: '/owner/v1/config');
+  }
+
+  Future<Map<String, dynamic>> updateConfig(
+    String nodeId,
+    Map<String, dynamic> config,
+  ) async {
+    final node = await _requireNode(nodeId);
+    return _signedJson(
+      node: node,
+      method: 'PUT',
+      path: '/owner/v1/config',
+      body: utf8.encode(jsonEncode(config)),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> audit(String nodeId) async {
+    final node = await _requireNode(nodeId);
+    final response = await _signedJson(
+      node: node,
+      method: 'GET',
+      path: '/owner/v1/audit',
+    );
+    final events = response['events'];
+    if (events is! List) throw const FormatException('Некорректный аудит ноды');
+    return events
+        .whereType<Map>()
+        .map((value) => Map<String, dynamic>.from(value))
+        .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> configBackup(String nodeId) async {
+    final node = await _requireNode(nodeId);
+    return _signedJson(
+      node: node,
+      method: 'GET',
+      path: '/owner/v1/config/backup',
+    );
+  }
+
+  Future<Map<String, dynamic>> restoreConfig(
+    String nodeId,
+    Map<String, dynamic> backup,
+  ) async {
+    final node = await _requireNode(nodeId);
+    return _signedJson(
+      node: node,
+      method: 'POST',
+      path: '/owner/v1/config/restore',
+      body: utf8.encode(jsonEncode({'backup': backup})),
+    );
+  }
+
+  Future<Map<String, dynamic>> createInvite(
+    String nodeId, {
+    String? label,
+    int ttlSeconds = 900,
+  }) async {
+    final node = await _requireNode(nodeId);
+    return _signedJson(
+      node: node,
+      method: 'POST',
+      path: '/owner/v1/invites',
+      body: utf8.encode(
+        jsonEncode({'label': label, 'ttl_seconds': ttlSeconds}),
+      ),
+    );
+  }
+
+  Future<String> restartService(String nodeId, String service) async {
+    final allowed = {
+      'home-node',
+      'relay-node',
+      'storage-node',
+      'discovery-node',
+      'gateway-node',
+      'management-node',
+    };
+    if (!allowed.contains(service)) {
+      throw const NodeOwnerApiException('Неизвестный сервис');
+    }
+    final node = await _requireNode(nodeId);
+    final response = await _signedJson(
+      node: node,
+      method: 'POST',
+      path: '/owner/v1/services/$service/restart',
+    );
+    final actionId = response['action_id']?.toString() ?? '';
+    if (actionId.isEmpty) {
+      throw const FormatException('Нода не вернула идентификатор действия');
+    }
+    return actionId;
+  }
+
+  Future<String> applySignedUpdate(String nodeId) async {
+    final node = await _requireNode(nodeId);
+    final response = await _signedJson(
+      node: node,
+      method: 'POST',
+      path: '/owner/v1/updates/apply',
+    );
+    final actionId = response['action_id']?.toString() ?? '';
+    if (actionId.isEmpty) {
+      throw const NodeOwnerApiException(
+        'Нода не вернула идентификатор обновления',
+      );
+    }
+    return actionId;
+  }
+
+  Future<Map<String, dynamic>> actionStatus(
+    String nodeId,
+    String actionId,
+  ) async {
+    final node = await _requireNode(nodeId);
+    return _signedJson(
+      node: node,
+      method: 'GET',
+      path: '/owner/v1/actions/$actionId',
+    );
+  }
+
   Future<void> revokeDevice(String nodeId, String serial) async {
     final node = await _requireNode(nodeId);
     await _signedJson(
@@ -141,7 +275,10 @@ class NodeOwnerApiClient {
     final response = await _transport.send(
       uri: _uri(Uri.parse(node.endpoints.first), path),
       method: method,
-      headers: {'X-OUO-Owner-Request': signed.headerValue},
+      headers: {
+        'X-OUO-Owner-Request': signed.headerValue,
+        if (body.isNotEmpty) 'Content-Type': 'application/json',
+      },
       body: body,
       expectedCaFingerprint: node.caFingerprint,
     );

@@ -14,6 +14,7 @@ class NodeOwnerPairingPayload {
     required this.pairingSecret,
     required this.role,
     required this.expiresAt,
+    this.homeEndpoint,
   });
 
   static const _maxCharacters = 8192;
@@ -30,6 +31,7 @@ class NodeOwnerPairingPayload {
     'pairing_secret',
     'role',
     'expires_at',
+    'home_endpoint',
   };
 
   final String nodeId;
@@ -40,6 +42,7 @@ class NodeOwnerPairingPayload {
   final String pairingSecret;
   final String role;
   final DateTime expiresAt;
+  final Uri? homeEndpoint;
 
   static NodeOwnerPairingPayload parse(String raw, {DateTime? now}) {
     if (raw.isEmpty || raw.length > _maxCharacters) {
@@ -114,6 +117,10 @@ class NodeOwnerPairingPayload {
     ).hasMatch(pairingId)) {
       throw const FormatException('Некорректный идентификатор сопряжения');
     }
+    final homeEndpoint = _parseOptionalServiceEndpoint(
+      decoded['home_endpoint'],
+      field: 'Home endpoint',
+    );
     return NodeOwnerPairingPayload(
       nodeId: nodeId,
       nodeRootPublicKey: rootKey,
@@ -124,7 +131,25 @@ class NodeOwnerPairingPayload {
       pairingSecret: pairingSecret,
       role: role,
       expiresAt: expiresAt,
+      homeEndpoint: homeEndpoint,
     );
+  }
+
+  static Uri? _parseOptionalServiceEndpoint(
+    Object? raw, {
+    required String field,
+  }) {
+    if (raw == null || raw.toString().trim().isEmpty) return null;
+    final uri = Uri.tryParse(raw.toString().trim());
+    if (uri == null || !uri.hasAuthority || uri.path != '') {
+      throw FormatException('Некорректный $field');
+    }
+    final loopback =
+        uri.host == '127.0.0.1' || uri.host == 'localhost' || uri.host == '::1';
+    if (uri.scheme != 'https' && !(uri.scheme == 'http' && loopback)) {
+      throw FormatException('$field должен использовать HTTPS');
+    }
+    return uri;
   }
 
   static String nodeIdFromRootPublicKey(List<int> rootPublicKey) {

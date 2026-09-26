@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Entry point for an extracted OUO node release. No Git checkout is required.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT"
+
+missing=()
+command -v python3 >/dev/null 2>&1 || missing+=(python3)
+command -v openssl >/dev/null 2>&1 || missing+=(openssl)
+command -v docker >/dev/null 2>&1 || missing+=(docker)
+if ((${#missing[@]})); then
+  printf 'Не установлены обязательные компоненты: %s\n' "${missing[*]}" >&2
+  echo 'Ubuntu/Debian: установите Python 3, OpenSSL и Docker Engine, затем повторите ./install.' >&2
+  exit 2
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo 'Docker установлен, но daemon недоступен. Запустите Docker или выполните команду с нужными правами.' >&2
+  exit 2
+fi
+
+python3 "$ROOT/scripts/bootstrap-node.py" "$@"
+
+if [[ "$(uname -s)" == "Linux" ]]; then
+  echo
+  echo 'Для управления сервисами с телефона установите ограниченный host-agent:'
+  echo "  sudo $ROOT/scripts/install-node-agent.sh"
+fi

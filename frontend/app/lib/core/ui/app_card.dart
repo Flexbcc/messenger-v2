@@ -31,30 +31,32 @@ class AppCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final decoration = BoxDecoration(
+    final borderRadius = BorderRadius.circular(radius);
+    final shape = RoundedRectangleBorder(
+      borderRadius: borderRadius,
+      side: selected
+          ? BorderSide(color: colors.primary.withValues(alpha: 0.35))
+          : BorderSide.none,
+    );
+    final surface = Material(
       color: selected ? colors.cardSoft : (color ?? colors.card),
-      borderRadius: BorderRadius.circular(radius),
-      border: selected
-          ? Border.all(color: colors.primary.withValues(alpha: 0.35))
-          : null,
-      boxShadow: shadow ? AppShadows.subtle(colors) : null,
+      shape: shape,
+      clipBehavior: Clip.antiAlias,
+      child: onTap == null
+          ? Padding(padding: padding, child: child)
+          : InkWell(
+              onTap: onTap,
+              borderRadius: borderRadius,
+              child: Padding(padding: padding, child: child),
+            ),
     );
-
-    final content = Container(
+    return Container(
       margin: margin,
-      padding: padding,
-      decoration: decoration,
-      child: child,
-    );
-
-    if (onTap == null) return content;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
-        child: content,
+        boxShadow: shadow ? AppShadows.subtle(colors) : null,
       ),
+      child: surface,
     );
   }
 }

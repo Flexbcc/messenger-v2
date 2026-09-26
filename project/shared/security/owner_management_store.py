@@ -34,9 +34,16 @@ MAX_ACTIVE_PAIRINGS = 5
 MAX_NONCES_PER_DEVICE = 256
 
 ROLE_PERMISSIONS = {
-    "viewer": frozenset({"health.read", "devices.read"}),
+    "viewer": frozenset({"health.read", "devices.read", "settings.read"}),
     "operator": frozenset(
-        {"health.read", "devices.read", "diagnostics.read", "service.restart"}
+        {
+            "health.read",
+            "devices.read",
+            "settings.read",
+            "diagnostics.read",
+            "audit.read",
+            "service.restart",
+        }
     ),
     "owner": frozenset(
         {
@@ -47,6 +54,9 @@ ROLE_PERMISSIONS = {
             "devices.pair",
             "devices.revoke",
             "settings.write",
+            "settings.read",
+            "audit.read",
+            "invites.create",
             "update.approve",
         }
     ),

@@ -8,6 +8,7 @@ class ManagedNode {
     required this.keyAlias,
     this.lastVerifiedAt,
     this.lastStatus,
+    this.homeEndpoint,
   });
 
   final String localLabel;
@@ -18,6 +19,7 @@ class ManagedNode {
   final String keyAlias;
   final DateTime? lastVerifiedAt;
   final String? lastStatus;
+  final String? homeEndpoint;
 
   String get certificateSerial =>
       ownerDeviceCertificate['serial']?.toString() ?? '';
@@ -32,6 +34,7 @@ class ManagedNode {
     if (lastVerifiedAt != null)
       'last_verified_at': lastVerifiedAt!.toUtc().toIso8601String(),
     if (lastStatus != null) 'last_status': lastStatus,
+    if (homeEndpoint != null) 'home_endpoint': homeEndpoint,
   };
 
   factory ManagedNode.fromJson(Map<String, dynamic> json) {
@@ -65,7 +68,17 @@ class ManagedNode {
         json['last_verified_at']?.toString() ?? '',
       )?.toUtc(),
       lastStatus: json['last_status']?.toString(),
+      homeEndpoint: _optionalEndpoint(json['home_endpoint']),
     );
+  }
+
+  static String? _optionalEndpoint(Object? value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) return null;
+    if (!_validEndpoint(raw)) {
+      throw const FormatException('Некорректный Home endpoint');
+    }
+    return raw;
   }
 
   static bool _validEndpoint(String value) {

@@ -15,6 +15,7 @@ class AppPage extends StatelessWidget {
     this.bottomNavigationBar,
     this.padding,
     this.scroll = true,
+    this.maxContentWidth = 960,
     required this.child,
   });
 
@@ -26,6 +27,7 @@ class AppPage extends StatelessWidget {
   final Widget? bottomNavigationBar;
   final EdgeInsetsGeometry? padding;
   final bool scroll;
+  final double maxContentWidth;
   final Widget child;
 
   @override
@@ -43,9 +45,31 @@ class AppPage extends StatelessWidget {
             ),
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,
-      body: scroll
-          ? SafeArea(child: SingleChildScrollView(child: body))
-          : SafeArea(child: body),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final contentWidth = constraints.maxWidth > maxContentWidth
+                ? maxContentWidth
+                : constraints.maxWidth;
+            final content = SizedBox(width: contentWidth, child: body);
+
+            if (scroll) {
+              return SingleChildScrollView(
+                child: Align(alignment: Alignment.topCenter, child: content),
+              );
+            }
+
+            return Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: contentWidth,
+                height: constraints.maxHeight,
+                child: body,
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }

@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:storage_app/app.dart';
 import 'package:storage_app/models/models.dart';
+import 'package:storage_app/pairing/pairing.dart';
 
 /// Тестовый пир: Ed25519-ключи + подпись запросов по WIRE.md.
 class TestPeer {
@@ -175,6 +176,49 @@ void main() {
     );
     expect(result.status, HttpStatus.accepted);
     expect(app.metaDb.isPairedIdentity(peer.nodeId, peer.pubkeyStr), isFalse);
+  });
+
+  test('правильный PIN подключает телефон, неверный PIN отклоняется', () async {
+    const pin = '12345678';
+    const salt = 'live-demo-salt';
+    app.pairing.configurePin(
+      hash: PairingManager.derivePinHash(salt, pin),
+      salt: salt,
+      enabled: true,
+    );
+
+    var issued = app.pairing.issueCode();
+    var body = utf8.encode(jsonEncode({
+      'code': issued.code,
+      'pin': '87654321',
+      'peer_pubkey': peer.pubkeyStr,
+      'node_id': peer.nodeId,
+      'name': 'phone-pin-wrong',
+    }));
+    var response = await client.send(
+      'POST',
+      '/ppc/pair',
+      headers: {'content-type': 'application/json'},
+      body: body,
+    );
+    expect(response.status, HttpStatus.forbidden);
+
+    issued = app.pairing.issueCode();
+    body = utf8.encode(jsonEncode({
+      'code': issued.code,
+      'pin': pin,
+      'peer_pubkey': peer.pubkeyStr,
+      'node_id': peer.nodeId,
+      'name': 'phone-pin-ok',
+    }));
+    response = await client.send(
+      'POST',
+      '/ppc/pair',
+      headers: {'content-type': 'application/json'},
+      body: body,
+    );
+    expect(response.status, HttpStatus.ok);
+    expect(app.metaDb.isPairedIdentity(peer.nodeId, peer.pubkeyStr), isTrue);
   });
 
   test('полный цикл: pair → PUT → GET → STAT → DELETE → usage', () async {

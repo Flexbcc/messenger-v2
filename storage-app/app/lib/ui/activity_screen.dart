@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/storage_service.dart';
 import 'format.dart';
+import 'ouo_components.dart';
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key, required this.service});
@@ -32,15 +33,13 @@ class _ActivityScreenState extends State<ActivityScreen> {
         ],
       ),
       body: entries.isEmpty
-          ? Center(
-              child: Text(
-                'Пока нет записей.\nПодключения устройств, загрузка, чтение '
-                'и удаление объектов появятся здесь.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
+          ? OuoEmptyState(
+              icon: Icons.receipt_long_outlined,
+              title: 'Операций пока нет',
+              description: 'Журнал покажет подключения, загрузки, чтение '
+                  'и удаление. Содержимое файлов сюда не попадает.',
+              actionLabel: 'Вернуться на главную',
+              onAction: () => Navigator.of(context).pop(),
             )
           : ListView.separated(
               padding: const EdgeInsets.all(12),

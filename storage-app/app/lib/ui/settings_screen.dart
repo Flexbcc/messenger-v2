@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../services/storage_service.dart';
+import 'ouo_components.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.service});
@@ -159,7 +160,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Text('Хранение', style: Theme.of(context).textTheme.titleMedium),
+            const OuoPageIntro(
+              icon: Icons.tune_rounded,
+              title: 'Настройки хранилища',
+              description: 'Здесь можно сменить папку и способ доступа. '
+                  'Для обычной работы менять сетевые параметры не нужно.',
+            ),
+            const SizedBox(height: 24),
+            Text('Где хранить', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -174,30 +182,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const Divider(height: 32),
-            Text('Сеть', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                SizedBox(
-                  width: 120,
-                  child: TextField(
-                    controller: _portCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Порт HTTP',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                FilledButton(
-                  onPressed: _savePort,
-                  child: const Text('Применить'),
-                ),
-              ],
-            ),
-            const Divider(height: 32),
-            Text('Доступ', style: Theme.of(context).textTheme.titleMedium),
+            Text('Как подключать устройства',
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             const ListTile(
               contentPadding: EdgeInsets.zero,
@@ -243,7 +229,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onChanged: _setOpenPairing,
             ),
             const Divider(height: 32),
-            Text('Приложение', style: Theme.of(context).textTheme.titleMedium),
+            Text('Поведение приложения',
+                style: Theme.of(context).textTheme.titleMedium),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Сворачивать в tray при закрытии'),
@@ -252,10 +239,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onChanged: (v) => s.setMinimizeToTray(v),
             ),
             const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: _resetOnboarding,
-              icon: const Icon(Icons.restart_alt),
-              label: const Text('Сбросить онбординг'),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('Расширенные настройки'),
+              subtitle: const Text('Порт и сброс мастера'),
+              children: [
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 140,
+                      child: TextField(
+                        controller: _portCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration:
+                            const InputDecoration(labelText: 'Порт HTTP'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton(
+                        onPressed: _savePort, child: const Text('Применить')),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _resetOnboarding,
+                    icon: const Icon(Icons.restart_alt),
+                    label: const Text('Пройти первичную настройку заново'),
+                  ),
+                ),
+              ],
             ),
             if (_busy) ...[
               const SizedBox(height: 24),

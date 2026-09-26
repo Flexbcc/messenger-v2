@@ -84,7 +84,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.errorContainer.withValues(alpha: 0.35),
+                      color: theme.colorScheme.errorContainer
+                          .withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -131,12 +132,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                       const Spacer(),
                       FilledButton(
-                        onPressed: _busy || _selectedPath == null ? null : _continue,
+                        onPressed:
+                            _busy || _selectedPath == null ? null : _continue,
                         child: _busy
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Text('Продолжить'),
                       ),

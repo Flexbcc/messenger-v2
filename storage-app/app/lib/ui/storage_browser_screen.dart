@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/storage_service.dart';
 import 'format.dart';
+import 'ouo_components.dart';
 
 class StorageBrowserScreen extends StatefulWidget {
   const StorageBrowserScreen({super.key, required this.service});
@@ -28,25 +29,14 @@ class _StorageBrowserScreenState extends State<StorageBrowserScreen> {
         ],
       ),
       body: objects.isEmpty
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.inventory_2_outlined, size: 56),
-                    SizedBox(height: 16),
-                    Text('Хранилище пока пустое'),
-                    SizedBox(height: 8),
-                    Text(
-                      'После подключения телефона здесь появятся только '
-                      'метаданные зашифрованных объектов. Содержимое сообщений '
-                      'и файлов приложение на ПК не расшифровывает.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
+          ? OuoEmptyState(
+              icon: Icons.inventory_2_outlined,
+              title: 'Здесь пока пусто',
+              description: 'Подключите телефон и выберите этот ПК как '
+                  'личное хранилище. Здесь будут видны только размер, '
+                  'дата и технический ID. Фото и сообщения остаются зашифрованными.',
+              actionLabel: 'Вернуться и подключить телефон',
+              onAction: () => Navigator.of(context).pop(),
             )
           : ListView.separated(
               padding: const EdgeInsets.all(16),

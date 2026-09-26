@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../services/storage_service.dart';
 import 'format.dart';
+import 'ouo_components.dart';
 
 class PeersScreen extends StatefulWidget {
   const PeersScreen({super.key, required this.service});
@@ -31,15 +32,13 @@ class _PeersScreenState extends State<PeersScreen> {
         ],
       ),
       body: peers.isEmpty
-          ? Center(
-              child: Text(
-                'Хранилище пока пустое и ни одному устройству не доверяет.\n'
-                'На главном экране покажите QR и отсканируйте его телефоном.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
+          ? OuoEmptyState(
+              icon: Icons.phonelink_lock_outlined,
+              title: 'Нет подключённых устройств',
+              description: 'Вернитесь на главный экран, нажмите '
+                  '«Подключить телефон» и отсканируйте QR в OUO Messenger.',
+              actionLabel: 'Подключить телефон',
+              onAction: () => Navigator.of(context).pop(),
             )
           : ListView.separated(
               padding: const EdgeInsets.all(16),

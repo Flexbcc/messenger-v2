@@ -70,10 +70,6 @@ void main() {
     final dbPath = p.join(tmp.path, 'meta.db');
     final encPath = '${dbPath}.enc';
 
-    final newer = _sqliteHeader()..[20] = 0xAB;
-    await File(dbPath).writeAsBytes(newer);
-    await Future<void>.delayed(const Duration(milliseconds: 20));
-
     final older = Uint8List.fromList(_sqliteHeader())..[20] = 0xCD;
     final aes = AesGcm.with256bits();
     final box = await aes.encrypt(older, secretKey: SecretKey(key));
@@ -82,6 +78,12 @@ void main() {
       ...box.cipherText,
       ...box.mac.bytes,
     ]);
+    // The plaintext represents writes made after the last encrypted
+    // checkpoint. Create it second so the filesystem timestamps match the
+    // recovery scenario described by the test name.
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final newer = _sqliteHeader()..[20] = 0xAB;
+    await File(dbPath).writeAsBytes(newer);
 
     await MetaDbCrypto.recoverCrashState(dbPath, encPath, key);
     expect(await File(encPath).exists(), isFalse);
@@ -99,7 +101,11 @@ void main() {
     final aes = AesGcm.with256bits();
     final box = await aes.encrypt(good, secretKey: SecretKey(key));
     await File(encPath).writeAsBytes([
-      0x50, 0x50, 0x43, 0x31, 1,
+      0x50,
+      0x50,
+      0x43,
+      0x31,
+      1,
       ...box.nonce,
       ...box.cipherText,
       ...box.mac.bytes,

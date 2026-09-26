@@ -268,6 +268,85 @@ void main() {
     expect(r.status, 401);
   });
 
+  test('два владельца делят один ПК, но не видят чужие ciphertext', () async {
+    final alice = await TestPeer.create('alice-user');
+    final bob = await TestPeer.create('bob-user');
+
+    Future<void> pairPeer(TestPeer candidate, String name) async {
+      final issued = app.pairing.issueCode();
+      final body = utf8.encode(jsonEncode({
+        'code': issued.code,
+        'qr_secret': issued.qrSecret,
+        'peer_pubkey': candidate.pubkeyStr,
+        'node_id': candidate.nodeId,
+        'name': name,
+      }));
+      final response = await client.send(
+        'POST',
+        '/ppc/pair',
+        headers: {'content-type': 'application/json'},
+        body: body,
+      );
+      expect(response.status, HttpStatus.ok);
+    }
+
+    await pairPeer(alice, 'Alice phone');
+    await pairPeer(bob, 'Bob phone');
+
+    // Это имитация уже зашифрованных байтов фотографии. ПК-хранилище
+    // не получает исходное изображение или ключ расшифровки.
+    final aliceCiphertext = Uint8List.fromList([0x4f, 0x55, 0x4f, 1, 7, 9]);
+    final bobCiphertext = Uint8List.fromList([0x4f, 0x55, 0x4f, 2, 8, 10]);
+    final aliceHash = sha256Hex(aliceCiphertext);
+    final bobHash = sha256Hex(bobCiphertext);
+    final alicePath = '/ppc/blob/${alice.nodeId}/$aliceHash';
+    final bobPath = '/ppc/blob/${bob.nodeId}/$bobHash';
+
+    var headers =
+        await alice.signHeaders('PUT', Uri.parse(alicePath), aliceCiphertext);
+    expect(
+      (await client.send('PUT', alicePath,
+              headers: headers, body: aliceCiphertext))
+          .status,
+      HttpStatus.ok,
+    );
+    headers = await bob.signHeaders('PUT', Uri.parse(bobPath), bobCiphertext);
+    expect(
+      (await client.send('PUT', bobPath, headers: headers, body: bobCiphertext))
+          .status,
+      HttpStatus.ok,
+    );
+
+    headers = await alice.signHeaders('GET', Uri.parse(alicePath), const []);
+    expect((await client.send('GET', alicePath, headers: headers)).body,
+        aliceCiphertext);
+    headers = await bob.signHeaders('GET', Uri.parse(bobPath), const []);
+    expect((await client.send('GET', bobPath, headers: headers)).body,
+        bobCiphertext);
+
+    // Подписанный запрос от валидного второго владельца всё равно не
+    // даёт ему права на namespace первого.
+    headers = await bob.signHeaders('GET', Uri.parse(alicePath), const []);
+    expect(
+      (await client.send('GET', alicePath, headers: headers)).status,
+      HttpStatus.forbidden,
+    );
+    headers = await alice.signHeaders('GET', Uri.parse(bobPath), const []);
+    expect(
+      (await client.send('GET', bobPath, headers: headers)).status,
+      HttpStatus.forbidden,
+    );
+
+    // У каждого владельца свои независимые счётчики квоты.
+    for (final owner in [alice, bob]) {
+      final usagePath = '/ppc/usage?user_id=${owner.nodeId}';
+      headers = await owner.signHeaders('GET', Uri.parse(usagePath), const []);
+      final usage = await client.send('GET', usagePath, headers: headers);
+      expect(usage.status, HttpStatus.ok);
+      expect(jsonOf(usage.body)['used_files'], 1);
+    }
+  });
+
   test('integrity: sha256(body) != hash → 422', () async {
     await pair();
     final content = Uint8List.fromList(utf8.encode('real-content'));

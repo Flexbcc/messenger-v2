@@ -12,6 +12,7 @@ import 'format.dart';
 import 'pairing_qr.dart';
 import 'peers_screen.dart';
 import 'settings_screen.dart';
+import 'storage_browser_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.service});
@@ -50,9 +51,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _copy(String label, String value) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$label скопировано')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('$label скопировано')));
     }
   }
 
@@ -69,11 +69,21 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     final usage = service.globalUsage();
     final port = service.listenPort;
+    final pending = service.pendingPairRequests;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Личное хранилище'),
         actions: [
+          IconButton(
+            tooltip: 'Содержимое хранилища',
+            icon: const Icon(Icons.inventory_2_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => StorageBrowserScreen(service: service),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Журнал операций',
             icon: const Icon(Icons.receipt_long),
@@ -96,9 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Сопряжённые пиры',
             icon: const Icon(Icons.devices),
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => PeersScreen(service: service),
-              ),
+              MaterialPageRoute(builder: (_) => PeersScreen(service: service)),
             ),
           ),
         ],
@@ -127,11 +135,47 @@ class _HomeScreenState extends State<HomeScreen> {
             value: '${formatBytes(usage.bytes)} · ${usage.files} файлов',
           ),
           const SizedBox(height: 24),
-          Text('Сопряжение с нодой', style: theme.textTheme.titleMedium),
+          if (pending.isNotEmpty) ...[
+            Text('Запросы доступа', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            ...pending.map(
+              (request) => Card(
+                color: theme.colorScheme.tertiaryContainer,
+                child: ListTile(
+                  leading: const Icon(Icons.phonelink_lock),
+                  title: Text(
+                      request.name.isEmpty ? request.nodeId : request.name),
+                  subtitle: Text(
+                    'Телефон просит доступ к хранилищу. '
+                    'Разрешайте только если запрос сейчас инициировали вы.\n'
+                    'ID: ${request.nodeId}',
+                  ),
+                  isThreeLine: true,
+                  trailing: Wrap(
+                    spacing: 4,
+                    children: [
+                      IconButton(
+                        tooltip: 'Отклонить',
+                        onPressed: () => service.denyPairRequest(request.id),
+                        icon: const Icon(Icons.close),
+                      ),
+                      FilledButton(
+                        onPressed: () => service.approvePairRequest(request.id),
+                        child: const Text('Разрешить'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+          Text('Подключить телефон', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
-            'Сгенерируйте код и введите его на ноде (media-node backend personal_pc). '
-            'Код одноразовый, действует 5 минут.',
+            'Основной способ — отсканировать QR в приложении OUO. QR содержит '
+            'одноразовый защищённый секрет и действует 5 минут. Ручной код '
+            'создаст запрос, который нужно подтвердить на этом ПК.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -166,23 +210,28 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: () {
-                final json = service.pairingPayloadJson(_addresses);
+                final json = service.pairingPayloadJson(
+                  _addresses,
+                  includeQrSecret: false,
+                );
                 if (json != null) _copy('Pairing JSON', json);
               },
               icon: const Icon(Icons.data_object, size: 18),
-              label: const Text('Копировать JSON для ноды'),
+              label: const Text('Ручное подключение без QR'),
             ),
             const SizedBox(height: 12),
           ],
           FilledButton.icon(
             onPressed: service.serverRunning ? service.issuePairingCode : null,
             icon: const Icon(Icons.link),
-            label: Text(service.activePairCode == null
-                ? 'Сгенерировать код'
-                : 'Новый код'),
+            label: Text(
+              service.activePairCode == null
+                  ? 'Сгенерировать код'
+                  : 'Новый код',
+            ),
           ),
           const SizedBox(height: 24),
-          Text('Идентификация storage-app', style: theme.textTheme.titleMedium),
+          Text('Идентификация хранилища', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           _CopyRow(
             label: 'Fingerprint',

@@ -34,7 +34,12 @@ class PpcMdnsAdvertiser {
 
   Future<void> stop() async {
     if (_broadcast != null) {
-      await _broadcast!.stop();
+      try {
+        await _broadcast!.stop();
+      } catch (_) {
+        // The native advertiser can disappear during shutdown or be absent in
+        // headless/test environments. HTTP storage shutdown must still finish.
+      }
       _broadcast = null;
     }
   }

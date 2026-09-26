@@ -41,7 +41,7 @@ class PairingQrCard extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Отсканируйте QR на ноде или вставьте JSON вручную',
+          'Отсканируйте QR в OUO на телефоне. Не отправляйте этот QR другим людям.',
           style: Theme.of(context).textTheme.bodySmall,
           textAlign: TextAlign.center,
         ),

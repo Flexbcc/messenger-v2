@@ -87,3 +87,20 @@ class AuditEntry {
     this.detail = '',
   });
 }
+
+/// Metadata visible to the storage owner. The blob payload remains opaque.
+class StoredBlobMetadata {
+  const StoredBlobMetadata({
+    required this.userUuid,
+    required this.hash,
+    required this.size,
+    required this.createdAt,
+    required this.lastAccess,
+  });
+
+  final String userUuid;
+  final String hash;
+  final int size;
+  final int createdAt;
+  final int lastAccess;
+}

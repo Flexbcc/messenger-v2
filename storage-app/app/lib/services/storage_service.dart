@@ -2,6 +2,8 @@
 library;
 
 import 'dart:io';
+import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -73,6 +75,12 @@ class StorageService extends ChangeNotifier {
     }
     final config = StorageConfig(allowedRoot: allowedRoot, port: port);
     app = await StorageApp.bootstrap(config);
+    app!.pairing.configurePin(
+      hash: settings.pinHash,
+      salt: settings.pinSalt,
+      enabled: settings.pinEnabled,
+    );
+    app!.pairing.allowOpen = settings.openPairing;
     await app!.start();
     serverRunning = true;
     activePairCode = null;
@@ -110,12 +118,14 @@ class StorageService extends ChangeNotifier {
   List<AuditEntry> listAudit({int limit = 200}) =>
       app?.metaDb.listAudit(limit: limit) ?? [];
 
+  List<StoredBlobMetadata> listStoredBlobs({int limit = 500}) =>
+      app?.metaDb.listBlobs(limit: limit) ?? [];
+
   bool get mdnsActive => app?.mdnsActive ?? false;
   bool get relayActive => app?.relayActive ?? false;
   bool get discoveryActive => app?.discoveryActive ?? false;
 
-  int? peerLastAccess(String userUuid) =>
-      app?.metaDb.peerLastAccess(userUuid);
+  int? peerLastAccess(String userUuid) => app?.metaDb.peerLastAccess(userUuid);
 
   /// Сменить порт (перезапуск сервера).
   Future<void> updatePort(int port) async {
@@ -146,6 +156,39 @@ class StorageService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setPairingPin(String pin) async {
+    if (!RegExp(r'^\d{8,12}$').hasMatch(pin)) {
+      throw ArgumentError('PIN должен содержать 8–12 цифр');
+    }
+    final rng = Random.secure();
+    final salt = base64UrlEncode(
+      List<int>.generate(24, (_) => rng.nextInt(256)),
+    );
+    final hash = PairingManager.derivePinHash(salt, pin);
+    await AppSettings().setPairingPin(hash: hash, salt: salt);
+    settings = await AppSettings.load();
+    app?.pairing.configurePin(hash: hash, salt: salt, enabled: true);
+    if (app != null) app!.pairing.allowOpen = false;
+    notifyListeners();
+  }
+
+  Future<void> disablePairingPin() async {
+    await AppSettings().disablePairingPin();
+    settings = await AppSettings.load();
+    app?.pairing.configurePin(enabled: false);
+    notifyListeners();
+  }
+
+  Future<void> setOpenPairing(bool value) async {
+    await AppSettings().setOpenPairing(value);
+    settings = await AppSettings.load();
+    if (app != null) {
+      app!.pairing.allowOpen = value;
+      if (value) app!.pairing.configurePin(enabled: false);
+    }
+    notifyListeners();
+  }
+
   /// Сброс онбординга (данные на диске не удаляются).
   Future<void> resetOnboarding() async {
     await stopServer();
@@ -159,11 +202,15 @@ class StorageService extends ChangeNotifier {
     notifyListeners();
   }
 
-  String? pairingPayloadJson(List<String> lanHosts) {
+  String? pairingPayloadJson(
+    List<String> lanHosts, {
+    bool includeQrSecret = true,
+  }) {
     final code = activePairCode;
     if (code == null) return null;
     return PairingPayload.encode(
       code: code.code,
+      qrSecret: code.qrSecret,
       storagePubkey: storagePubkey ?? '',
       fingerprint: fingerprint ?? '',
       port: listenPort,
@@ -171,6 +218,7 @@ class StorageService extends ChangeNotifier {
       expiresAt: code.expiresAt,
       mdns: app?.mdnsActive ?? false,
       relay: PpcRelayEnvConfig.fromPlatform()?.relayReach,
+      includeQrSecret: includeQrSecret,
     );
   }
 
@@ -200,6 +248,19 @@ class StorageService extends ChangeNotifier {
   }
 
   List<Peer> listPeers() => app?.metaDb.listPeers() ?? [];
+
+  List<PendingPairRequest> get pendingPairRequests =>
+      app?.pairing.pendingRequests ?? const [];
+
+  void approvePairRequest(String requestId) {
+    app?.pairing.approve(requestId);
+    notifyListeners();
+  }
+
+  void denyPairRequest(String requestId) {
+    app?.pairing.deny(requestId);
+    notifyListeners();
+  }
 
   ({int bytes, int files}) globalUsage() =>
       app?.metaDb.globalUsage() ?? (bytes: 0, files: 0);

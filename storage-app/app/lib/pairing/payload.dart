@@ -25,10 +25,11 @@ class PpcRelayReach {
 /// Сборка payload для QR / копирования в буфер.
 class PairingPayload {
   static const kind = 'ouo_ppc_pair';
-  static const version = 1;
+  static const version = 2;
 
   static String encode({
     required String code,
+    required String qrSecret,
     required String storagePubkey,
     required String fingerprint,
     required int expiresAt,
@@ -37,6 +38,7 @@ class PairingPayload {
     required int port,
     bool mdns = true,
     PpcRelayReach? relay,
+    bool includeQrSecret = true,
   }) {
     final reach = <String, Object?>{
       'lan': lanHosts,
@@ -51,6 +53,7 @@ class PairingPayload {
       'kind': kind,
       'intent': intent,
       'code': code,
+      if (includeQrSecret) 'qr_secret': qrSecret,
       'storage_pubkey': storagePubkey,
       'fingerprint': fingerprint,
       'expires_at': expiresAt,

@@ -30,6 +30,7 @@ class _PersonalPcPairingScreenState
     extends ConsumerState<PersonalPcPairingScreen> {
   final _userIdController = TextEditingController();
   final _payloadController = TextEditingController();
+  final _pinController = TextEditingController();
   final _scannerController = MobileScannerController();
 
   bool _loading = false;
@@ -68,6 +69,7 @@ class _PersonalPcPairingScreenState
   void dispose() {
     _userIdController.dispose();
     _payloadController.dispose();
+    _pinController.dispose();
     _scannerController.dispose();
     super.dispose();
   }
@@ -176,7 +178,10 @@ class _PersonalPcPairingScreenState
           nodeId: userId,
           deviceName: 'phone',
         );
-        await client.resolveAndPair(payloadRaw);
+        await client.resolveAndPair(
+          payloadRaw,
+          pin: _pinController.text.trim(),
+        );
         setState(() {
           _alreadyPairedDirect = true;
           _success = 'ПК подключён напрямую к этому телефону';
@@ -352,6 +357,18 @@ class _PersonalPcPairingScreenState
                         controller: _payloadController,
                         hintText: 'Вставьте код или отсканируйте QR',
                         maxLines: 6,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      AppTextField(
+                        controller: _pinController,
+                        hintText: 'PIN с ПК (только для ручного режима)',
+                        obscureText: true,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        'При сканировании QR PIN не нужен. Без QR и PIN на ПК '
+                        'появится запрос, который владелец должен подтвердить.',
+                        style: text.micro,
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       AppButton(

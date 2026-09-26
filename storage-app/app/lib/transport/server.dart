@@ -153,8 +153,14 @@ class PpcServer {
       final decoded = jsonDecode(utf8.decode(body));
       if (decoded is! Map<String, dynamic> ||
           decoded.keys.any(
-            (key) =>
-                !const {'code', 'peer_pubkey', 'node_id', 'name'}.contains(key),
+            (key) => !const {
+              'code',
+              'qr_secret',
+              'pin',
+              'peer_pubkey',
+              'node_id',
+              'name',
+            }.contains(key),
           )) {
         throw const FormatException();
       }
@@ -187,6 +193,8 @@ class PpcServer {
     }
     final res = pairing.pair(
       code: code,
+      qrSecret: j['qr_secret'] as String?,
+      pin: j['pin'] as String?,
       peerPubkey: peerPubkey,
       nodeId: nodeId,
       name: name,
@@ -200,6 +208,24 @@ class PpcServer {
         return _json(req, HttpStatus.forbidden, {
           'error': 'bad_code',
           'detail': 'invalid or expired code',
+        });
+      case PairPending(:final request):
+        _audit(op: 'PAIR_REQUEST', result: 'pending', userUuid: nodeId);
+        return _json(req, HttpStatus.accepted, {
+          'status': 'pending',
+          'request_id': request.id,
+          'expires_at': request.expiresAt,
+        });
+      case PairDenied():
+        _audit(op: 'PAIR', result: 'denied', userUuid: nodeId);
+        return _json(req, HttpStatus.forbidden, {
+          'error': 'access_denied',
+          'detail': 'invalid PIN or request denied',
+        });
+      case PairRateLimited():
+        return _json(req, HttpStatus.tooManyRequests, {
+          'error': 'rate_limited',
+          'detail': 'too many PIN attempts; retry later',
         });
     }
   }
@@ -292,7 +318,8 @@ class PpcServer {
         hash: hash,
         size: r.size,
       );
-      return _json(req, HttpStatus.ok, {'ok': true, 'size': r.size});
+      await _json(req, HttpStatus.ok, {'ok': true, 'size': r.size});
+      return;
     } on IntegrityError catch (e) {
       _audit(
         op: 'PUT',
@@ -492,9 +519,9 @@ class PpcServer {
   }
 
   Future<void> _forbidden(HttpRequest req) => _json(req, HttpStatus.forbidden, {
-    'error': 'forbidden',
-    'detail': 'resource owner mismatch',
-  });
+        'error': 'forbidden',
+        'detail': 'resource owner mismatch',
+      });
 
   SignatureHeaders? _extractHeaders(HttpRequest req) {
     String? g(String n) => req.headers.value(n);

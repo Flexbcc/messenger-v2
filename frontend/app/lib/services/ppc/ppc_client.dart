@@ -89,6 +89,7 @@ class PpcClient {
   Future<PpcPairResult> resolveAndPair(
     String payloadJson, {
     String? name,
+    String? pin,
     PpcVault? vault,
   }) async {
     final payload = PpcPairingPayload.parse(payloadJson);
@@ -96,6 +97,8 @@ class PpcClient {
     final peerPubkey = _signer.publicKeyWire;
     final pairBody = jsonEncode({
       'code': payload.code,
+      if (payload.qrSecret.isNotEmpty) 'qr_secret': payload.qrSecret,
+      if (pin != null && pin.isNotEmpty) 'pin': pin,
       'peer_pubkey': peerPubkey,
       'node_id': _nodeId,
       'name': peerName,
@@ -119,13 +122,7 @@ class PpcClient {
       try {
         final base = parseLanBase(hint);
         final transport = LanPpcTransport(baseUri: base, signer: _signer);
-        final resp = await transport.request(
-          method: 'POST',
-          path: '/ppc/pair',
-          headers: pairHeaders,
-          body: pairBytes,
-          signed: false,
-        );
+        final resp = await _pairWithApproval(transport, pairHeaders, pairBytes);
         pairResponse = _decodePairResponse(resp);
         routeKind = PpcRouteKind.lan;
         lanHint = hint;
@@ -144,12 +141,10 @@ class PpcClient {
         try {
           final base = parseLanBase(hint);
           final transport = LanPpcTransport(baseUri: base, signer: _signer);
-          final resp = await transport.request(
-            method: 'POST',
-            path: '/ppc/pair',
-            headers: pairHeaders,
-            body: pairBytes,
-            signed: false,
+          final resp = await _pairWithApproval(
+            transport,
+            pairHeaders,
+            pairBytes,
           );
           pairResponse = _decodePairResponse(resp);
           routeKind = PpcRouteKind.lan;
@@ -291,6 +286,25 @@ class PpcClient {
     } on FormatException {
       throw PpcException(0, 'invalid pair response');
     }
+  }
+
+  Future<PpcTransportResponse> _pairWithApproval(
+    PpcTransport transport,
+    Map<String, String> headers,
+    List<int> body,
+  ) async {
+    for (var attempt = 0; attempt < 60; attempt++) {
+      final response = await transport.request(
+        method: 'POST',
+        path: '/ppc/pair',
+        headers: headers,
+        body: body,
+        signed: false,
+      );
+      if (response.statusCode != 202) return response;
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    throw PpcException(408, 'access approval timed out');
   }
 
   void _throwOnError(PpcTransportResponse resp, {required Set<int> allowed}) {

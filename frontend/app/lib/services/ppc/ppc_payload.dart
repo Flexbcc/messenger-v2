@@ -169,6 +169,7 @@ class PpcPairingPayload {
   PpcPairingPayload({
     required this.version,
     required this.code,
+    required this.qrSecret,
     required this.storagePubkey,
     required this.expiresAt,
     required this.intent,
@@ -180,6 +181,7 @@ class PpcPairingPayload {
 
   final int version;
   final String code;
+  final String qrSecret;
   final String storagePubkey;
   final int expiresAt;
   final String intent;
@@ -216,6 +218,7 @@ class PpcPairingPayload {
     if (code.length != 6 || int.tryParse(code) == null) {
       throw PpcPayloadError('code must be 6 digits');
     }
+    final qrSecret = (data['qr_secret'] as String? ?? '').trim();
 
     final storagePubkey = validatePpcStoragePubkey(data['storage_pubkey']);
 
@@ -234,6 +237,11 @@ class PpcPairingPayload {
     if (version is! int || version < 1 || version > 2) {
       throw PpcPayloadError('unsupported pairing payload version');
     }
+    if (version >= 2 &&
+        qrSecret.isNotEmpty &&
+        (qrSecret.length < 32 || qrSecret.length > 128)) {
+      throw PpcPayloadError('invalid QR pairing secret');
+    }
     final reach = _reachFromPayload(data, version);
     final intent =
         (data['intent'] as String? ?? (version == 1 ? 'node' : 'node')).trim();
@@ -241,6 +249,7 @@ class PpcPairingPayload {
     return PpcPairingPayload(
       version: version,
       code: code,
+      qrSecret: qrSecret,
       storagePubkey: storagePubkey,
       expiresAt: expiresAt,
       intent: intent.isEmpty ? 'node' : intent,

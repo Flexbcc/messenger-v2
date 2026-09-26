@@ -188,6 +188,26 @@ class MetaDb {
 
   // ---- blobs ----
 
+  List<StoredBlobMetadata> listBlobs({int limit = 500}) {
+    final safeLimit = limit.clamp(1, 1000);
+    final rows = _db.select('''
+      SELECT user_uuid, hash, size, created_at, last_access
+      FROM blobs WHERE state = 'present'
+      ORDER BY last_access DESC LIMIT ?;
+    ''', [safeLimit]);
+    return rows
+        .map(
+          (row) => StoredBlobMetadata(
+            userUuid: row['user_uuid'] as String,
+            hash: row['hash'] as String,
+            size: row['size'] as int,
+            createdAt: row['created_at'] as int,
+            lastAccess: row['last_access'] as int,
+          ),
+        )
+        .toList();
+  }
+
   /// Метаданные блоба, либо null.
   ({int size})? statBlob(String userUuid, String hash) {
     final rs = _db.select(

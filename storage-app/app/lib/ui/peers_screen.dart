@@ -22,7 +22,7 @@ class _PeersScreenState extends State<PeersScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Сопряжённые пиры'),
+        title: const Text('Подключённые устройства'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -33,8 +33,8 @@ class _PeersScreenState extends State<PeersScreen> {
       body: peers.isEmpty
           ? Center(
               child: Text(
-                'Пока нет сопряжённых пиров.\n'
-                'Сгенерируйте код на главном экране и выполните pairing на ноде.',
+                'Хранилище пока пустое и ни одному устройству не доверяет.\n'
+                'На главном экране покажите QR и отсканируйте его телефоном.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -58,8 +58,10 @@ class _PeersScreenState extends State<PeersScreen> {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('ID: ${peer.userUuid}',
-                            style: const TextStyle(fontFamily: 'monospace')),
+                        Text(
+                          'ID: ${peer.userUuid}',
+                          style: const TextStyle(fontFamily: 'monospace'),
+                        ),
                         Text('Ключ: ${peerFingerprint(peer.pubkey)}'),
                         Text('Добавлен: ${formatTimestamp(peer.addedAt)}'),
                         if (last != null)
@@ -71,9 +73,11 @@ class _PeersScreenState extends State<PeersScreen> {
                     ),
                     isThreeLine: true,
                     trailing: IconButton(
-                      tooltip: 'Отозвать pairing',
-                      icon: Icon(Icons.link_off,
-                          color: Theme.of(context).colorScheme.error),
+                      tooltip: 'Отключить устройство',
+                      icon: Icon(
+                        Icons.link_off,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                       onPressed: () => _revoke(peer.userUuid, peer.name),
                     ),
                   ),
@@ -89,12 +93,14 @@ class _PeersScreenState extends State<PeersScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('Отозвать pairing?'),
+          title: const Text('Отключить устройство?'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Пир «${name.isNotEmpty ? name : userUuid}» потеряет доступ.'),
+              Text(
+                'Пир «${name.isNotEmpty ? name : userUuid}» потеряет доступ.',
+              ),
               const SizedBox(height: 12),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,

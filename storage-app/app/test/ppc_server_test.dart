@@ -107,9 +107,10 @@ void main() {
   });
 
   Future<void> pair() async {
-    app.pairing.registerCode('123456');
+    final issued = app.pairing.issueCode();
     final body = utf8.encode(jsonEncode({
-      'code': '123456',
+      'code': issued.code,
+      'qr_secret': issued.qrSecret,
       'peer_pubkey': peer.pubkeyStr,
       'node_id': peer.nodeId,
       'name': 'test-node',
@@ -125,6 +126,55 @@ void main() {
     final r = await client.send('GET', '/ppc/health');
     expect(r.status, 200);
     expect(jsonOf(r.body)['status'], 'ok');
+  });
+
+  test('ручное подключение требует подтверждения владельца ПК', () async {
+    final issued = app.pairing.issueCode();
+    final body = utf8.encode(jsonEncode({
+      'code': issued.code,
+      'peer_pubkey': peer.pubkeyStr,
+      'node_id': peer.nodeId,
+      'name': 'phone',
+    }));
+
+    final pending = await client.send(
+      'POST',
+      '/ppc/pair',
+      headers: {'content-type': 'application/json'},
+      body: body,
+    );
+    expect(pending.status, HttpStatus.accepted);
+    final requestId = jsonOf(pending.body)['request_id'] as String;
+    expect(app.pairing.pendingRequests.single.id, requestId);
+
+    app.pairing.approve(requestId);
+    final accepted = await client.send(
+      'POST',
+      '/ppc/pair',
+      headers: {'content-type': 'application/json'},
+      body: body,
+    );
+    expect(accepted.status, HttpStatus.ok);
+    expect(app.metaDb.isPairedIdentity(peer.nodeId, peer.pubkeyStr), isTrue);
+  });
+
+  test('неверный QR secret не обходит подтверждение', () async {
+    final issued = app.pairing.issueCode();
+    final body = utf8.encode(jsonEncode({
+      'code': issued.code,
+      'qr_secret': 'x' * 43,
+      'peer_pubkey': peer.pubkeyStr,
+      'node_id': peer.nodeId,
+      'name': 'attacker',
+    }));
+    final result = await client.send(
+      'POST',
+      '/ppc/pair',
+      headers: {'content-type': 'application/json'},
+      body: body,
+    );
+    expect(result.status, HttpStatus.accepted);
+    expect(app.metaDb.isPairedIdentity(peer.nodeId, peer.pubkeyStr), isFalse);
   });
 
   test('полный цикл: pair → PUT → GET → STAT → DELETE → usage', () async {
@@ -201,8 +251,8 @@ void main() {
     await pair();
     final content = Uint8List.fromList(utf8.encode('x'));
     final hash = sha256Hex(content);
-    final r = await client.send('PUT', '/ppc/blob/$userId/$hash',
-        body: content);
+    final r =
+        await client.send('PUT', '/ppc/blob/$userId/$hash', body: content);
     expect(r.status, 401);
     expect(jsonOf(r.body)['error'], 'unauthorized');
   });

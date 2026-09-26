@@ -22,9 +22,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _portCtrl = TextEditingController(
-      text: '${widget.service.settings.port}',
-    );
+    _portCtrl = TextEditingController(text: '${widget.service.settings.port}');
   }
 
   @override
@@ -41,7 +39,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final ok = await _confirm(
       'Сменить папку?',
       'Сервер перезапустится с новой папкой.\n'
-      'Данные в старой папке останутся на диске.',
+          'Данные в старой папке останутся на диске.',
     );
     if (!ok) return;
     await _run(() => widget.service.updateStoragePath(path));
@@ -65,6 +63,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (!ok || !mounted) return;
     await widget.service.resetOnboarding();
+  }
+
+  Future<void> _configurePin() async {
+    final controller = TextEditingController();
+    final pin = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('PIN для ручного подключения'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          maxLength: 12,
+          decoration: const InputDecoration(
+            labelText: '8–12 цифр',
+            helperText: 'После 5 ошибок вход блокируется на минуту.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (pin == null) return;
+    await _run(() => widget.service.setPairingPin(pin));
+  }
+
+  Future<void> _setOpenPairing(bool value) async {
+    if (value) {
+      final ok = await _confirm(
+        'Разрешить вход без подтверждения?',
+        'Любой, кто получил ручные данные подключения, сможет привязать '
+            'устройство. Этот режим предназначен только для изолированной '
+            'тестовой сети.',
+      );
+      if (!ok) return;
+    }
+    await _run(() => widget.service.setOpenPairing(value));
   }
 
   Future<void> _run(Future<void> Function() fn) async {
@@ -150,6 +195,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: const Text('Применить'),
                 ),
               ],
+            ),
+            const Divider(height: 32),
+            Text('Доступ', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.qr_code_2),
+              title: Text('QR — основной способ'),
+              subtitle: Text(
+                'Одноразовый секрет высокой энтропии. Ручное подключение '
+                'без PIN требует подтверждения на этом ПК.',
+              ),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.pin_outlined),
+              title:
+                  Text(s.settings.pinEnabled ? 'PIN включён' : 'PIN выключен'),
+              subtitle: const Text(
+                'Менее безопасный запасной способ. Ограничение: 5 попыток.',
+              ),
+              trailing: Wrap(
+                spacing: 8,
+                children: [
+                  if (s.settings.pinEnabled)
+                    TextButton(
+                      onPressed: () => _run(s.disablePairingPin),
+                      child: const Text('Выключить'),
+                    ),
+                  OutlinedButton(
+                    onPressed: _configurePin,
+                    child: Text(s.settings.pinEnabled ? 'Сменить' : 'Задать'),
+                  ),
+                ],
+              ),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: Icon(
+                Icons.warning_amber_rounded,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: const Text('Разрешить вход без PIN и подтверждения'),
+              subtitle: const Text('Небезопасно. Только для тестового стенда.'),
+              value: s.settings.openPairing,
+              onChanged: _setOpenPairing,
             ),
             const Divider(height: 32),
             Text('Приложение', style: Theme.of(context).textTheme.titleMedium),

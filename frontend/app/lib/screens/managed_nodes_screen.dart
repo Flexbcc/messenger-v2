@@ -20,10 +20,16 @@ import '../services/settings_catalog_bridge.dart';
 import 'node_owner_pairing_scanner_screen.dart';
 
 class ManagedNodesScreen extends StatefulWidget {
-  const ManagedNodesScreen({super.key, this.registry, this.apiClient});
+  const ManagedNodesScreen({
+    super.key,
+    this.registry,
+    this.apiClient,
+    this.hasActiveAccount = false,
+  });
 
   final ManagedNodeRegistry? registry;
   final NodeOwnerApiClient? apiClient;
+  final bool hasActiveAccount;
 
   @override
   State<ManagedNodesScreen> createState() => _ManagedNodesScreenState();
@@ -176,6 +182,7 @@ class _ManagedNodesScreenState extends State<ManagedNodesScreen> {
                             builder: (_) => ManagedNodeDetailsScreen(
                               node: node,
                               apiClient: _api,
+                              hasActiveAccount: widget.hasActiveAccount,
                             ),
                           ),
                         ),
@@ -220,10 +227,12 @@ class ManagedNodeDetailsScreen extends StatefulWidget {
     super.key,
     required this.node,
     required this.apiClient,
+    required this.hasActiveAccount,
   });
 
   final ManagedNode node;
   final NodeOwnerApiClient apiClient;
+  final bool hasActiveAccount;
 
   @override
   State<ManagedNodeDetailsScreen> createState() =>
@@ -599,6 +608,24 @@ class _ManagedNodeDetailsScreenState extends State<ManagedNodeDetailsScreen> {
       );
       return;
     }
+    if (widget.hasActiveAccount) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Нужен перенос аккаунта'),
+          content: const Text(
+            'Для активного аккаунта простая смена адреса небезопасна: токен и публичные устройства останутся на старой Home. Identity Root уже подготавливается автоматически. Выбор станет доступен после подтверждённого импорта на эту ноду и обновления подписанного маршрута.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Понятно'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -820,7 +847,9 @@ class _ManagedNodeDetailsScreenState extends State<ManagedNodeDetailsScreen> {
                   Text(
                     widget.node.homeEndpoint == null
                         ? 'Home endpoint не опубликован этой нодой.'
-                        : widget.node.homeEndpoint!,
+                        : widget.hasActiveAccount
+                        ? '${widget.node.homeEndpoint!}\nАктивный аккаунт будет перенесён только криптографически подтверждённой операцией.'
+                        : '${widget.node.homeEndpoint!}\nБудет использоваться для следующей регистрации или входа.',
                     style: context.textStyles.caption,
                   ),
                   const SizedBox(height: AppSpacing.md),

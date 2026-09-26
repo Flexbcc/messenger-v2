@@ -300,7 +300,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 subtitle: 'Безопасное управление своими серверами',
                 trailing: AppTile.chevron(context),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ManagedNodesScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => ManagedNodesScreen(
+                      hasActiveAccount:
+                          ref.read(appControllerProvider).session != null,
+                    ),
+                  ),
                 ),
               ),
               if (_serviceMode)

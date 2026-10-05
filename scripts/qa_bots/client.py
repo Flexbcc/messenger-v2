@@ -25,15 +25,15 @@ DEFAULT_DISCOVERY = os.environ.get("DISCOVERY_URL", "http://localhost:8003").rst
 def dummy_identity_bundle() -> dict[str, Any]:
     """Opaque bundle — server does not validate Signal crypto."""
     return {
-        "identity_key": base64.b64encode(os.urandom(32)).decode(),
+        "identity_key": base64.b64encode(os.urandom(33)).decode(),
         "registration_id": 1,
         "signed_prekey": {
             "id": 1,
-            "public_key": base64.b64encode(os.urandom(32)).decode(),
+            "public_key": base64.b64encode(os.urandom(33)).decode(),
             "signature": base64.b64encode(os.urandom(64)).decode(),
         },
         "prekeys": [
-            {"id": i, "public_key": base64.b64encode(os.urandom(32)).decode()}
+            {"id": i, "public_key": base64.b64encode(os.urandom(33)).decode()}
             for i in range(10, 13)
         ],
     }

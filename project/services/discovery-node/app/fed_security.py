@@ -6,8 +6,8 @@ from app.config import (
     DISCOVERY_NODE_ALIAS,
     DISCOVERY_NODE_OPERATIONAL_CERTIFICATE_PATH,
     DISCOVERY_NODE_OPERATIONAL_KEY_PATH,
-    DISCOVERY_NODE_PUBLIC_URL,
     DISCOVERY_NODE_ROOT_KEY_PATH,
+    DiscoveryRegistrationSettings,
     FEDERATION_AUDIT_DB_PATH,
     FEDERATION_NONCE_DB_PATH,
 )
@@ -18,7 +18,12 @@ from shared.security.runtime import FederationSecurity
 @lru_cache
 def get_federation_security() -> FederationSecurity:
     return FederationSecurity(
-        discovery_url=DISCOVERY_NODE_PUBLIC_URL,
+        # Trust lookups are an internal control-plane request.  The advertised
+        # public origin can legitimately be a host/LAN address that is not
+        # reachable from inside the node container (the local unified-node
+        # setup is one example), while DISCOVERY_NODE_URL is the configured
+        # service-to-service origin.
+        discovery_url=DiscoveryRegistrationSettings.discovery_url,
         node_id=DISCOVERY_NODE_ALIAS,
         signing_key_path=DISCOVERY_NODE_OPERATIONAL_KEY_PATH,
         root_key_path=DISCOVERY_NODE_ROOT_KEY_PATH,

@@ -1,0 +1,19 @@
+{
+  "schema": "ouo.network.v1",
+  "network_name": "OUO Public Beta",
+  "cluster_id": "ouo-public",
+  "gateway_url": "https://www.ouoapp.ru",
+  "discovery_url": "https://discovery.ouoapp.ru",
+  "discovery_urls": [
+    "https://discovery.ouoapp.ru"
+  ],
+  "home_url": "https://home.ouoapp.ru",
+  "backup_home_urls": [],
+  "media_url": "https://media.ouoapp.ru",
+  "relay_url": "https://relay.ouoapp.ru",
+  "storage_url": "https://storage.ouoapp.ru",
+  "node_registration_url": "https://discovery.ouoapp.ru/registry/nodes",
+  "app_url": "https://app.ouoapp.ru",
+  "website_url": "https://www.ouoapp.ru",
+  "updated_at": "2026-09-26T20:30:00Z"
+}

@@ -92,8 +92,7 @@ class PpcDiscoveryRegister {
     } else {
       _consecutiveFailures++;
       // Exponential backoff: 10s, 20s, 40s … capped at 10 min.
-      final backoffSec =
-          _minBackoff.inSeconds *
+      final backoffSec = _minBackoff.inSeconds *
           (1 << (_consecutiveFailures - 1).clamp(0, 10));
       final backoff = Duration(
         seconds: backoffSec.clamp(0, _maxBackoff.inSeconds),
@@ -221,12 +220,18 @@ class PpcRelayEnvConfig {
       : null;
 
   static PpcRelayEnvConfig? fromPlatform() {
-    final relayUrl = Platform.environment['PPC_RELAY_URL']?.trim() ?? '';
-    if (relayUrl.isEmpty) return null;
+    final storageNodeId =
+        Platform.environment['PPC_STORAGE_NODE_ID']?.trim() ?? '';
+    // The public OUO control plane is the production default. A personal
+    // storage node still stays disabled until it has its own provisioned ID.
+    if (storageNodeId.isEmpty) return null;
+    final relayUrl = Platform.environment['PPC_RELAY_URL']?.trim() ??
+        'https://relay.ouoapp.ru';
     return PpcRelayEnvConfig(
       relayUrl: relayUrl,
-      discoveryUrl: Platform.environment['PPC_DISCOVERY_URL']?.trim() ?? '',
-      storageNodeId: Platform.environment['PPC_STORAGE_NODE_ID']?.trim() ?? '',
+      discoveryUrl: Platform.environment['PPC_DISCOVERY_URL']?.trim() ??
+          'https://discovery.ouoapp.ru',
+      storageNodeId: storageNodeId,
       nodeToken: Platform.environment['PPC_DISCOVERY_NODE_TOKEN']?.trim() ?? '',
     );
   }

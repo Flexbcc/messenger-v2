@@ -291,6 +291,34 @@ class BootstrapStore {
 }
 
 class BootstrapService {
+  /// Load a permanent public network manifest published by the operator.
+  /// Unlike an invite this URL contains no secret and may be reused.
+  static Future<NetworkBootstrap> fetchNetworkManifest(String input) async {
+    final raw = input.trim();
+    if (raw.isEmpty || raw.length > 2048) {
+      throw const FormatException('Ссылка конфигурации сети неверна');
+    }
+    final uri = Uri.tryParse(raw);
+    if (uri == null ||
+        (uri.scheme != 'https' &&
+            !(_allowInsecureBootstrapHttp && uri.scheme == 'http')) ||
+        !uri.hasAuthority ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.fragment.isNotEmpty) {
+      throw const FormatException('Нужна безопасная HTTPS-ссылка сети');
+    }
+    final resp = await _getBounded(uri, const Duration(seconds: 10));
+    if (resp.statusCode != 200) {
+      throw Exception('Конфигурация сети недоступна (${resp.statusCode})');
+    }
+    final data = _decodeBoundedObject(resp);
+    if (data['schema'] != 'ouo.network.v1') {
+      throw const FormatException('Неизвестный формат конфигурации сети');
+    }
+    return NetworkBootstrap.fromJson(data);
+  }
+
   /// Parse invite link: .../join?t=TOKEN or messenger://join?gateway=...&t=...
   static ({String gatewayUrl, String token})? parseInviteLink(String input) {
     final trimmed = input.trim();

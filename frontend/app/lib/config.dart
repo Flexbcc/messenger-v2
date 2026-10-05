@@ -32,19 +32,19 @@ class AppConfig {
 
   static const String _defaultHome = String.fromEnvironment(
     'HOME_NODE_URL',
-    defaultValue: 'http://localhost:8001',
+    defaultValue: 'https://home.ouoapp.ru',
   );
   static const String _defaultMedia = String.fromEnvironment(
     'MEDIA_NODE_URL',
-    defaultValue: 'http://localhost:8004',
+    defaultValue: 'https://media.ouoapp.ru',
   );
   static const String _defaultDiscovery = String.fromEnvironment(
     'DISCOVERY_NODE_URL',
-    defaultValue: 'http://localhost:8003',
+    defaultValue: 'https://discovery.ouoapp.ru',
   );
   static const String _defaultGateway = String.fromEnvironment(
     'GATEWAY_NODE_URL',
-    defaultValue: 'http://localhost:8007',
+    defaultValue: 'https://www.ouoapp.ru',
   );
 
   static String _resolvedHome = '';
@@ -106,7 +106,7 @@ class AppConfig {
   /// Legacy compile-time constant — clients do not call Relay directly.
   static const String relayNodeUrl = String.fromEnvironment(
     'RELAY_NODE_URL',
-    defaultValue: 'http://localhost:8005',
+    defaultValue: 'https://relay.ouoapp.ru',
   );
 }
 

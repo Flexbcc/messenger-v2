@@ -100,7 +100,14 @@ class Bot:
         )
 
     def list_messages(self, conversation_id: str, limit: int = 50) -> tuple[int, Any]:
-        return self.get(f"/conversations/{conversation_id}/messages?limit={limit}")
+        code, body = self.get(
+            f"/conversations/{conversation_id}/messages?limit={limit}"
+        )
+        # The paginated API returns an envelope; scenarios operate on the
+        # message collection and should not depend on transport pagination.
+        if isinstance(body, dict) and isinstance(body.get("items"), list):
+            return code, body["items"]
+        return code, body
 
     def put_profile_settings(self, values: dict, lists: dict | None = None) -> tuple[int, Any]:
         return self.put(

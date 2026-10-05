@@ -27,9 +27,12 @@ class _JoinNetworkScreenState extends State<JoinNetworkScreen> {
 
   Future<void> _submit() async {
     final parsed = BootstrapService.parseInviteLink(_linkController.text);
-    if (parsed == null) {
+    final isManifest =
+        Uri.tryParse(_linkController.text.trim())?.path.endsWith('.json') ==
+        true;
+    if (parsed == null && !isManifest) {
       setState(() {
-        _error = 'Вставьте ссылку вида https://gateway/join?t=...';
+        _error = 'Вставьте приглашение или HTTPS-ссылку конфигурации сети';
         _success = null;
       });
       return;
@@ -40,10 +43,12 @@ class _JoinNetworkScreenState extends State<JoinNetworkScreen> {
       _success = null;
     });
     try {
-      final bootstrap = await BootstrapService.redeemInvite(
-        gatewayUrl: parsed.gatewayUrl,
-        token: parsed.token,
-      );
+      final bootstrap = isManifest
+          ? await BootstrapService.fetchNetworkManifest(_linkController.text)
+          : await BootstrapService.redeemInvite(
+              gatewayUrl: parsed!.gatewayUrl,
+              token: parsed.token,
+            );
       await BootstrapStore.save(bootstrap);
       final backupsNote = bootstrap.backupHomeUrls.isEmpty
           ? ''
@@ -85,14 +90,14 @@ class _JoinNetworkScreenState extends State<JoinNetworkScreen> {
             Text('Подключиться к сети', style: text.largeTitle),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Вставьте одноразовую ссылку или QR-код от оператора ноды. '
+              'Вставьте постоянную ссылку сети, одноразовое приглашение или QR-код. '
               'Без своей ноды вы регистрируетесь на Home оператора.',
               style: text.secondary,
             ),
             const SizedBox(height: AppSpacing.xl),
             AppTextField(
               controller: _linkController,
-              hintText: 'https://…/join?t=…',
+              hintText: 'https://…/ouo-network.json',
               maxLines: 3,
             ),
             const SizedBox(height: AppSpacing.md),

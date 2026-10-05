@@ -31,13 +31,15 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
   PersistentSignalProtocolStore(
     this._prefs,
     this._identityKeyPair,
-    this._registrationId,
-  ) : _encrypted = EncryptedPreferenceStore(_prefs);
+    this._registrationId, {
+    this.keyPrefix = '',
+  }) : _encrypted = EncryptedPreferenceStore(_prefs);
 
   final SharedPreferences _prefs;
   final IdentityKeyPair _identityKeyPair;
   final int _registrationId;
   final EncryptedPreferenceStore _encrypted;
+  final String keyPrefix;
 
   static const _sessionPrefix = 'sp_session_v1::';
   static const _preKeyPrefix = 'sp_prekey_v1::';
@@ -45,9 +47,11 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
   static const _identityPrefix = 'sp_identity_v1::';
 
   String _sessionKey(SignalProtocolAddress a) =>
-      '$_sessionPrefix${a.getName()}::${a.getDeviceId()}';
+      '$keyPrefix$_sessionPrefix${a.getName()}::${a.getDeviceId()}';
   String _identityKey(SignalProtocolAddress a) =>
-      '$_identityPrefix${a.getName()}::${a.getDeviceId()}';
+      '$keyPrefix$_identityPrefix${a.getName()}::${a.getDeviceId()}';
+
+  String _key(String value) => '$keyPrefix$value';
 
   // --- IdentityKeyStore ---
 
@@ -102,7 +106,7 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
 
   @override
   Future<PreKeyRecord> loadPreKey(int preKeyId) async {
-    final b64 = await _encrypted.read('$_preKeyPrefix$preKeyId');
+    final b64 = await _encrypted.read(_key('$_preKeyPrefix$preKeyId'));
     if (b64 == null) {
       throw InvalidKeyIdException('No such prekeyrecord! - $preKeyId');
     }
@@ -112,24 +116,26 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
   @override
   Future<void> storePreKey(int preKeyId, PreKeyRecord record) async {
     await _encrypted.write(
-      '$_preKeyPrefix$preKeyId',
+      _key('$_preKeyPrefix$preKeyId'),
       base64Encode(record.serialize()),
     );
   }
 
   @override
   Future<bool> containsPreKey(int preKeyId) async =>
-      _encrypted.contains('$_preKeyPrefix$preKeyId');
+      _encrypted.contains(_key('$_preKeyPrefix$preKeyId'));
 
   @override
   Future<void> removePreKey(int preKeyId) async =>
-      _removeStored('$_preKeyPrefix$preKeyId');
+      _removeStored(_key('$_preKeyPrefix$preKeyId'));
 
   // --- SignedPreKeyStore ---
 
   @override
   Future<SignedPreKeyRecord> loadSignedPreKey(int signedPreKeyId) async {
-    final b64 = await _encrypted.read('$_signedPreKeyPrefix$signedPreKeyId');
+    final b64 = await _encrypted.read(
+      _key('$_signedPreKeyPrefix$signedPreKeyId'),
+    );
     if (b64 == null) {
       throw InvalidKeyIdException(
         'No such signedprekeyrecord! $signedPreKeyId',
@@ -144,7 +150,7 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
   Future<List<SignedPreKeyRecord>> loadSignedPreKeys() async {
     final records = <SignedPreKeyRecord>[];
     for (final key in _prefs.getKeys().where(
-      (candidate) => candidate.startsWith(_signedPreKeyPrefix),
+      (candidate) => candidate.startsWith(_key(_signedPreKeyPrefix)),
     )) {
       final encoded = await _encrypted.read(key);
       if (encoded != null) {
@@ -164,18 +170,18 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
     SignedPreKeyRecord record,
   ) async {
     await _encrypted.write(
-      '$_signedPreKeyPrefix$signedPreKeyId',
+      _key('$_signedPreKeyPrefix$signedPreKeyId'),
       base64Encode(record.serialize()),
     );
   }
 
   @override
   Future<bool> containsSignedPreKey(int signedPreKeyId) async =>
-      _encrypted.contains('$_signedPreKeyPrefix$signedPreKeyId');
+      _encrypted.contains(_key('$_signedPreKeyPrefix$signedPreKeyId'));
 
   @override
   Future<void> removeSignedPreKey(int signedPreKeyId) async =>
-      _removeStored('$_signedPreKeyPrefix$signedPreKeyId');
+      _removeStored(_key('$_signedPreKeyPrefix$signedPreKeyId'));
 
   // --- SessionStore ---
 
@@ -196,7 +202,7 @@ class PersistentSignalProtocolStore implements SignalProtocolStore {
 
   @override
   Future<List<int>> getSubDeviceSessions(String name) async {
-    final prefix = '$_sessionPrefix$name::';
+    final prefix = _key('$_sessionPrefix$name::');
     return [
       for (final key in _prefs.getKeys().where((k) => k.startsWith(prefix)))
         if (int.tryParse(key.substring(prefix.length)) case final deviceId?

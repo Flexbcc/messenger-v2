@@ -35,6 +35,14 @@ require_cmd() {
 }
 
 require_dart_runner() {
+  local flutter_bin="${FLUTTER_BIN:-/Users/apple/flutter/bin/flutter}"
+  local dart_bin="${DART_BIN:-/Users/apple/flutter/bin/dart}"
+  if [[ -x "${flutter_bin}" ]]; then
+    echo "==> flutter pub get (storage-app)"
+    (cd "${STORAGE_APP_DIR}" && "${flutter_bin}" pub get --quiet)
+    DART_RUNNER=("${dart_bin}" run)
+    return 0
+  fi
   if command -v flutter >/dev/null 2>&1; then
     echo "==> flutter pub get (storage-app)"
     (cd "${STORAGE_APP_DIR}" && flutter pub get --quiet)

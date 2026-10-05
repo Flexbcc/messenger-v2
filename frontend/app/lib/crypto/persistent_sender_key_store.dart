@@ -15,14 +15,15 @@ import 'encrypted_preference_store.dart';
 /// fresh empty `SenderKeyRecord` when absent (not an error) — callers
 /// don't null-check.
 class PersistentSenderKeyStore extends SenderKeyStore {
-  PersistentSenderKeyStore(SharedPreferences prefs)
+  PersistentSenderKeyStore(SharedPreferences prefs, {this.keyPrefix = ''})
     : _encrypted = EncryptedPreferenceStore(prefs);
 
   final EncryptedPreferenceStore _encrypted;
+  final String keyPrefix;
 
   static const _prefix = 'sp_senderkey_v1::';
 
-  String _key(SenderKeyName name) => '$_prefix${name.serialize()}';
+  String _key(SenderKeyName name) => '$keyPrefix$_prefix${name.serialize()}';
 
   @override
   Future<SenderKeyRecord> loadSenderKey(SenderKeyName senderKeyName) async {

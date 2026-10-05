@@ -170,7 +170,13 @@ class NodeRegistrationClient:
         self._attestation_cache: dict[str, Any] | None = None
         self._attestation_cache_deadline = 0.0
 
-        configured_urls = [settings.discovery_url]
+        configured_primary = os.environ.get(
+            "NODE_REGISTRATION_PRIMARY_URL", settings.discovery_url
+        ).strip()
+        self.primary_discovery_url = validated_service_origin(
+            configured_primary, "primary node registration Discovery URL"
+        )
+        configured_urls = [self.primary_discovery_url]
         configured_urls.extend(
             item.strip().rstrip("/")
             for item in os.environ.get(
@@ -187,7 +193,7 @@ class NodeRegistrationClient:
 
     def _credential_paths(self, discovery_url: str) -> tuple[str, str]:
         """Use legacy paths for D1 and isolated files for every extra Discovery."""
-        if discovery_url == self.settings.discovery_url.rstrip("/"):
+        if discovery_url == self.primary_discovery_url:
             return self.settings.node_token_path, self.settings.enrollment_secret_path
         digest = hashlib.sha256(discovery_url.encode("utf-8")).hexdigest()[:16]
         base = Path(
@@ -200,12 +206,12 @@ class NodeRegistrationClient:
         )
 
     def load_node_token(self, discovery_url: str | None = None) -> str | None:
-        target = (discovery_url or self.settings.discovery_url).rstrip("/")
+        target = (discovery_url or self.primary_discovery_url).rstrip("/")
         token_path, _ = self._credential_paths(target)
         return _read_secret_file(token_path, "node_token")
 
     def load_enrollment_secret(self, discovery_url: str | None = None) -> str | None:
-        target = (discovery_url or self.settings.discovery_url).rstrip("/")
+        target = (discovery_url or self.primary_discovery_url).rstrip("/")
         _, secret_path = self._credential_paths(target)
         return _read_secret_file(
             secret_path,
@@ -213,7 +219,7 @@ class NodeRegistrationClient:
         )
 
     def save_enrollment_secret(self, secret: str, discovery_url: str | None = None) -> None:
-        target = (discovery_url or self.settings.discovery_url).rstrip("/")
+        target = (discovery_url or self.primary_discovery_url).rstrip("/")
         _, secret_path = self._credential_paths(target)
         _write_secret_file_atomic(
             secret_path,
@@ -223,7 +229,7 @@ class NodeRegistrationClient:
         self.logger.info("Enrollment secret saved for %s", target)
 
     def save_node_token(self, token: str, discovery_url: str | None = None) -> None:
-        target = (discovery_url or self.settings.discovery_url).rstrip("/")
+        target = (discovery_url or self.primary_discovery_url).rstrip("/")
         token_path, _ = self._credential_paths(target)
         _write_secret_file_atomic(
             token_path,
@@ -323,6 +329,12 @@ class NodeRegistrationClient:
                 f"{target}/registry/nodes",
                 json=registration_payload,
             )
+            if response.status_code >= 400:
+                detail = response.text[:512].replace("\n", " ")
+                raise RuntimeError(
+                    f"Discovery registration rejected with HTTP "
+                    f"{response.status_code}: {detail}"
+                )
             response.raise_for_status()
             data = parse_bounded_json_response(response, max_bytes=256 * 1024)
         self._registered_discoveries.add(target)
@@ -454,7 +466,7 @@ class NodeRegistrationClient:
             "discovery_targets": [
                 {
                     "url": url,
-                    "primary": url == self.settings.discovery_url.rstrip("/"),
+                    "primary": url == self.primary_discovery_url,
                     "registered": url in self._registered_discoveries,
                     "enrollment_active": self.enrollment_active(url),
                     "has_node_token": self.load_node_token(url) is not None,
@@ -481,6 +493,15 @@ class NodeRegistrationClient:
         return self.settings.node_id
 
     def start(self) -> asyncio.Task:
+        if not _env_bool("NODE_REGISTRATION_ENABLED", True):
+            self.logger.info(
+                "Independent node registration disabled; service runs as a module of the unified node"
+            )
+
+            async def disabled() -> None:
+                return None
+
+            return asyncio.create_task(disabled())
         if self._started:
             raise RuntimeError("node registration lifecycle is already started")
         self._started = True

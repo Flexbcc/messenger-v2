@@ -14,7 +14,7 @@ class NodeConfigResolver {
 
   static const _defaultHome = String.fromEnvironment(
     'HOME_NODE_URL',
-    defaultValue: 'http://localhost:8001',
+    defaultValue: 'https://home.ouoapp.ru',
   );
 
   Future<String> homeNodeUrl() async {

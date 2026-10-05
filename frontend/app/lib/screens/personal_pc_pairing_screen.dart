@@ -38,6 +38,7 @@ class _PersonalPcPairingScreenState
   bool _scanHandled = false;
   String? _error;
   String? _success;
+  String? _pendingHint;
   String? _detectedIntent;
   bool _alreadyPairedDirect = false;
   bool _mediaOnSenderDevice = false;
@@ -78,6 +79,7 @@ class _PersonalPcPairingScreenState
     setState(() {
       _error = null;
       _success = null;
+      _pendingHint = null;
       _detectedIntent = _tryDetectIntent(value);
     });
   }
@@ -178,12 +180,20 @@ class _PersonalPcPairingScreenState
           nodeId: userId,
           deviceName: 'phone',
         );
+        if (payload.qrSecret.isEmpty && _pinController.text.trim().isEmpty) {
+          setState(() {
+            _pendingHint =
+                'Запрос отправлен. Подтвердите подключение в приложении '
+                'OUO Storage на компьютере — эта страница завершит привязку автоматически.';
+          });
+        }
         await client.resolveAndPair(
           payloadRaw,
           pin: _pinController.text.trim(),
         );
         setState(() {
           _alreadyPairedDirect = true;
+          _pendingHint = null;
           _success = 'ПК подключён напрямую к этому телефону';
         });
       } else {
@@ -202,9 +212,15 @@ class _PersonalPcPairingScreenState
         });
       }
     } on ApiException catch (e) {
-      setState(() => _error = _friendlyPairError(e.message));
+      setState(() {
+        _pendingHint = null;
+        _error = _friendlyPairError(e.message);
+      });
     } on PpcException catch (e) {
-      setState(() => _error = _friendlyPairError(e.message));
+      setState(() {
+        _pendingHint = null;
+        _error = _friendlyPairError(e.message);
+      });
     } on PpcPayloadError catch (e) {
       setState(() => _error = _friendlyPairError(e.message));
     } catch (e) {
@@ -407,6 +423,33 @@ class _PersonalPcPairingScreenState
                   child: Text(
                     _error!,
                     style: text.caption.copyWith(color: colors.danger),
+                  ),
+                ),
+              ],
+              if (_pendingHint != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.screenPadding,
+                  ),
+                  child: AppCard(
+                    color: colors.warning.withValues(alpha: 0.08),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.desktop_windows_outlined,
+                          color: colors.warning,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            _pendingHint!,
+                            style: text.body.copyWith(color: colors.warning),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

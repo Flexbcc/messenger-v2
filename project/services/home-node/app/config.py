@@ -316,7 +316,14 @@ class Settings:
     )
 
     # Bootstrap-phase registration/monitoring — see ADR-0006.
-    capabilities: list = ["home"]
+    # A deployed OUO node has one identity and advertises the aggregate set of
+    # enabled modules.  The old split-service compose left this hard-coded to
+    # ``home`` and made every module look like a separate node in Discovery.
+    capabilities: list = [
+        item.strip()
+        for item in os.environ.get("NODE_CAPABILITIES", "home").split(",")
+        if item.strip()
+    ]
     software_version: str = os.environ.get("NODE_SOFTWARE_VERSION", "0.1.0")
 
 

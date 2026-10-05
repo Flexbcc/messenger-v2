@@ -33,7 +33,7 @@ class PairingPayload {
     required String storagePubkey,
     required String fingerprint,
     required int expiresAt,
-    String intent = 'node',
+    String intent = 'direct',
     required List<String> lanHosts,
     required int port,
     bool mdns = true,

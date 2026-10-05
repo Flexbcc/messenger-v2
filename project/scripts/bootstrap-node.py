@@ -13,11 +13,14 @@ import secrets
 import subprocess
 import json
 import urllib.request
+import urllib.parse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV_FILE = ROOT / ".env"
 OWNER_CARD = ROOT / "data" / "owner-access.txt"
+DEFAULT_NETWORK_CONFIG_URL = "https://www.ouoapp.ru/.well-known/ouo-network.json"
+MAX_NETWORK_CONFIG_BYTES = 256 * 1024
 
 
 def ask(label: str, default: str = "") -> str:
@@ -56,6 +59,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--exposure", choices=("local", "private", "site"), default="local")
     parser.add_argument("--domain", default="")
     parser.add_argument("--discovery-url", default="")
+    parser.add_argument(
+        "--network-config",
+        default="",
+        help=f"public OUO network manifest (default: {DEFAULT_NETWORK_CONFIG_URL})",
+    )
     parser.add_argument("--public-url", default="")
     parser.add_argument("--cluster-id", default="")
     parser.add_argument("--non-interactive", action="store_true")
@@ -67,6 +75,42 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--start", action="store_true", help="start Docker after configuration")
     return parser.parse_args()
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def load_network_config(url: str) -> dict[str, str]:
+    """Download and validate the small public network bootstrap document."""
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+        raise RuntimeError("network config must use a safe HTTPS URL")
+    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    opener = urllib.request.build_opener(_NoRedirect)
+    with opener.open(request, timeout=10) as response:
+        declared = response.headers.get("Content-Length")
+        if declared and int(declared) > MAX_NETWORK_CONFIG_BYTES:
+            raise RuntimeError("network config is too large")
+        raw = response.read(MAX_NETWORK_CONFIG_BYTES + 1)
+    if len(raw) > MAX_NETWORK_CONFIG_BYTES:
+        raise RuntimeError("network config is too large")
+    payload = json.loads(raw.decode("utf-8"))
+    if not isinstance(payload, dict) or payload.get("schema") != "ouo.network.v1":
+        raise RuntimeError("unsupported network config format")
+    result = {}
+    for key in ("cluster_id", "discovery_url", "home_url", "media_url", "relay_url"):
+        value = payload.get(key)
+        if not isinstance(value, str) or not value:
+            raise RuntimeError(f"network config has no valid {key}")
+        if key.endswith("_url"):
+            origin = urllib.parse.urlsplit(value)
+            if origin.scheme != "https" or not origin.netloc or origin.username or origin.password:
+                raise RuntimeError(f"network config contains unsafe {key}")
+            value = value.rstrip("/")
+        result[key] = value
+    return result
 
 
 def load_env() -> tuple[list[str], dict[str, str]]:
@@ -195,14 +239,20 @@ def main() -> int:
 
     if exposure == "site" and not site:
         raise SystemExit("--domain is required when --exposure=site")
-    if args.start and network in {"public", "join"} and not args.discovery_url:
-        raise SystemExit("--discovery-url is required for a public/child node")
+    network_config = None
+    if network in {"public", "join"} and not args.discovery_url:
+        config_url = args.network_config or DEFAULT_NETWORK_CONFIG_URL
+        try:
+            network_config = load_network_config(config_url)
+        except Exception as exc:
+            raise SystemExit(f"Не удалось получить конфигурацию сети {config_url}: {exc}") from exc
     if network == "join" and not args.cluster_id:
         raise SystemExit("--cluster-id is required when joining a private network")
 
     node_id = stable_node_id(existing)
     cluster_id = (
         args.cluster_id
+        or (network_config or {}).get("cluster_id")
         or existing.get("CLUSTER_ID")
         or (f"private-{secrets.token_hex(8)}" if network == "private" else "ouo-public")
     )
@@ -218,6 +268,8 @@ def main() -> int:
     print(f"  сервисы: {', '.join(services)}")
     print(f"  Admin: {'да' if admin_enabled else 'нет'}")
     print(f"  защита: {'LAB LEGACY (не публиковать)' if lab_insecure else 'strict/fail-closed'}")
+    if network_config:
+        print(f"  Discovery: {network_config['discovery_url']} (получен с сайта OUO)")
     if args.start and not lab_insecure:
         raise SystemExit(
             "Automatic start requires configured strict certificates/authority state. "
@@ -234,8 +286,9 @@ def main() -> int:
         "HOME_NODE_ID": node_id,
         "OWNER_PANEL_ENABLED": "true" if admin_enabled else "false",
     }
-    if args.discovery_url:
-        discovery_url = args.discovery_url.rstrip("/")
+    discovery_url = args.discovery_url or (network_config or {}).get("discovery_url", "")
+    if discovery_url:
+        discovery_url = discovery_url.rstrip("/")
         values.update({
             "DISCOVERY_NODE_URL": discovery_url,
             "ROUTE_DISCOVERY_URLS": discovery_url,

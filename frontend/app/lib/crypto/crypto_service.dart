@@ -50,6 +50,11 @@ class CryptoService {
   static const _identityPrefsKey = 'signal_identity_b64';
   static const _registrationIdPrefsKey = 'signal_registration_id';
 
+  static String get _scopedRegistrationIdPrefsKey =>
+      SecurePrefs.scopedPreferenceKey(_registrationIdPrefsKey);
+  static String get _protocolStatePrefix =>
+      '${SecurePrefs.preferenceScopePrefix}sp_';
+
   SignalProtocolAddress _address(String userId, [String? deviceId]) =>
       SignalProtocolAddress(
         deviceId == null || deviceId.isEmpty ? userId : '$userId::$deviceId',
@@ -59,7 +64,7 @@ class CryptoService {
   static Future<CryptoService> loadOrCreate() async {
     final prefs = await SharedPreferences.getInstance();
     final existingIdentity = await SecurePrefs.instance.read(_identityPrefsKey);
-    final existingRegId = prefs.getInt(_registrationIdPrefsKey);
+    final existingRegId = prefs.getInt(_scopedRegistrationIdPrefsKey);
 
     late IdentityKeyPair identityKeyPair;
     late int registrationId;
@@ -71,7 +76,7 @@ class CryptoService {
         _identityPrefsKey,
         base64Encode(identityKeyPair.serialize()),
       );
-      if (!await prefs.setInt(_registrationIdPrefsKey, registrationId)) {
+      if (!await prefs.setInt(_scopedRegistrationIdPrefsKey, registrationId)) {
         await SecurePrefs.instance.remove(_identityPrefsKey);
         throw StateError('Не удалось сохранить Signal registration id');
       }
@@ -94,8 +99,12 @@ class CryptoService {
       prefs,
       identityKeyPair,
       registrationId,
+      keyPrefix: SecurePrefs.preferenceScopePrefix,
     );
-    final senderKeyStore = PersistentSenderKeyStore(prefs);
+    final senderKeyStore = PersistentSenderKeyStore(
+      prefs,
+      keyPrefix: SecurePrefs.preferenceScopePrefix,
+    );
     return CryptoService._(
       store,
       identityKeyPair,
@@ -301,9 +310,9 @@ class CryptoService {
     final prefs = await SharedPreferences.getInstance();
     final toRemove = prefs.getKeys().where(
       (k) =>
-          k.startsWith('sp_') ||
+          k.startsWith(_protocolStatePrefix) ||
           k == _identityPrefsKey ||
-          k == _registrationIdPrefsKey,
+          k == _scopedRegistrationIdPrefsKey,
     );
     for (final key in toRemove) {
       if (!await prefs.remove(key)) {
@@ -316,12 +325,14 @@ class CryptoService {
   static Future<Map<String, dynamic>> exportIdentity() async {
     final prefs = await SharedPreferences.getInstance();
     final identity = await SecurePrefs.instance.read(_identityPrefsKey);
-    final registrationId = prefs.getInt(_registrationIdPrefsKey);
+    final registrationId = prefs.getInt(_scopedRegistrationIdPrefsKey);
     if (identity == null || registrationId == null) {
       throw StateError('Локальная Signal-идентичность не найдена');
     }
     final state = <String, dynamic>{};
-    for (final key in prefs.getKeys().where((key) => key.startsWith('sp_'))) {
+    for (final key in prefs.getKeys().where(
+      (key) => key.startsWith(_protocolStatePrefix),
+    )) {
       final value = prefs.get(key);
       if (value is String ||
           value is int ||
@@ -344,10 +355,12 @@ class CryptoService {
     final registrationId = value['registration_id'] as int?;
     final prefs = await SharedPreferences.getInstance();
     await SecurePrefs.instance.write(_identityPrefsKey, identity!);
-    if (!await prefs.setInt(_registrationIdPrefsKey, registrationId!)) {
+    if (!await prefs.setInt(_scopedRegistrationIdPrefsKey, registrationId!)) {
       throw StateError('Не удалось сохранить Signal registration id');
     }
-    for (final key in prefs.getKeys().where((key) => key.startsWith('sp_'))) {
+    for (final key in prefs.getKeys().where(
+      (key) => key.startsWith(_protocolStatePrefix),
+    )) {
       if (!await prefs.remove(key)) {
         throw StateError('Не удалось заменить Signal protocol state');
       }
@@ -355,7 +368,7 @@ class CryptoService {
     final state = value['protocol_state'];
     if (state is Map<String, dynamic>) {
       for (final entry in state.entries) {
-        if (!entry.key.startsWith('sp_')) continue;
+        if (!entry.key.startsWith(_protocolStatePrefix)) continue;
         final item = entry.value;
         var saved = false;
         if (item is String) saved = await prefs.setString(entry.key, item);
@@ -393,7 +406,7 @@ class CryptoService {
       }
       var totalCharacters = 0;
       for (final entry in state.entries) {
-        if (!entry.key.startsWith('sp_') ||
+        if (!entry.key.startsWith(_protocolStatePrefix) ||
             entry.key.length > 256 ||
             !RegExp(r'^[A-Za-z0-9_.:@-]+$').hasMatch(entry.key)) {
           throw const FormatException('Некорректный ключ Signal state');

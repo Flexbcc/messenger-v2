@@ -69,48 +69,10 @@ class _HomeScreenState extends State<HomeScreen> {
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Row(children: [
-                const Icon(Icons.qr_code_2),
-                const SizedBox(width: 10),
-                Text('Подключить телефон',
-                    style: Theme.of(context).textTheme.titleLarge),
-                const Spacer(),
-                IconButton(
-                    onPressed: () => Navigator.pop(dialogContext),
-                    icon: const Icon(Icons.close)),
-              ]),
-              const SizedBox(height: 8),
-              const Text(
-                'В OUO Messenger откройте «Настройки → Личное '
-                'хранилище» и отсканируйте код.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              PairingQrCard(service: widget.service, lanHosts: _addresses),
-              const SizedBox(height: 12),
-              Text('Код одноразовый и действует 5 минут.',
-                  style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () {
-                  final json = widget.service.pairingPayloadJson(
-                    _addresses,
-                    includeQrSecret: false,
-                  );
-                  if (json != null) _copy('Код подключения', json);
-                },
-                icon: const Icon(Icons.keyboard_outlined),
-                label: const Text('Скопировать ручной код'),
-              ),
-            ]),
-          ),
-        ),
+      builder: (dialogContext) => _PairingDialog(
+        service: widget.service,
+        lanHosts: _addresses,
+        onCopyManualCode: (json) => _copy('Код подключения', json),
       ),
     );
   }
@@ -304,6 +266,147 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PairingDialog extends StatefulWidget {
+  const _PairingDialog({
+    required this.service,
+    required this.lanHosts,
+    required this.onCopyManualCode,
+  });
+
+  final StorageService service;
+  final List<String> lanHosts;
+  final ValueChanged<String> onCopyManualCode;
+
+  @override
+  State<_PairingDialog> createState() => _PairingDialogState();
+}
+
+class _PairingDialogState extends State<_PairingDialog> {
+  Timer? _poll;
+  late final int _initialPeerCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialPeerCount = widget.service.listPeers().length;
+    _poll = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted) return;
+      if (widget.service.listPeers().length > _initialPeerCount) {
+        Navigator.of(context).pop();
+        return;
+      }
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = widget.service.pendingPairRequests;
+    final request = pending.isEmpty ? null : pending.first;
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: request != null
+              ? Column(mainAxisSize: MainAxisSize.min, children: [
+                  Row(children: [
+                    const Icon(Icons.phonelink_lock),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Подтвердите подключение',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 16),
+                  Text(
+                    '${request.name.isEmpty ? 'Новое устройство' : request.name} '
+                    'просит доступ к этому хранилищу. Разрешайте только запрос, '
+                    'который вы только что начали в OUO Messenger.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'ID: ${request.nodeId}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          widget.service.denyPairRequest(request.id);
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Отклонить'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          widget.service.approvePairRequest(request.id);
+                          setState(() {});
+                        },
+                        icon: const Icon(Icons.check),
+                        label: const Text('Разрешить'),
+                      ),
+                    ),
+                  ]),
+                ])
+              : Column(mainAxisSize: MainAxisSize.min, children: [
+                  Row(children: [
+                    const Icon(Icons.qr_code_2),
+                    const SizedBox(width: 10),
+                    Text('Подключить телефон',
+                        style: Theme.of(context).textTheme.titleLarge),
+                    const Spacer(),
+                    IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close)),
+                  ]),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'В OUO Messenger откройте «Настройки → Личное '
+                    'хранилище» и отсканируйте код.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  PairingQrCard(
+                    service: widget.service,
+                    lanHosts: widget.lanHosts,
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Код одноразовый и действует 5 минут.',
+                      style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      final json = widget.service.pairingPayloadJson(
+                        widget.lanHosts,
+                        includeQrSecret: false,
+                      );
+                      if (json != null) widget.onCopyManualCode(json);
+                    },
+                    icon: const Icon(Icons.keyboard_outlined),
+                    label: const Text('Скопировать ручной код'),
+                  ),
+                ]),
+        ),
       ),
     );
   }

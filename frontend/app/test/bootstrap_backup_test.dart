@@ -58,6 +58,19 @@ void main() {
   });
 
   group('NetworkBootstrap', () {
+    test('public OUO manifest shape is accepted', () {
+      final bootstrap = NetworkBootstrap.fromJson({
+        'schema': 'ouo.network.v1',
+        'cluster_id': 'ouo-public',
+        'gateway_url': 'https://www.ouoapp.ru',
+        'discovery_url': 'https://discovery.ouoapp.ru',
+        'home_url': 'https://home.ouoapp.ru',
+        'media_url': 'https://media.ouoapp.ru',
+      });
+      expect(bootstrap.clusterId, 'ouo-public');
+      expect(bootstrap.homeUrl, 'https://home.ouoapp.ru');
+    });
+
     test(
       'fromJson derives backups from nested routing (invite redeem shape)',
       () {

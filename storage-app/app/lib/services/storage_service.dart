@@ -220,6 +220,7 @@ class StorageService extends ChangeNotifier {
   String? pairingPayloadJson(
     List<String> lanHosts, {
     bool includeQrSecret = true,
+    String intent = 'direct',
   }) {
     final code = activePairCode;
     if (code == null) return null;
@@ -231,6 +232,7 @@ class StorageService extends ChangeNotifier {
       port: listenPort,
       lanHosts: lanHosts,
       expiresAt: code.expiresAt,
+      intent: intent,
       mdns: app?.mdnsActive ?? false,
       relay: PpcRelayEnvConfig.fromPlatform()?.relayReach,
       includeQrSecret: includeQrSecret,

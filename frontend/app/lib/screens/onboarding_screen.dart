@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +12,8 @@ import '../core/ui/app_notice.dart';
 import '../core/ui/app_page.dart';
 import '../core/ui/app_search_field.dart';
 import '../config.dart';
+import '../services/api_client.dart';
+import '../services/debug_log.dart';
 import '../state/app_controller.dart';
 import 'join_network_screen.dart';
 import 'login_screen.dart';
@@ -76,14 +81,39 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 : _emailController.text.trim(),
             password: AppConfig.allowPasswordAuthBridge ? password : null,
           );
-    } catch (_) {
-      setState(
-        () => _error =
-            'Не удалось создать аккаунт. Проверьте подключение и введённые данные.',
-      );
+    } catch (error) {
+      DebugLog.instance.error('registration', 'account creation failed', error);
+      setState(() => _error = _registrationError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  String _registrationError(Object error) {
+    if (error is ApiException) {
+      if (error.statusCode == 409) {
+        return 'Этот телефон, логин или email уже зарегистрирован.';
+      }
+      if (error.statusCode == 400 || error.statusCode == 422) {
+        return 'Сервер отклонил данные регистрации. Проверьте заполненные поля.';
+      }
+      if (error.statusCode >= 500) {
+        return 'Локальный узел временно недоступен. Повторите попытку.';
+      }
+      return 'Регистрация отклонена узлом (код ${error.statusCode}).';
+    }
+    if (error is SocketException ||
+        error is TimeoutException ||
+        error is HttpException) {
+      return 'Нет соединения с Home Node. Проверьте адрес узла и его статус.';
+    }
+    if (error is FormatException) {
+      return 'Получен некорректный ответ узла. Откройте диагностику подключения.';
+    }
+    if (error is StateError && error.toString().contains('secure storage')) {
+      return 'Недоступно защищённое хранилище ключей устройства.';
+    }
+    return 'Не удалось создать аккаунт. Подробность записана в диагностике.';
   }
 
   @override

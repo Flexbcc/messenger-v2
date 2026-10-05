@@ -13,10 +13,43 @@ class SecurePrefs {
   SecurePrefs._();
   static final instance = SecurePrefs._();
 
+  /// Keychain items must always have a service namespace. Without one,
+  /// unrelated Messenger builds installed for QA can resolve the same generic
+  /// password records by account key alone.
+  static const _storageNamespace = String.fromEnvironment(
+    'SECURE_STORAGE_NAMESPACE',
+    defaultValue: 'com.messenger.messengerApp',
+  );
+  static const _primaryStorageNamespace = 'com.messenger.messengerApp';
+
+  /// SharedPreferences is keyed by bundle id, while Keychain is keyed by
+  /// [_storageNamespace]. QA builds that override only the Keychain service
+  /// must scope preferences belonging to the same cryptographic identity.
+  static String scopedPreferenceKey(String key) =>
+      _storageNamespace == _primaryStorageNamespace
+      ? key
+      : '$_storageNamespace::$key';
+
+  static String get preferenceScopePrefix =>
+      _storageNamespace == _primaryStorageNamespace
+      ? ''
+      : '$_storageNamespace::';
+
   static bool get _isMacOS =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
   static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    mOptions: MacOsOptions(
+      accountName: _storageNamespace,
+      useDataProtectionKeyChain: false,
+    ),
+  );
+
+  /// Releases before the namespace fix wrote generic-password records without
+  /// a service. Only the primary production namespace may migrate those
+  /// records; QA/flavoured builds must never import another build's secrets.
+  static const _unscopedMacStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
     mOptions: MacOsOptions(useDataProtectionKeyChain: false),
   );
@@ -42,8 +75,23 @@ class SecurePrefs {
       return fromKeychain;
     }
 
-    // 2) Legacy group Keychain — recover pre-break keys (may prompt once)
-    if (_isMacOS) {
+    // 2) One-time migration from the formerly unscoped Keychain query. A QA
+    // build deliberately skips this branch to preserve account isolation.
+    if (_isMacOS && _storageNamespace == _primaryStorageNamespace) {
+      final unscoped = await _tryRead(_unscopedMacStorage, key);
+      if (unscoped != null) {
+        if (await _tryWrite(_storage, key, unscoped)) {
+          await _unscopedMacStorage.delete(key: key);
+          await _removePreference(prefs, fallbackKey);
+          return unscoped;
+        }
+        throw StateError('Unable to migrate unscoped Keychain value');
+      }
+    }
+
+    // 3) Legacy group Keychain — recover pre-break keys (may prompt once).
+    // As above, only the primary app is allowed to import it.
+    if (_isMacOS && _storageNamespace == _primaryStorageNamespace) {
       final legacy = await _tryRead(_legacyMacStorage, key);
       if (legacy != null) {
         if (await _tryWrite(_storage, key, legacy)) {
